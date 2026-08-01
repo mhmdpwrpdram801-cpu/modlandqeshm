@@ -1,0 +1,12 @@
+{
+ "name": "ساعتِ زنده",
+ "screens": [
+  [
+   "اصلی",
+   "show()"
+  ]
+ ],
+ "visual_ignore": [
+  "#clock"
+ ]
+}

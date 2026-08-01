@@ -1,0 +1,13 @@
+{
+ "name": "SW bad",
+ "assets": [
+  "sw.js",
+  "app.js"
+ ],
+ "screens": [
+  [
+   "اصلی",
+   "1"
+  ]
+ ]
+}

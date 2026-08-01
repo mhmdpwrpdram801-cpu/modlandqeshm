@@ -1,0 +1,24 @@
+<!DOCTYPE html><html dir="rtl" lang="fa"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>فرم — باگ‌دار</title>
+<style>
+ body{font-family:Tahoma,sans-serif;margin:0;padding:12px;background:#fff;color:#111}
+ .overlay{position:fixed;inset:0;background:#ffffff;padding:20px;z-index:9}
+ .hidden{display:none}
+ button{font:inherit}
+</style></head><body>
+
+<label for="q">تعداد</label><input id="q" oninput="calc()">
+<label for="u">قیمت</label><input id="u" oninput="calc()">
+<div id="out">جمع: ۰</div>
+<label for="code">کد</label><input id="code" oninput="tag()">
+<div id="lbl">—</div>
+<script>
+function calc(){
+  const q = +document.getElementById('q').value, u = +document.getElementById('u').value;
+  document.getElementById('out').textContent = 'جمع: ' + (q * u).toFixed(0);
+}
+function tag(){
+  const parts = document.getElementById('code').value.split('-');
+  document.getElementById('lbl').textContent = parts[1].toUpperCase();
+}
+</script></body></html>

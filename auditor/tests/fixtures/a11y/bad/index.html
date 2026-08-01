@@ -1,0 +1,21 @@
+<!DOCTYPE html><html dir="rtl" lang="fa"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>a11y — باگ‌دار</title>
+<style>
+ body{font-family:Tahoma,sans-serif;margin:0;padding:12px;background:#fff;color:#111}
+ .overlay{position:fixed;inset:0;background:#ffffff;padding:20px;z-index:9}
+ .hidden{display:none}
+ button{font:inherit}
+</style></head><body>
+
+<button class="tiny" style="width:20px;height:20px" onclick="openModal()">×</button>
+<button id="outside" style="height:22px">بیرون</button>
+<input id="i1" placeholder="نام">
+<input id="i2">
+<img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="60" height="60">
+<div class="overlay hidden" id="ov">
+  <input id="m1" placeholder="در پنجره">
+  <button id="m2" style="width:60px;height:24px">تأیید</button>
+</div>
+<script>
+function openModal(){ document.getElementById('ov').classList.remove('hidden'); }
+</script></body></html>
