@@ -1,0 +1,11 @@
+{
+ "name": "SQL",
+ "db_env": "AUDIT_TEST_DB_URL_NOT_SET",
+ "sql_checks": [
+  {
+   "name": "مبلغِ منفی در پرداخت‌ها نیست",
+   "sql": "select count(*) from payments where amount < 0",
+   "expect": 0
+  }
+ ]
+}

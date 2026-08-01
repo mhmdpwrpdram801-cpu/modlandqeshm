@@ -1,0 +1,18 @@
+<!DOCTYPE html><html dir="rtl" lang="fa"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>شناسه‌ی پویا</title>
+<style>
+ body{font-family:Tahoma,sans-serif;margin:0;padding:12px;background:#fff;color:#111}
+ .overlay{position:fixed;inset:0;background:#ffffff;padding:20px;z-index:9}
+ .hidden{display:none}
+ button{font:inherit}
+</style></head><body>
+
+<div id="rows"></div><div id="grand">۰</div>
+<script>
+function build(){
+  const w = document.getElementById('rows');
+  for (let i = 0; i < 3; i++) w.insertAdjacentHTML('beforeend', '<input id="q' + i + '">');
+}
+function calc(i){ return document.getElementById('q' + i).value; }
+build();
+</script></body></html>
