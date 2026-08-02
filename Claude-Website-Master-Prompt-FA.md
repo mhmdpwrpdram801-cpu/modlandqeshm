@@ -737,6 +737,14 @@ Gate 4 — پیش از تحویل:
 - Add constraints and indexes in migrations; use transactions for multi-step writes.
 - Never trust client totals, roles, discounts or payment status.
 
+## Security
+- Validate and authorize every state-changing request.
+- Use framework password hashing, session rotation, CSRF and rate limiting.
+- Use ORM/bindings; never concatenate user input into SQL.
+- Keep secrets in environment variables and maintain a safe .env.example.
+- Validate uploads by MIME, size and authorization.
+- Disable debug in production and avoid exposing internal exception details.
+
 ## Database
 - Enforce value domains with CHECK constraints: non-negative money and stock, quantity > 0, discount within the item total, totals that add up.
 - Enforce cross-record rules (e.g. no payment on a voided invoice) with triggers or equivalent constraints.
