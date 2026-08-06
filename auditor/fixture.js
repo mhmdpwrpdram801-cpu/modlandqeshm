@@ -70,11 +70,38 @@ window.fetch=async(url,opts={})=>{
   if(m!=='GET'){ window.__WRITES.push({table,method:m,body:opts.body?JSON.parse(opts.body):null}); return J([{id:'new1'}]); }
   if(/offset=([1-9]\d*)/.test(url))return J([]);
   let rows=DATA[table]||[];
-  const mm=url.match(/invoice_id=eq\.([^&]+)/);
-  if(mm&&(table==='invoice_items'||table==='payments'))rows=rows.filter(r=>String(r.invoice_id)===decodeURIComponent(mm[1]));
-  const im=url.match(/[?&]id=eq\.([^&]+)/); if(im)rows=rows.filter(r=>String(r.id)===decodeURIComponent(im[1]));
-  const cm=url.match(/customer_id=eq\.([^&]+)/); if(cm)rows=rows.filter(r=>String(r.customer_id)===decodeURIComponent(cm[1]));
-  if(/status=neq\.cancelled/.test(url))rows=rows.filter(r=>r.status!=='cancelled');
+  /* فیلترها را مثلِ PostgREST اعمال کن — نه با تطبیقِ دستیِ چندتا حالتِ خاص.
+     قبلاً is.null اجرا نمی‌شد و فیلترِ جدولِ تودرتو (invoices.customer_id) اشتباهی
+     روی خودِ ردیف اعمال می‌شد؛ یعنی تست روی حالتی اجرا می‌شد که در واقعیت ممکن نیست. */
+  const EMBED={invoice_items:{invoices:r=>DATA.invoices.find(v=>v.id===r.invoice_id)||{}}};
+  const cmp=(a,b)=>{ const na=Number(a),nb=Number(b);
+    if(!isNaN(na)&&!isNaN(nb)&&a!==''&&b!=='')return na<nb?-1:na>nb?1:0;
+    return String(a)<String(b)?-1:String(a)>String(b)?1:0; };
+  (url.split('?')[1]||'').split('&').forEach(part=>{
+    const i=part.indexOf('='); if(i<0)return;
+    const key=decodeURIComponent(part.slice(0,i));
+    if(/^(select|order|limit|offset|or|and|columns)$/.test(key))return;
+    const mo=part.slice(i+1).match(/^(eq|neq|gt|gte|lt|lte|is|like|ilike)\.([\s\S]*)$/); if(!mo)return;
+    const op=mo[1], val=decodeURIComponent(mo[2]);
+    let src=null, col=key;
+    if(key.indexOf('.')>0){ const p=key.split('.'); src=p[0]; col=p.slice(1).join('.'); }
+    const get=(r)=>{ if(!src)return r[col];
+      const f=(EMBED[table]||{})[src]; return f?f(r)[col]:undefined; };
+    rows=rows.filter(r=>{ const v=get(r);
+      switch(op){
+        case 'eq':  return String(v)===val;
+        case 'neq': return String(v)!==val;
+        case 'is':  return val==='null'?(v==null||v===''):(v!=null&&v!=='');
+        case 'gt':  return cmp(v,val)>0;
+        case 'gte': return cmp(v,val)>=0;
+        case 'lt':  return cmp(v,val)<0;
+        case 'lte': return cmp(v,val)<=0;
+        case 'like': case 'ilike':{
+          const rx=new RegExp('^'+val.replace(/[.*+?^${}()|[\]\\]/g,c=>c==='*'?'*':'\\'+c).replace(/\*/g,'[\\s\\S]*')+'$', op==='ilike'?'i':'');
+          return rx.test(String(v==null?'':v)); }
+      }
+      return true; });
+  });
   if(/order=created_at\.desc/.test(url))rows=rows.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const lm=url.match(/limit=(\d+)/); if(lm)rows=rows.slice(0,+lm[1]);
   return J(rows);
