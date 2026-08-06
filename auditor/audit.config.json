@@ -1,0 +1,195 @@
+{
+  "name": "مدلند قشم",
+  "fixture": "fixture.js",
+  "schema": "schema.txt",
+  "assets": [
+    "sw.js",
+    "h2c.js",
+    "manifest.json",
+    "font1.woff2",
+    "font2.woff2",
+    "img1.png",
+    "img2.png",
+    "img3.png",
+    "img4.png",
+    "icon-192.png",
+    "icon-512.png",
+    "icon-maskable.png"
+  ],
+  "login": [
+    {
+      "fill": "#lEmail",
+      "value": "a@b.c"
+    },
+    {
+      "fill": "#lPass",
+      "value": "x"
+    },
+    {
+      "click": "#lBtn",
+      "wait": 1100
+    }
+  ],
+  "reset": "document.querySelectorAll('.overlay').forEach(o=>o.classList.add('hidden'))",
+  "forbidden": [
+    "stock",
+    "cost_price",
+    "product_code",
+    "video_file_id",
+    "aed_rate",
+    "insReorder",
+    "insCash",
+    "insBulk"
+  ],
+  "screens": [
+    [
+      "داشبورد",
+      "nav('dashboard')"
+    ],
+    [
+      "فاکتورِ جدید",
+      "nav('new')"
+    ],
+    [
+      "فاکتورها",
+      "nav('invoices')"
+    ],
+    [
+      "کالاها",
+      "nav('products')"
+    ],
+    [
+      "مشتریان",
+      "nav('customers')"
+    ],
+    [
+      "تنظیمات",
+      "nav('settings')"
+    ],
+    [
+      "فرمِ کالا",
+      "openProductForm('p1')"
+    ],
+    [
+      "پرونده‌ی مشتری",
+      "openCustomer('c1')"
+    ],
+    [
+      "گزارش",
+      "openReport()"
+    ],
+    [
+      "حقوق",
+      "openSalaries()"
+    ],
+    [
+      "سفارشِ ربات",
+      "openTgOrders()"
+    ],
+    [
+      "ارسالی‌ها",
+      "openShipments()"
+    ],
+    [
+      "بینش‌ها",
+      "openInsights()"
+    ],
+    [
+      "تخفیف",
+      "openDiscounts()"
+    ],
+    [
+      "پیش‌فاکتور",
+      "openQuotes()"
+    ],
+    [
+      "جست‌وجو",
+      "openSearch()"
+    ],
+    [
+      "فاکتور",
+      "openInvoiceById('i1')"
+    ],
+    [
+      "هشدارها",
+      "openInsights().then(()=>insAlerts())"
+    ],
+    [
+      "گزارشِ فروش",
+      "openInsights().then(()=>insPL(30))"
+    ],
+    [
+      "طلب",
+      "openInsights().then(()=>insDebt())"
+    ],
+    [
+      "مرجوعی",
+      "openInsights().then(()=>insReturns())"
+    ]
+  ],
+  "checks": [
+    {
+      "name": "خواندنِ ۸۵۰٬۰۰۰ به سه شکل",
+      "js": "()=>[parseNum('850.000'),parseNum('۸۵۰٬۰۰۰'),parseNum('850,000')].join('/')",
+      "expect": "850000/850000/850000"
+    },
+    {
+      "name": "جمعِ ۳×۸۵۰٬۰۰۰ با تخفیفِ ۵۰٬۰۰۰",
+      "before": "nav('new'); document.getElementById('itemsWrap').innerHTML=''; addItemRow(); (()=>{const r=document.querySelector('.itemrow'),s=r.querySelector('.ir-prod'); s.value='p1'; onPickProduct(s); r.querySelector('.ir-qty').value='۳'; document.getElementById('nDiscMode').value='t'; document.getElementById('nDiscount').value='50,000'; recalc();})()",
+      "js": "()=>document.getElementById('tItems').textContent+'|'+document.getElementById('tFinal').textContent",
+      "expect": "۲٬۵۵۰٬۰۰۰|۲٬۵۰۰٬۰۰۰"
+    },
+    {
+      "name": "تخفیفِ درصدی ۱۰٪",
+      "before": "document.getElementById('nDiscMode').value='p'; document.getElementById('nDiscount').value='۱۰'; recalc()",
+      "js": "()=>document.getElementById('tFinal').textContent",
+      "expect": "۲٬۲۹۵٬۰۰۰"
+    },
+    {
+      "name": "ماندهٔ فاکتور با پرداختِ بعدی",
+      "before": "openInvoiceById('i1')",
+      "wait": 900,
+      "js": "()=>/۱٬۱۰۰٬۰۰۰/.test((document.getElementById('invPayInfo')||{}).textContent||'')",
+      "expect": "True"
+    },
+    {
+      "name": "پرداخت روی فاکتورِ باطل مسدود است",
+      "before": "openInvoiceById('i3')",
+      "wait": 800,
+      "js": "()=>(document.getElementById('payInvBtn')||{}).style.display",
+      "expect": "none"
+    },
+    {
+      "name": "کتابخانهٔ سنگین در شروع بار نمی‌شود",
+      "js": "()=>typeof window.html2canvas",
+      "expect": "undefined"
+    },
+    {
+      "name": "فرمِ کالا از هر صفحه‌ای دیده می‌شود",
+      "before": "nav('dashboard'); openProductForm('p1')",
+      "wait": 500,
+      "js": "()=>{const w=document.getElementById('prodFormWrap'),r=w.getBoundingClientRect();return (!w.classList.contains('hidden')&&r.width>0&&r.height>0)?'دیده می‌شود':'نامرئی'}",
+      "expect": "دیده می‌شود"
+    },
+    {
+      "name": "فروشِ ماه: ۲٬۹۳۰٬۰۰۰ فاکتور منهای ۸۵۰٬۰۰۰ مرجوعیِ مستقل",
+      "before": "openReport()",
+      "wait": 1500,
+      "js": "()=>{const d=[...document.querySelectorAll('#repCard div')].find(x=>/^فروش/.test((x.innerText||'').trim()));return d?d.querySelector('b').textContent:'پیدا نشد'}",
+      "expect": "۲٬۰۸۰٬۰۰۰ ت"
+    },
+    {
+      "name": "گزارشِ فروشِ بینش‌ها همان عدد را می‌دهد",
+      "before": "openInsights().then(()=>insPL(30))",
+      "wait": 900,
+      "js": "()=>{const b=document.querySelector('#insBody .netrow b');return b?b.textContent:'پیدا نشد'}",
+      "expect": "۲٬۰۸۰٬۰۰۰"
+    }
+  ],
+  "click_test": {
+    "selector": "#scr-dashboard .dash-btn",
+    "before": "nav('dashboard')",
+    "wait": 600,
+    "settle": 450
+  }
+}
