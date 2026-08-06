@@ -1776,7 +1776,7 @@ function renderProducts(){
   if(DATA_LOADING && PRODUCTS.length===0){ box.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>'; return; }
   if(PRODUCTS.length===0){ box.innerHTML='<div class="empty">هنوز کالایی ثبت نشده. با «کالای جدید» اضافه کن.</div>'; return; }
   const sorted=[...PRODUCTS].sort((a,b)=>{return String(a.name||'').localeCompare(String(b.name||''),'fa');});
-  box.innerHTML='<input id="prodSearch" class="inp" placeholder="🔎 جستجوی کالا"" oninput="filterList(\'prodSearch\',\'prodList\')" style="margin-bottom:10px">'+sorted.map(p=>{
+  box.innerHTML='<input id="prodSearch" class="inp" placeholder="🔎 جستجوی کالا" oninput="filterList(\'prodSearch\',\'prodList\')" style="margin-bottom:10px">'+sorted.map(p=>{
     return `<div class="list-item${SEL.mode==='prod'&&SEL.ids.has(p.id)?' selected':''}" data-id="${p.id}" data-s="${esc(p.name)}" onclick="rowTap('prod','${p.id}',event)">${selCbx('prod',p.id)}<div style="flex:1"><div class="li-main">${esc(p.name)}</div><div class="li-sub">قیمت: ${faNum(p.price)} تومان${(p.video_jin_url||p.video_jin_fid||p.video_carton_url||p.video_carton_fid)?' · 🎬':''}${(Array.isArray(p.photos)&&p.photos.length)?' · 👗':''}${(p.size_info&&String(p.size_info).trim())?' · 📏':''}</div>${Number(p.price)>0?`<div class="li-sub" style="color:var(--gold-lt);font-weight:600;font-size:11px">${numToFaWords(p.price)} تومان</div>`:''}</div></div>`;
   }).join('');
 }
