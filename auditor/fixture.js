@@ -30,8 +30,14 @@ const DATA={products:P,customers:C,invoices:INV,
  expenses:[{id:'e1',note:'کرایه',amount:300000,date:'۱۴۰۵/۰۵/۰۱',category:'حمل',created_at:iso(now-864e5)}],
  salaries:[{id:'s1',employee_name:'علی',amount:5000000,date:'۱۴۰۵/۰۵/۰۱',month:'۱۴۰۵/۰۵',note:'',created_at:iso(now-864e5)}],
  shipments:[{id:'sh1',customer_name:'حاج رضا',city:'درگهان',qty:3,created_at:iso(now-864e5)}],
- returns:[{id:'r1',customer_id:'c1',buyer_name:'حاج رضا',date:'۱۴۰۵/۰۵/۰۲',invoice_id:'i1',
-   items:[{product_id:'p1',name:'شلوار جین آبی',quantity:1,unit_price:850000}],total_value:850000,settlement:'balance',note:'',created_at:iso(now-864e5)}],
+ // دو جورِ مرجوعی، دقیقاً مثلِ دیتابیسِ واقعی:
+ // r1 مستقل است (create_return) — فاکتوری ندارد، پس باید از فروش کم شود.
+ // r2 روی فاکتورِ i2 است (return_invoice_items) — آن تابع خودش جمعِ فاکتور و اقلامش را کم کرده،
+ //    یعنی i2 و ii2 که اینجا می‌بینی «بعد از مرجوعی»اند و نباید دوباره کم شوند.
+ returns:[{id:'r1',customer_id:'c1',buyer_name:'حاج رضا',date:'۱۴۰۵/۰۵/۰۲',invoice_id:null,
+   items:[{product_id:'p1',name:'شلوار جین آبی',quantity:1,unit_price:850000}],total_value:850000,settlement:'credit',note:'',created_at:iso(now-864e5)},
+  {id:'r2',customer_id:'c2',buyer_name:"مغازه‌ی 'گل'",date:'۱۴۰۵/۰۵/۰۲',invoice_id:'i2',
+   items:[{product_id:'p3',name:'شومیز',quantity:1,unit_price:430000}],total_value:430000,settlement:'invoice',note:'مرجوعی از فاکتور',created_at:iso(now-864e5)}],
  quotes:[{id:'q1',buyer_name:'حاج رضا',customer_id:'c1',items:[{product_id:'p1',quantity:1,unit_price:850000}],items_total:850000,discount:0,note:'',created_at:iso(now-864e5)}],
  telegram_orders:[{id:'t1',status:'new',customer_name:'زهرا',customer_phone:'09120001122',customer_city:'قشم',customer_address:'خیابان',
    items:[{product_id:'p1',name:'شلوار جین آبی',quantity:2,unit_price:850000}],total:1700000,note:null,created_at:iso(now-36e5),

@@ -170,6 +170,20 @@
       "wait": 500,
       "js": "()=>{const w=document.getElementById('prodFormWrap'),r=w.getBoundingClientRect();return (!w.classList.contains('hidden')&&r.width>0&&r.height>0)?'دیده می‌شود':'نامرئی'}",
       "expect": "دیده می‌شود"
+    },
+    {
+      "name": "فروشِ ماه: ۲٬۹۳۰٬۰۰۰ فاکتور منهای ۸۵۰٬۰۰۰ مرجوعیِ مستقل",
+      "before": "openReport()",
+      "wait": 1500,
+      "js": "()=>{const d=[...document.querySelectorAll('#repCard div')].find(x=>/^فروش/.test((x.innerText||'').trim()));return d?d.querySelector('b').textContent:'پیدا نشد'}",
+      "expect": "۲٬۰۸۰٬۰۰۰ ت"
+    },
+    {
+      "name": "گزارشِ فروشِ بینش‌ها همان عدد را می‌دهد",
+      "before": "openInsights().then(()=>insPL(30))",
+      "wait": 900,
+      "js": "()=>{const b=document.querySelector('#insBody .netrow b');return b?b.textContent:'پیدا نشد'}",
+      "expect": "۲٬۰۸۰٬۰۰۰"
     }
   ],
   "click_test": {

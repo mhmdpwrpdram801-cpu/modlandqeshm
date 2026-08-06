@@ -2381,7 +2381,9 @@ function renderReport(ym){
   D.pays.forEach(p=>{ if(iranJalaliKey(new Date(p.created_at)).slice(0,7)!==ym)return; if(p.method==='اعتبارِ مرجوعی')return; received+=Number(p.amount||0); });
   D.exps.forEach(e=>{ if(salaryMonthKey(e)!==ym)return; exp+=Number(e.amount||0); });
   let retVal=0, retCost=0;
-  (D.rets||[]).forEach(r=>{ if(iranJalaliKey(new Date(r.created_at)).slice(0,7)!==ym)return; retVal+=Number(r.total_value||0); if(r.settlement==='cash')received-=Number(r.total_value||0); if(r.customer_id)custAgg[r.customer_id]=(custAgg[r.customer_id]||0)-Number(r.total_value||0); asArray(r.items).forEach(it=>{ retCost+=Number(it.quantity||0)*0; const pk=it.product_id||it.name; if(pk&&prodAgg[pk])prodAgg[pk].qty=Math.max(0,prodAgg[pk].qty-Number(it.quantity||0)); }); });
+  // مرجوعیِ روی فاکتور را خودِ return_invoice_items از جمعِ فاکتور و از اقلامش کم کرده؛
+  // اینجا فقط مرجوعیِ مستقل کم می‌شود، وگرنه دوبار کم می‌شد و فروشِ ماه کمتر از واقع درمی‌آمد.
+  (D.rets||[]).forEach(r=>{ if(iranJalaliKey(new Date(r.created_at)).slice(0,7)!==ym)return; if(r.invoice_id)return; retVal+=Number(r.total_value||0); if(r.settlement==='cash')received-=Number(r.total_value||0); if(r.customer_id)custAgg[r.customer_id]=(custAgg[r.customer_id]||0)-Number(r.total_value||0); asArray(r.items).forEach(it=>{ retCost+=Number(it.quantity||0)*0; const pk=it.product_id||it.name; if(pk&&prodAgg[pk])prodAgg[pk].qty=Math.max(0,prodAgg[pk].qty-Number(it.quantity||0)); }); });
   const netSales=sales-retVal;
   const net=netSales-exp; const topP=Object.values(prodAgg).filter(p=>p.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,5); const topC=Object.entries(custAgg).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const S=SETTINGS||{}; const row=(l,v,c,amt)=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--rep-line);font-size:14px"><span style="color:var(--rep-mut)">${l}</span><div style="text-align:left"><b style="${c?'color:'+c:''}">${v}</b>${amt?moneyWords(amt):''}</div></div>`;
