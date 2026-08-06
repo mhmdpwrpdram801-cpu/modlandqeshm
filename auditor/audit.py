@@ -188,6 +188,23 @@ def static_checks(html_path, cfg):
         ok(f"هر پرس‌وجو با {len(schema)} جدولِ واقعی می‌خوانَد") if not prob else [bad(p) for p in prob]
     return src, markup, app
 
+# ───────────────────────────── ویژگیِ زباله از HTMLِ شکسته‌ی ساخته‌شده در جاواسکریپت
+# اعتبارسنجیِ متنِ HTML فقط نشانه‌گذاریِ ثابت را می‌بیند. هرچه با innerHTML ساخته می‌شود
+# از آن در می‌رود، و مرورگر خودش «تعمیرش» می‌کند — روی یک دستگاه کار می‌کند، روی دیگری نه.
+# نشانه‌ی این تعمیر، ویژگی‌ای است با نامِ نامعتبر (مثلاً یک گیومه‌ی اضافه).
+JUNK_ATTR_SCAN = """()=>{
+  const ok=/^[a-zA-Z_:][-a-zA-Z0-9_:.]*$/;
+  const out=[];
+  document.querySelectorAll('*').forEach(el=>{
+    for(const a of el.attributes){
+      if(!ok.test(a.name)){
+        out.push(el.tagName.toLowerCase()+(el.id?'#'+el.id:'')+' ← ویژگیِ نامعتبر: '+JSON.stringify(a.name).slice(0,40));
+      }
+    }
+  });
+  return out.slice(0,3);
+}"""
+
 # ───────────────────────────── کشوی افقیِ ناخواسته
 # بررسیِ scrollWidth روی کلِ سند، پنجره‌ای که خودش کشوی افقی دارد را نمی‌بیند:
 # سند سرِ جاش می‌مانَد و کاربر باید محتوا را با انگشت بکشد کنار تا ببیندش.
@@ -345,6 +362,16 @@ def runtime_checks(url, cfg, html_path):
             except Exception: pass
         ok("هر دستورِ درون‌خطی (onclick و مانندش) نحوِ درست دارد") if not broken \
             else [bad(f"دستورِ شکسته در «{v}»: {k}") for k, v in list(broken.items())[:5]]
+
+        junk = {}
+        for name, js in screens:
+            try:
+                if cfg['reset']: pg.evaluate(cfg['reset'])
+                pg.evaluate(js); pg.wait_for_timeout(200)
+                for x in pg.evaluate(JUNK_ATTR_SCAN): junk.setdefault(x, name)
+            except Exception: pass
+        ok("نشانه‌گذاریِ ساخته‌شده در جاواسکریپت سالم است") if not junk \
+            else [bad(f"HTMLِ شکسته که مرورگر ترمیمش کرده — «{v}»: {k}") for k, v in list(junk.items())[:5]]
 
         head("۵) مقدارِ خراب در متن")
         leaks = []
