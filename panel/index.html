@@ -535,7 +535,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <div class="ask-txt" id="askTxt"></div>
     <div class="ask-btns">
       <button class="btn" id="askYes" style="flex:1"></button>
-      <button class="btn sec" id="askNo" style="flex:1">بی‌خیال</button>
+      <button class="btn sec" id="askNo" style="flex:1" autofocus>بی‌خیال</button>
     </div>
   </div>
 </dialog>
@@ -957,7 +957,15 @@ function afterDataReady(){
 function nav(scr){
   // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند
   if(document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-    try{ document.startViewTransition(()=>_nav(scr)); return; }catch(_){}
+    try{
+      const vt=document.startViewTransition(()=>_nav(scr));
+      // اگر کاربر سریع دو دکمه بزند، مرورگر جابه‌جاییِ قبلی را لغو می‌کند و
+      // Promiseهایش با AbortError رد می‌شوند. این خطا نیست، ولی اگر کسی نگیردشان
+      // به‌صورتِ «رد شدنِ بی‌صاحب» بالا می‌آید. (روی WebKit دیده شد، نه کرومیوم.)
+      if(vt){ const hush=(pr)=>{ try{ pr && pr.catch && pr.catch(()=>{}); }catch(_){} };
+              hush(vt.ready); hush(vt.finished); hush(vt.updateCallbackDone); }
+      return;
+    }catch(_){}
   }
   _nav(scr);
 }

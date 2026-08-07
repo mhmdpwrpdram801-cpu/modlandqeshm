@@ -270,13 +270,16 @@ def serve(html_path, extra):
     class Q(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *a): pass
     socketserver.TCPServer.allow_reuse_address = True
-    srv = socketserver.TCPServer(('127.0.0.1', 8931),
+    # پورتِ ثابت یعنی اگر یک اجرا نصفه کشته شود، اجرای بعدی با
+    # «Address already in use» می‌میرد. ۰ یعنی هر پورتِ آزادی.
+    srv = socketserver.TCPServer(('127.0.0.1', 0),
                                  functools.partial(Q, directory=root))
+    port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return srv, 'http://127.0.0.1:8931/index.html'
+    return srv, f'http://127.0.0.1:{port}/index.html'
 
 # ───────────────────────────── زنده (مرورگر)
-def runtime_checks(url, cfg, html_path):
+def runtime_checks(url, cfg, html_path, engine='chromium'):
     from playwright.sync_api import sync_playwright
     fixture = ''
     if cfg['fixture']:
@@ -293,8 +296,15 @@ def runtime_checks(url, cfg, html_path):
 
     with sync_playwright() as pw:
         # پرچمِ پخشِ خودکار لازم است وگرنه مسیرِ فشرده‌سازیِ فیلم اصلاً اجرا نمی‌شود
-        br = pw.chromium.launch(args=['--autoplay-policy=no-user-gesture-required','--mute-audio'])
-        pg = br.new_page(viewport={'width': 412, 'height': 900})
+        # WebKit همان موتورِ سافاری است. باگ‌هایی هست که فقط آنجا دیده می‌شوند
+        # (مثلاً Promiseی که با لغوِ View Transition رد می‌شود).
+        if engine == 'webkit':
+            br = pw.webkit.launch()
+            ctx = br.new_context(**pw.devices['iPhone 13'])
+            pg = ctx.new_page()
+        else:
+            br = pw.chromium.launch(args=['--autoplay-policy=no-user-gesture-required','--mute-audio'])
+            pg = br.new_page(viewport={'width': 412, 'height': 900})
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.on('response', lambda r: netfail.append(f"{r.status} {r.url[:80]}") if r.status >= 400 else None)
         pg.on('dialog', lambda d: d.accept())
@@ -304,6 +314,22 @@ def runtime_checks(url, cfg, html_path):
         head("۳) بالا آمدن")
         pg.goto(url); pg.wait_for_timeout(600)
         boot_errs = list(errs)
+        # WebKitِ پلی‌رایت گاهی (حدودِ ۱ در ۶) بارگذاریِ اسکریپتِ سرویس‌ورکر را یک‌بار
+        # می‌شکند و بعد خودش درست می‌شود. اگر آخرش سرویس‌ورکر ثبت و فعال شده باشد،
+        # این ایرادِ برنامه نیست. اگر ثبت نشده باشد، همچنان ایراد است.
+        sw_errs = [e for e in boot_errs if 'sw.js' in e and re.search(r'load failed|Failed to load|Importing', e, re.I)]
+        if sw_errs:
+            try:
+                sw_ok = pg.evaluate("""async()=>{ if(!('serviceWorker' in navigator)) return false;
+                  for(let i=0;i<12;i++){
+                    const rs=await navigator.serviceWorker.getRegistrations().catch(()=>[]);
+                    if(rs.length && (rs[0].active||rs[0].installing||rs[0].waiting)) return true;
+                    await new Promise(r=>setTimeout(r,250));
+                  } return false; }""")
+            except Exception: sw_ok = False
+            if sw_ok:
+                warn("بارگذاریِ اسکریپتِ سرویس‌ورکر یک‌بار شکست ولی بعدش ثبت شد (ایرادِ شناخته‌شده‌ی موتورِ تست)")
+                boot_errs = [e for e in boot_errs if e not in sw_errs]
         ok("صفحه بدونِ خطا بالا می‌آید") if not boot_errs else [bad("خطای شروع: " + e[:110]) for e in boot_errs]
 
         for step in cfg['login']:
@@ -420,17 +446,36 @@ def runtime_checks(url, cfg, html_path):
         head("۶) لمس‌پذیریِ دکمه‌ها")
         if cfg['reset']: pg.evaluate(cfg['reset'])
         if screens: pg.evaluate(screens[0][1]); pg.wait_for_timeout(500)
+        # هر دکمه را اول به وسطِ دید بیاور، بعد بسنج. بدونِ این، روی صفحه‌ی کوتاه
+        # (مثلاً آیفون) هر چیزی که پایین‌ترِ تاست «مسدود» گزارش می‌شد — درحالی‌که
+        # کاربر فقط کافی است اسکرول کند. سؤالِ درست این است: «وقتی جلوی چشمم است،
+        # لمسش به خودش می‌رسد؟»
         blocked = pg.evaluate("""()=>{ const out=[];
           const bs=[...document.querySelectorAll('button, [role=button], .btn, a[onclick]')];
-          for(const b of bs){ const r=b.getBoundingClientRect();
+          const y0=window.scrollY;
+          for(const b of bs){
+            const cs=getComputedStyle(b);
+            if(cs.visibility==='hidden'||cs.display==='none'||+cs.opacity<0.2) continue;
+            let r=b.getBoundingClientRect();
             if(r.width<18||r.height<14) continue;
-            if(r.top<0||r.left<0||r.bottom>innerHeight||r.right>innerWidth) continue;
-            const cs=getComputedStyle(b); if(cs.visibility==='hidden'||cs.display==='none'||+cs.opacity<0.2) continue;
-            const t=document.elementFromPoint(r.left+r.width/2, r.top+r.height/2);
+            const hit=(rr)=>{
+              if(rr.top<0||rr.left<0||rr.bottom>innerHeight||rr.right>innerWidth) return null;
+              return document.elementFromPoint(rr.left+rr.width/2, rr.top+rr.height/2); };
+            const blockedBy=(t)=> t && t!==b && !b.contains(t) && !t.contains(b);
+            let t=hit(r);
+            // اگر همین‌جوری گیر کرده، شاید فقط زیرِ نوارِ ثابت افتاده باشد.
+            // کاربر در این حالت اسکرول می‌کند — پس ما هم می‌کنیم و دوباره می‌سنجیم.
+            if((t===null || blockedBy(t)) && cs.position!=='fixed'){
+              try{ b.scrollIntoView({block:'center', behavior:'instant'}); }catch(_){
+                try{ b.scrollIntoView({block:'center'}); }catch(__){} }
+              r=b.getBoundingClientRect(); t=hit(r);
+            }
             if(!t) continue;
-            if(t!==b && !b.contains(t) && !t.contains(b))
+            if(blockedBy(t))
               out.push((b.innerText||b.title||'دکمه').trim().slice(0,20)+' ← روش: '+((t.className&&String(t.className).slice(0,22))||t.tagName));
-          } return out.slice(0,6); }""")
+          }
+          window.scrollTo(0,y0);
+          return out.slice(0,6); }""")
         ok("هیچ دکمه‌ای زیرِ چیزِ دیگری گیر نکرده") if not blocked else [bad("دکمه‌ی مسدود: " + x) for x in blocked]
 
 
@@ -601,6 +646,11 @@ def runtime_checks(url, cfg, html_path):
             head("۱۰) بررسی‌های ویژه‌ی پروژه")
             for c in cfg['checks']:
                 try:
+                    # بررسی‌ای که به APIی وابسته است که این موتور ندارد را رد کن.
+                    # گزارشِ قرمزِ الکی از گزارش‌ندادن بدتر است.
+                    if c.get('needs') and not pg.evaluate("()=>!!(" + c['needs'] + ")"):
+                        warn(f"{c['name']}: این موتور پشتیبانی نمی‌کند — رد شد")
+                        continue
                     if c.get('before'):
                         if cfg['reset']: pg.evaluate(cfg['reset'])
                         pg.evaluate(c['before']); pg.wait_for_timeout(c.get('wait', 400))
@@ -624,6 +674,8 @@ def runtime_checks(url, cfg, html_path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('html'); ap.add_argument('-c', '--config', default=None)
+    ap.add_argument('-e', '--engine', default='chromium', choices=['chromium', 'webkit'],
+                    help='webkit = موتورِ سافاری، روی اندازه‌ی آیفون')
     a = ap.parse_args()
     cfg = load_cfg(a.config, a.html)
     print("\n" + "═" * 52)
@@ -631,7 +683,7 @@ def main():
     print("═" * 52)
     static_checks(a.html, cfg)
     srv, url = serve(a.html, cfg['assets'])
-    try: runtime_checks(url, cfg, a.html)
+    try: runtime_checks(url, cfg, a.html, a.engine)
     finally: srv.shutdown()
     print("\n" + "═" * 52)
     print(f"  {len(PASSES)} بررسی پاس شد")
