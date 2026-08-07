@@ -1090,13 +1090,13 @@ window.addEventListener('popstate', function(){
   if(_ovLock){ _ovLock=false; _ovChanged(); return; }
   _ovTrack();
   if(!_ovOpen.length){
+    // اینجا عمداً هیچ کاری نمی‌کنیم. یک بار «برگشت از هر تبی یعنی داشبورد» گذاشته بودم
+    // و روی وب‌کیت خودش را نشان داد: وقتی دو پنجره با هم بسته می‌شوند history.go(-2)
+    // می‌زنیم، ولی همه‌ی مرورگرها یک popstate نمی‌دهند — بعضی دوتا. آن دومی اینجا
+    // می‌افتاد و کاربر را از صفحه‌ی کالاها می‌پراند به داشبورد و جایش را گم می‌کرد.
+    // بستنِ پنجره‌ها ارزشِ اصلیِ این کار است؛ این تیرِ اضافه فقط ریسک بود.
     _ovMarks=0;                                   /* هیچ‌وقت کاربر را در تاریخچه گیر ننداز */
-    const cur=document.querySelector('.navbtn.active');
-    if(cur && cur.dataset.scr && cur.dataset.scr!=='dashboard'){
-      nav('dashboard');                           /* از هر تبی، برگشت یعنی داشبورد */
-      try{ history.pushState({mlqHome:1},''); }catch(_){}
-    }
-    return;                                        /* روی داشبورد: بگذار از برنامه بیرون برود */
+    return;
   }
   const id=_ovOpen[_ovOpen.length-1];
   _ovMarks=Math.max(0,_ovMarks-1);                /* این ورودی همین الان مصرف شد */
