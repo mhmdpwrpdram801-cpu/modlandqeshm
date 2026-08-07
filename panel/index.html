@@ -1372,6 +1372,23 @@ async function medShrinkVideo(file, onProgress, maxDim, targetBytes){
     try{ if(ac) ac.close(); }catch(_){}
   }
 }
+/* بعضی گوشی‌ها/مرورگرها در رزولوشنِ بالا رمزگذار را کم می‌آورند و **بی‌سر‌و‌صدا** فایلِ
+   خرابِ چندکیلوبایتی می‌دهند. پس هر خروجی قبل از آپلود باید باز شود و بُعد داشته باشد. */
+async function medVideoUsable(f){
+  if(!f||!f.size) return false;
+  let u=null;
+  try{
+    u=URL.createObjectURL(f);
+    const el=document.createElement('video'); el.preload='metadata'; el.muted=true; el.src=u;
+    return await new Promise((res)=>{ let done=false; const fin=(x)=>{ if(done)return; done=true; res(x); };
+      // فقط بُعدِ تصویر ملاک است. طول را عمداً نمی‌سنجیم: خیلی از فیلم‌های سالم
+      // طولشان در سرصفحه نیست و مرورگر Infinity می‌دهد.
+      el.onloadedmetadata=()=>fin(el.videoWidth>0 && el.videoHeight>0);
+      el.onerror=()=>fin(false);
+      setTimeout(()=>fin(el.videoWidth>0 && el.videoHeight>0), 12000); });
+  }catch(_){ return false; }
+  finally{ try{ if(u)URL.revokeObjectURL(u); }catch(_){} }
+}
 async function medHandle(kind, files){
   const st=document.getElementById('medStatus');
   try{
@@ -1396,10 +1413,16 @@ async function medHandle(kind, files){
       if(f0.size>LIM){
         const mb=(x)=>faNum(Math.round(x/1048576));
         const prog=(lbl)=>(p)=>{ if(st)st.textContent='🎬 '+lbl+' '+faNum(Math.round(p*100))+'٪ — صفحه رو نبند'; };
-        if(st)st.textContent='🎬 این فیلم '+mb(f0.size)+' مگه — دارم کیفیتشو کم می‌کنم…';
-        f=await medShrinkVideo(f0, prog('کم‌کردنِ حجم'), 720, 42*1024*1024);
-        if(f.size>LIM){ f=await medShrinkVideo(f0, prog('یه‌بارِ دیگه'), 540, 28*1024*1024); }
-        if(f.size>LIM){ toast('بازم بالای ۵۰ مگ موند — فیلمو کوتاه‌تر بگیر 🙏'); if(st)st.textContent=''; return; }
+        if(st)st.textContent='🎬 این فیلم '+mb(f0.size)+' مگه و تلگرام بیشتر از ۵۰ نمی‌گیره — دارم کمترین کمِ لازم رو می‌زنم…';
+        // از بالاترین کیفیت شروع کن و فقط وقتی پایین برو که جا نشده یا خروجی سالم درنیامده.
+        // قبلاً هر فیلمی مستقیم ۷۲۰ می‌شد، حتی اگر فقط چند مگ اضافه داشت.
+        f=null;
+        for(const [dim,target,lbl] of [[1440,46*1024*1024,'کم‌کردنِ حجم'],[1080,38*1024*1024,'یه‌بارِ دیگه'],[720,28*1024*1024,'بارِ آخر']]){
+          let out=null;
+          try{ out=await medShrinkVideo(f0, prog(lbl), dim, target); }catch(e){ if(dim===720) throw e; continue; }
+          if(out && out.size<=LIM && await medVideoUsable(out)){ f=out; break; }
+        }
+        if(!f){ toast('این فیلم جا نشد یا سالم فشرده نشد — کوتاه‌ترش بگیر 🙏'); if(st)st.textContent=''; return; }
         toast('فیلم از '+mb(f0.size)+' مگ شد '+mb(f.size)+' مگ '+(f.__audio?'(با صدا) ✅':'⚠️ بی‌صدا'));
         if(!f.__audio) toast('⚠️ صدای این فیلم نیومد — اگه صدا مهمه، فیلمِ کوتاه‌تر و زیرِ ۵۰ مگ بذار');
       }
