@@ -654,7 +654,13 @@ if('serviceWorker' in navigator){
       if(reg.waiting && navigator.serviceWorker.controller) showUpdateBar(function(){ reg.waiting.postMessage('skipWaiting'); });
     }).catch(function(){});
     var reloaded=false;
+    // بارِ اولی که برنامه باز می‌شود سرویس‌ورکر نصب می‌شود و کنترل را می‌گیرد (claim).
+    // آن هم یک controllerchange است — ولی نسخه‌ای عوض نشده که رفرش لازم باشد.
+    // بدونِ این شرط، همان ثانیه‌های اولِ اولین باز شدن صفحه یک‌بار می‌پرید و
+    // هرچه کاربر تایپ کرده بود (مثلاً ایمیل و رمزِ ورود) می‌رفت.
+    var hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(!hadController){ hadController=true; return; }   // نصبِ اول، نه به‌روزرسانی
       if(reloaded)return; reloaded=true; location.reload();
     });
   });
@@ -813,22 +819,35 @@ function logoHTML(size){ const s=(document.querySelector('.inv-logo img')||{}).s
 function moneyWords(n){ n=Math.abs(Number(n)||0); return n>0?`<div class="sw">${numToFaWords(n)} تومان</div>`:''; }
 
 /* supabase REST + session */
+let AUTH_GEN=0;   /* هر بار توکن عوض شود یکی بالا می‌رود — برای فهمیدنِ «مالِ من قدیمی بود» */
 function setSession(d){
   TOKEN=d.access_token;
   const exp = d.expires_at ? Number(d.expires_at) : (Math.floor(Date.now()/1000)+(Number(d.expires_in)||3600));
   SESSION={access_token:d.access_token, refresh_token:d.refresh_token, expires_at:exp};
+  AUTH_GEN++;
   try{ localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); }catch(e){}
 }
 function clearSession(){ TOKEN=null; SESSION=null; try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
-async function refreshSession(){
-  if(!SESSION||!SESSION.refresh_token) return 'auth_failed';
-  try{
-    const r=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:SESSION.refresh_token})});
-    const d=await r.json().catch(()=>({}));
-    if(r.ok && d.access_token){ setSession(d); return 'ok'; }
-    /* server answered but rejected the refresh token -> truly invalid, log out */
-    clearSession(); return 'auth_failed';
-  }catch(e){ return 'network_error'; } /* couldn't reach server -> keep session, don't log out */
+/* تازه‌کردنِ توکن باید «تک‌پروازه» باشد.
+   صفحه‌ی بینش‌ها هفت درخواست را با هم می‌فرستد؛ اگر توکن سرِ همان لحظه تمام شده باشد،
+   هر هفت‌تا با یک refresh_token یکسان می‌روند سراغِ سرور. سوپابیس توکنِ تازه‌سازی را
+   می‌چرخانَد: اولی مصرفش می‌کند و بقیه با توکنِ سوخته می‌رسند. سوپابیس این را
+   «استفاده‌ی دوباره» می‌بیند و می‌تواند کلِ خانواده‌ی توکن را باطل کند — یعنی کاربر
+   وسطِ کار پرت می‌شود بیرون. پس اگر یکی در راه است، بقیه به همان می‌چسبند. */
+let _refreshing=null;
+function refreshSession(){
+  if(_refreshing) return _refreshing;
+  _refreshing=(async()=>{
+    if(!SESSION||!SESSION.refresh_token) return 'auth_failed';
+    try{
+      const r=await fetch(SUPABASE_URL+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:SESSION.refresh_token})});
+      const d=await r.json().catch(()=>({}));
+      if(r.ok && d.access_token){ setSession(d); return 'ok'; }
+      /* server answered but rejected the refresh token -> truly invalid, log out */
+      clearSession(); return 'auth_failed';
+    }catch(e){ return 'network_error'; } /* couldn't reach server -> keep session, don't log out */
+  })().finally(()=>{ _refreshing=null; });
+  return _refreshing;
 }
 async function getToken(){
   if(SESSION && Math.floor(Date.now()/1000) >= (SESSION.expires_at-90)){
@@ -871,8 +890,14 @@ async function sbFetch(path, opts={}){
     }
     finally{ if(t)clearTimeout(t); }
   };
+  const gen=AUTH_GEN;                 /* توکنی که با آن رفتیم */
   let r=await go();
-  if(r.status===401 && SESSION){ const s=await refreshSession(); if(s==='ok'){ r=await go(); } else if(s==='auth_failed'){ forceLogin(); } /* network_error: keep session, return the response as-is */ }
+  if(r.status===401 && SESSION){
+    // اگر در این فاصله یکی دیگر توکن را تازه کرده، دوباره تازه نکن — فقط با توکنِ
+    // نو یک‌بار دیگر برو. تازه‌کردنِ الکی، توکنِ تازه‌سازی را بی‌خود می‌چرخانَد.
+    if(AUTH_GEN!==gen){ r=await go(); }
+    else { const s=await refreshSession(); if(s==='ok'){ r=await go(); } else if(s==='auth_failed'){ forceLogin(); } /* network_error: keep session, return the response as-is */ }
+  }
   return r;
 }
 async function sbGet(path){ const r=await sbFetch(path); const d=await r.json().catch(()=>([])); if(!r.ok)throw new Error(d.message||"خطا در دریافت اطلاعات"); return d; }
@@ -990,7 +1015,60 @@ function syncOvLock(){ try{
   const shell=document.getElementById('app');
   if(shell && 'inert' in HTMLElement.prototype) shell.inert=open;
 }catch(_){} }
-function _initOvLock(){ try{ const mo=new MutationObserver(syncOvLock); document.querySelectorAll('.overlay').forEach(o=>mo.observe(o,{attributes:true,attributeFilter:['class']})); syncOvLock(); }catch(_){} }
+function _initOvLock(){ try{ const mo=new MutationObserver(_ovChanged); document.querySelectorAll('.overlay').forEach(o=>mo.observe(o,{attributes:true,attributeFilter:['class']})); _ovChanged(); }catch(_){} }
+
+/* ===== دکمه‌ی برگشتِ گوشی =====
+   تا حالا وقتی فاکتور یا گزارش تمامِ صفحه باز بود و کاربر «برگشت» می‌زد، پنجره
+   بسته نمی‌شد — یا هیچی نمی‌شد یا از کلِ برنامه می‌پرید بیرون. حالا هر پنجره‌ای که
+   باز می‌شود یک ورودیِ تاریخچه می‌گذارد و «برگشت» بالاترین پنجره را می‌بندد.
+   کارِ بستن را از خودِ کلاسِ hidden می‌فهمیم، پس هر جای کد که پنجره را باز/بسته
+   کند خودکار پوشش داده می‌شود و لازم نیست ۲۹ نقطه‌ی صدا زدن را دست بزنیم. */
+const OV_ONCLOSE={ invoiceView:function(){ invMore(false); } };  /* پاک‌سازیِ اضافه، اگر داشت */
+let _ovOpen=[];      /* شناسه‌ی پنجره‌های باز، به ترتیبِ باز شدن */
+let _ovMarks=0;      /* چند ورودیِ تاریخچه بابتِ پنجره‌ها گذاشته‌ایم */
+let _ovLock=false;   /* یعنی خودمان داریم تاریخچه را عقب می‌بریم، نه کاربر */
+
+function _ovTrack(){
+  const now=Array.prototype.map.call(document.querySelectorAll('.overlay:not(.hidden)'),o=>o.id).filter(Boolean);
+  _ovOpen=_ovOpen.filter(id=>now.indexOf(id)>=0);
+  now.forEach(id=>{ if(_ovOpen.indexOf(id)<0)_ovOpen.push(id); });
+}
+function _ovChanged(){
+  syncOvLock();
+  try{
+    _ovTrack();
+    if(_ovLock)return;
+    const want=_ovOpen.length;
+    if(want>_ovMarks){ while(_ovMarks<want){ _ovMarks++; history.pushState({mlqOv:_ovMarks},''); } }
+    else if(want<_ovMarks){                       /* پنجره با دکمه‌ی خودِ برنامه بسته شد */
+      const back=_ovMarks-want; _ovMarks=want; _ovLock=true;
+      try{ history.go(-back); }catch(_){ _ovLock=false; }
+    }
+  }catch(_){}
+}
+window.addEventListener('popstate', function(){
+  // عقب‌رفتنِ خودمان بود، نه کاربر. اگر در همان فاصله پنجره‌ی تازه‌ای باز شده بود،
+  // شمارشِ ورودی‌ها عقب مانده — همین‌جا دوباره هماهنگش کن تا انباشته نشود.
+  if(_ovLock){ _ovLock=false; _ovChanged(); return; }
+  _ovTrack();
+  if(!_ovOpen.length){
+    _ovMarks=0;                                   /* هیچ‌وقت کاربر را در تاریخچه گیر ننداز */
+    const cur=document.querySelector('.navbtn.active');
+    if(cur && cur.dataset.scr && cur.dataset.scr!=='dashboard'){
+      nav('dashboard');                           /* از هر تبی، برگشت یعنی داشبورد */
+      try{ history.pushState({mlqHome:1},''); }catch(_){}
+    }
+    return;                                        /* روی داشبورد: بگذار از برنامه بیرون برود */
+  }
+  const id=_ovOpen[_ovOpen.length-1];
+  _ovMarks=Math.max(0,_ovMarks-1);                /* این ورودی همین الان مصرف شد */
+  _ovLock=true;                                   /* بستنِ پنجره نباید دوباره history.go بزند */
+  try{ if(OV_ONCLOSE[id])OV_ONCLOSE[id](); }catch(_){}
+  const el=document.getElementById(id); if(el)el.classList.add('hidden');
+  _ovTrack();
+  setTimeout(function(){ _ovLock=false; },0);
+});
+/* بعد از تعریفِ همه‌ی این‌ها راه بیفت، وگرنه اولین صدا زدن به متغیرِ تعریف‌نشده می‌خورَد */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_initOvLock); else _initOvLock();
 
 /* ===== BULK MULTI-SELECT ===== */
@@ -2195,8 +2273,8 @@ function renderSettings(){
     <div class="field"><label>نام فروشگاه</label><input id="sShop" class="inp" value="${esc(S.shop_name||'مدلند قشم')}"></div>
     <div class="field"><label>زیرعنوان</label><input id="sSub" class="inp" value="${esc(S.subtitle||'پخش عمده پوشاک')}"></div>
     <div class="field"><label>آدرس</label><input id="sAddr" class="inp" value="${esc(S.address||'')}"></div>
-    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" value="${esc(S.phone||'')}"></div>
-    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" value="${esc(S.phone2||'')}"></div>
+    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" type="tel" inputmode="tel" value="${esc(S.phone||'')}"></div>
+    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" type="tel" inputmode="tel" value="${esc(S.phone2||'')}"></div>
     <div class="ir-grid"><div class="f field" style="flex:1"><label>اینستاگرام</label><input id="sIg" class="inp" dir="ltr" value="${esc(S.instagram||'')}"></div><div class="f field" style="flex:1"><label>تلگرام</label><input id="sTg" class="inp" dir="ltr" value="${esc(S.telegram||'')}"></div></div>
     <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" class="inp" value="${esc(S.return_policy||'')}"></div>
     <button class="btn" onclick="saveSettings()">ذخیره تنظیمات</button>
