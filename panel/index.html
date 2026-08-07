@@ -208,6 +208,7 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 .ir-grid .f label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
 /* قیمتِ واحد دیگر دستی وارد نمی‌شود: از خودِ کالا می‌آید و اینجا فقط نشان داده می‌شود */
 .ir-linecalc{text-align:left;font-size:11px;color:var(--muted);margin-top:3px;min-height:14px}
+.linkbtn{background:none;border:0;padding:0;font-family:inherit;font-size:11px;font-weight:700;color:var(--gold-lt);text-decoration:underline;cursor:pointer}
 .ir-line{text-align:left;font-size:12.5px;color:var(--gold-lt);font-weight:700;margin-top:8px}
 .words-hint{font-size:11px;color:var(--gold-lt);font-weight:700;margin-top:5px;min-height:14px;line-height:1.6}
 .sw{font-size:10px;color:var(--gold-lt);font-weight:600;line-height:1.5;margin-top:2px}
@@ -1498,17 +1499,36 @@ function discountAmount(total){
   if(m==='p'){ let pct=faFloat(el.value); if(isNaN(pct)||pct<0)pct=0; if(pct>100)pct=100; return Math.round(Number(total||0)*pct/100); }
   return parseNum(el.value);
 }
-/* قیمتِ واحد هیچ فیلدی ندارد — هر بار مستقیم از خودِ کالا خوانده می‌شود */
-function rowUnitPrice(row){ const sel=row&&row.querySelector('.ir-prod'); if(!sel||!sel.value)return 0;
+/* قیمتِ واحد هیچ فیلدی ندارد — از خودِ کالا خوانده می‌شود.
+   استثنا: پیش‌فاکتور. قیمتی که به مشتری قول داده شده روی خودِ ردیف قفل می‌شود
+   (data-lock) تا با تغییرِ قیمتِ کالا عوض نشود. با عوض‌کردنِ کالا قفل باز می‌شود. */
+function rowListPrice(row){ const sel=row&&row.querySelector('.ir-prod'); if(!sel||!sel.value)return 0;
   const p=PRODUCTS.find(x=>String(x.id)===String(sel.value)); return p?Math.max(0,Math.round(Number(p.price)||0)):0; }
-function onPickProduct(sel){ recalc(); }
+function rowUnitPrice(row){ if(!row)return 0;
+  const lock=row.dataset?row.dataset.lock:null;
+  if(lock!=null && lock!=='' && Number(lock)>0) return Math.max(0,Math.round(Number(lock)));
+  return rowListPrice(row); }
+function rowUseListPrice(row){ if(row&&row.dataset)delete row.dataset.lock; recalc(); }
+function onPickProduct(sel){ const row=sel.closest('.itemrow'); if(row&&row.dataset)delete row.dataset.lock; recalc(); }
 function recalc(){
   let total=0;
   document.querySelectorAll('.itemrow').forEach(row=>{
     const pid=row.querySelector('.ir-prod').value, q=parseNum(row.querySelector('.ir-qty').value), pr=rowUnitPrice(row), line=(pid&&q>0&&pr>0)?q*pr:0;
     row.querySelector('.ir-linev').textContent=faNum(line);
     const lc=row.querySelector('.ir-linecalc');
-    if(lc)lc.textContent=(pid&&q>0&&pr>0)?(faNum(q)+' عدد × '+faNum(pr)+' تومان'):(pid?'قیمتِ این کالا ثبت نشده':'');
+    if(lc){
+      if(!pid){ lc.textContent=''; }
+      else if(!(pr>0)){ lc.textContent='قیمتِ این کالا ثبت نشده'; }
+      else{
+        const locked=!!(row.dataset&&row.dataset.lock), today=rowListPrice(row);
+        let t=faNum(q>0?q:0)+' عدد × '+faNum(pr)+' تومان';
+        if(locked) t+=' · قیمتِ پیش‌فاکتور';
+        lc.textContent=t;
+        if(locked && today>0 && today!==pr){
+          lc.innerHTML=esc(t)+' — <button type="button" class="linkbtn" onclick="rowUseListPrice(this.closest(\'.itemrow\'))">قیمتِ امروز '+faNum(today)+' بشه؟</button>';
+        }
+      }
+    }
     total+=line;
   });
   const disc=discountAmount(total);
@@ -2527,7 +2547,8 @@ async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+
 function _fillFormFromQuote(q){
   document.getElementById('nName').value=q.buyer_name||''; document.getElementById('nPhone').value=q.buyer_phone||''; document.getElementById('nCity').value=q.buyer_city||''; document.getElementById('nNote').value=q.note||''; document.getElementById('nDiscount').value=q.discount||0; document.getElementById('nPaid').value=0;
   const wrap=document.getElementById('itemsWrap'); wrap.innerHTML='';
-  asArray(q.items).forEach(it=>{ addItemRow(); const rows=document.querySelectorAll('.itemrow'); const r=rows[rows.length-1]; const sel=r.querySelector('.ir-prod'); sel.value=it.product_id; r.querySelector('.ir-qty').value=it.quantity; });
+  asArray(q.items).forEach(it=>{ addItemRow(); const rows=document.querySelectorAll('.itemrow'); const r=rows[rows.length-1]; const sel=r.querySelector('.ir-prod'); sel.value=it.product_id; r.querySelector('.ir-qty').value=it.quantity;
+    const up=Math.round(Number(it.unit_price)||0); if(up>0)r.dataset.lock=String(up); });
   if(document.querySelectorAll('.itemrow').length===0)addItemRow();
   if(typeof checkCustomerMatch==='function')checkCustomerMatch(); recalc();
 }

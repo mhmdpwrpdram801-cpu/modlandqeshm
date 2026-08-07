@@ -229,6 +229,13 @@
       "wait": 400,
       "js": "()=>{const n=document.querySelectorAll('.itemrow [class*=ir-price]').length;const lbl=(document.getElementById('scr-new')||{innerText:''}).innerText.includes('قیمت واحد');const calc=(document.querySelector('.ir-linecalc')||{}).textContent||'';const jam=(document.querySelector('.ir-linev')||{}).textContent||'';return n+'|'+lbl+'|'+calc+'|'+jam;}",
       "expect": "0|false|۱ عدد × ۸۵۰٬۰۰۰ تومان|۸۵۰٬۰۰۰"
+    },
+    {
+      "name": "قیمتِ قول‌داده‌شده‌ی پیش‌فاکتور با گران‌شدنِ کالا عوض نمی‌شود",
+      "before": "(()=>{PRODUCTS.find(p=>p.id==='p1').price=990000;})(); convertQuote('q1')",
+      "wait": 1200,
+      "js": "()=>{const r=document.querySelector('.itemrow'); const lock=r.dataset.lock||'';const koll=document.getElementById('tItems').textContent;const q=(document.querySelector('.ir-linecalc')||{}).innerText||'';const zakhire=(function(){let pr=0;document.querySelectorAll('.itemrow').forEach(x=>{pr=rowUnitPrice(x)});return pr})();return lock+'|'+koll+'|'+zakhire+'|'+(q.indexOf('پیش‌فاکتور')>=0?'برچسب دارد':'برچسب ندارد');}",
+      "expect": "850000|۸۵۰٬۰۰۰|850000|برچسب دارد"
     }
   ],
   "click_test": {
