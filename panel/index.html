@@ -1023,19 +1023,27 @@ function afterDataReady(){
    می‌بیند. این متغیر همان‌جا و همگام تنظیم می‌شود، پس همیشه راست می‌گوید.
    (با گزینه‌ی --repeat بازرس پیدا شد: یک بررسی در سه دور دو نتیجه‌ی متفاوت داد.) */
 let CUR_SCR='dashboard';
+let _vtBusy=false;   /* یک جابه‌جایی در جریان است؟ */
 function nav(scr){
   CUR_SCR=scr;
-  // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند
-  if(document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند.
+  // اگر جابه‌جاییِ قبلی هنوز تمام نشده، این یکی را بدونِ انیمیشن و فوری اعمال کن:
+  // روی وب‌کیت اندازه گرفته شد که startViewTransitionِ تودرتو، تابعش را اصلاً صدا
+  // نمی‌زند و برنامه روی صفحه‌ی قبلی گیر می‌کند (کرومیوم این مشکل را ندارد).
+  // هیچ مسیرِ کاربری الان دو nav را در یک تیک نمی‌زند، ولی این‌طور دیگر نمی‌تواند.
+  if(!_vtBusy && document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     try{
+      _vtBusy=true;
       const vt=document.startViewTransition(()=>_nav(scr));
+      const free=()=>{ _vtBusy=false; };
+      try{ vt.finished.then(free,free); }catch(_){ _vtBusy=false; }
       // اگر کاربر سریع دو دکمه بزند، مرورگر جابه‌جاییِ قبلی را لغو می‌کند و
       // Promiseهایش با AbortError رد می‌شوند. این خطا نیست، ولی اگر کسی نگیردشان
       // به‌صورتِ «رد شدنِ بی‌صاحب» بالا می‌آید. (روی WebKit دیده شد، نه کرومیوم.)
       if(vt){ const hush=(pr)=>{ try{ pr && pr.catch && pr.catch(()=>{}); }catch(_){} };
               hush(vt.ready); hush(vt.finished); hush(vt.updateCallbackDone); }
       return;
-    }catch(_){}
+    }catch(_){ _vtBusy=false; }
   }
   _nav(scr);
 }

@@ -205,7 +205,7 @@
       "name": "فرمِ کالا از هر صفحه‌ای باز و دیده می‌شود",
       "before": "nav('dashboard'); openProductForm('p1')",
       "wait": 500,
-      "js": "()=>{nav('dashboard');openProductForm('p1');const w=document.getElementById('prodFormWrap'),r=w.getBoundingClientRect();const scr=(document.querySelector('.navbtn.active')||{dataset:{}}).dataset.scr;return ((!w.classList.contains('hidden')&&r.width>0&&r.height>0)?'دیده می‌شود':'نامرئی')+'|'+scr;}",
+      "js": "()=>{nav('dashboard');openProductForm('p1');return new Promise(r=>setTimeout(r,350)).then(()=>{const w=document.getElementById('prodFormWrap'),b=w.getBoundingClientRect();const scr=(document.querySelector('.navbtn.active')||{dataset:{}}).dataset.scr;return ((!w.classList.contains('hidden')&&b.width>0&&b.height>0)?'دیده می‌شود':'نامرئی')+'|'+scr;});}",
       "expect": "دیده می‌شود|products"
     },
     {
