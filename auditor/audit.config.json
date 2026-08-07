@@ -343,6 +343,31 @@
       "name": "نبودِ MediaRecorder پیامِ روشن می‌دهد نه خطای خام",
       "js": "()=>{const R=window.MediaRecorder;try{window.MediaRecorder=undefined;return medShrinkVideo(new File([new Uint8Array(99)],'x.mp4',{type:'video/mp4'}),()=>{},480,1e6).then(()=>'خطا نداد!').catch(e=>{const m=String(e&&e.message||e);return (m.indexOf('۵۰ مگ')>=0&&m.indexOf('بلد نیست')>=0)?'پیامِ روشن':'پیامِ مبهم: '+m;});}finally{window.MediaRecorder=R;}}",
       "expect": "پیامِ روشن"
+    },
+    {
+      "name": "تازه‌کردنِ توکن تک‌پروازه است (درخواستِ موازی، یک بار)",
+      "js": "()=>{const f=window.fetch;let n=0;window.fetch=function(u){if(String(u).indexOf('/auth/v1/token')>=0){n++;const a=arguments,s=this;return new Promise(r=>setTimeout(()=>r(f.apply(s,a)),80));}return f.apply(this,arguments);};SESSION.expires_at=Math.floor(Date.now()/1000)+30;return Promise.all(['products','customers','invoices','payments','returns','salaries','quotes'].map(t=>sbFetch(t+'?select=id'))).then(()=>n).catch(()=>'خطا').then(v=>{window.fetch=f;return String(v);});}",
+      "expect": "1"
+    },
+    {
+      "name": "طوفانِ ۴۰۱ هم فقط یک بار توکن را می‌چرخانَد",
+      "js": "()=>{const f=window.fetch;let n=0,b=0;window.fetch=function(u){const s=String(u);if(s.indexOf('/auth/v1/token')>=0){n++;const a=arguments,t=this;return new Promise(r=>setTimeout(()=>r(f.apply(t,a)),80));}if(s.indexOf('/rest/v1/')>=0&&b<7){b++;return Promise.resolve(new Response('{}',{status:401}));}return f.apply(this,arguments);};SESSION.expires_at=Math.floor(Date.now()/1000)+9999;return Promise.all(['products','customers','invoices','payments','returns','salaries','quotes'].map(t=>sbFetch(t+'?select=id'))).then(()=>n).catch(()=>'خطا').then(v=>{window.fetch=f;return String(v);});}",
+      "expect": "1"
+    },
+    {
+      "name": "دکمه‌ی برگشتِ گوشی پنجره را می‌بندد نه اینکه از برنامه بیرون بیندازد",
+      "js": "()=>{const V=document.getElementById('reportView');const wait=()=>new Promise(r=>setTimeout(r,60));return wait().then(()=>{V.classList.remove('hidden');return wait();}).then(()=>{const wasOpen=!V.classList.contains('hidden');history.back();return wait().then(()=>wait()).then(()=>wasOpen+'|'+V.classList.contains('hidden'));});}",
+      "expect": "true|true"
+    },
+    {
+      "name": "دو پنجره‌ی روی هم، هر برگشت فقط بالایی را می‌بندد",
+      "js": "()=>{const A=document.getElementById('reportView'),B=document.getElementById('quotesView');const wait=()=>new Promise(r=>setTimeout(r,80));return wait().then(()=>{A.classList.remove('hidden');return wait();}).then(()=>{B.classList.remove('hidden');return wait();}).then(()=>{history.back();return wait().then(wait);}).then(()=>{const s1=(!A.classList.contains('hidden'))+'/'+B.classList.contains('hidden');history.back();return wait().then(wait).then(()=>s1+'|'+A.classList.contains('hidden'));});}",
+      "expect": "true/true|true"
+    },
+    {
+      "name": "بستن با دکمه‌ی خودِ برنامه، تاریخچه را انباشته نمی‌کند",
+      "js": "()=>{const V=document.getElementById('reportView');const wait=()=>new Promise(r=>setTimeout(r,80));return wait().then(()=>{V.classList.remove('hidden');return wait();}).then(()=>{V.classList.add('hidden');return wait().then(wait);}).then(()=>String(_ovMarks)+'|'+String(_ovOpen.length));}",
+      "expect": "0|0"
     }
   ],
   "click_test": {
