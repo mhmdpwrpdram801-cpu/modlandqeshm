@@ -1430,7 +1430,7 @@ function medRecMime(withAudio){
   return '';
 }
 async function medShrinkVideo(file, onProgress, maxDim, targetBytes){
-  if(!window.MediaRecorder) throw new Error('مرورگرت فشرده‌سازیِ فیلم رو بلد نیست — فیلمو کوتاه‌تر بگیر 🙏');
+  if(!window.MediaRecorder) throw new Error('مرورگرت فشرده‌سازیِ فیلم رو بلد نیست 🙏 فیلمِ زیرِ ۵۰ مگ بدونِ فشرده‌سازی بالا می‌ره — کوتاه‌ترش بگیر یا از گوشیِ دیگه بفرست.');
   maxDim=maxDim||720; targetBytes=targetBytes||42*1024*1024;
   const url=URL.createObjectURL(file);
   const v=document.createElement('video');
@@ -1470,7 +1470,7 @@ async function medShrinkVideo(file, onProgress, maxDim, targetBytes){
     }catch(_){ audioOk=false; }
     let mime=medRecMime(audioOk);
     if(!mime){ mime=medRecMime(false); audioOk=false; }
-    if(!mime) throw new Error('مرورگرت فشرده‌سازیِ فیلم رو بلد نیست 🙏');
+    if(!mime) throw new Error('مرورگرت فشرده‌سازیِ فیلم رو بلد نیست 🙏 فیلمِ زیرِ ۵۰ مگ بدونِ فشرده‌سازی بالا می‌ره — کوتاه‌ترش بگیر یا از گوشیِ دیگه بفرست.');
     const aBps=audioOk?96000:0;
     let vBps=Math.floor((targetBytes*8)/dur)-aBps;
     vBps=Math.max(350000, Math.min(vBps, 4500000));
@@ -1503,6 +1503,7 @@ async function medShrinkVideo(file, onProgress, maxDim, targetBytes){
     if(!blob.size) throw new Error('فشرده‌سازی نتیجه نداد 🙏');
     const out=new File([blob],'v.'+(isMp4?'mp4':'webm'),{type});
     out.__audio=audioOk;
+    out.__mp4=isMp4;
     return out;
   } finally {
     try{ URL.revokeObjectURL(url); }catch(_){}
@@ -1562,6 +1563,8 @@ async function medHandle(kind, files){
         if(!f){ toast('این فیلم جا نشد یا سالم فشرده نشد — کوتاه‌ترش بگیر 🙏'); if(st)st.textContent=''; return; }
         toast('فیلم از '+mb(f0.size)+' مگ شد '+mb(f.size)+' مگ '+(f.__audio?'(با صدا) ✅':'⚠️ بی‌صدا'));
         if(!f.__audio) toast('⚠️ صدای این فیلم نیومد — اگه صدا مهمه، فیلمِ کوتاه‌تر و زیرِ ۵۰ مگ بذار');
+        // تلگرام فقط MPEG-4 را داخلِ چت پخش می‌کند؛ بقیه را به‌صورتِ فایل می‌فرستد
+        if(f.__mp4===false) toast('⚠️ مرورگرت mp4 نساخت — این فیلم تو تلگرام به‌جای پخش، به‌صورتِ فایل می‌ره. اگه مهمه، زیرِ ۵۰ مگ بذار.');
       }
       if(st)st.textContent='در حال فرستادنِ فیلم… (صفحه رو نبند)';
       const url=await medUploadFile(f,kind);

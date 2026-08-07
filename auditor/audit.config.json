@@ -326,6 +326,23 @@
       "name": "در پنجره‌ی پرسش، گزینه‌ی امن فوکوس می‌گیرد نه خطرناک",
       "js": "()=>{const p=ask('⚠️ هشدار\\n\\nادامه؟');const a=document.activeElement;const id=a?a.id:'هیچ';document.getElementById('askNo').click();return p.then(()=>id);}",
       "expect": "askNo"
+    },
+    {
+      "name": "خروجیِ فشرده‌سازی ظرفِ واقعیِ MP4 است (تلگرام همین را پخش می‌کند)",
+      "needs": "typeof MediaRecorder!=='undefined' && MediaRecorder.isTypeSupported('video/mp4')",
+      "js": "()=>{const mk=async(secs)=>{const c=document.createElement('canvas');c.width=320;c.height=180;const ctx=c.getContext('2d');const vs=c.captureStream(24);const AC=window.AudioContext||window.webkitAudioContext;const ac=new AC();const osc=ac.createOscillator();const dest=ac.createMediaStreamDestination();osc.connect(dest);osc.start();vs.addTrack(dest.stream.getAudioTracks()[0]);const mime=['video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));const rec=new MediaRecorder(vs,{mimeType:mime});const ch=[];rec.ondataavailable=e=>{if(e.data.size)ch.push(e.data)};const done=new Promise(r=>rec.onstop=r);rec.start(200);let t=0;const iv=setInterval(()=>{t++;ctx.fillStyle=t%2?'#c0901c':'#111';ctx.fillRect(0,0,320,180)},42);await new Promise(r=>setTimeout(r,secs*1000));clearInterval(iv);rec.stop();await done;osc.stop();ac.close();return new File([new Blob(ch,{type:'video/webm'})],'t.webm',{type:'video/webm'})};return mk(2).then(f=>medShrinkVideo(f,()=>{},480,8*1024*1024)).then(async o=>{const b=new Uint8Array(await o.slice(4,12).arrayBuffer());const tag=String.fromCharCode.apply(null,b);return o.name+'|'+(o.__mp4===true)+'|'+(tag.indexOf('ftyp')===0?'ftyp':tag);}).catch(e=>'خطا: '+(e&&e.message||e));}",
+      "expect": "v.mp4|true|ftyp"
+    },
+    {
+      "name": "روی مرورگری که فقط mp4 دارد (آیفون) هم mp4 انتخاب می‌شود",
+      "needs": "typeof MediaRecorder!=='undefined'",
+      "js": "()=>{const o=MediaRecorder.isTypeSupported.bind(MediaRecorder);try{MediaRecorder.isTypeSupported=(m)=>/mp4/.test(m)&&o(m);const withA=medRecMime(true),noA=medRecMime(false);MediaRecorder.isTypeSupported=(m)=>/webm/.test(m)&&o(m);const webmOnly=medRecMime(true);MediaRecorder.isTypeSupported=()=>false;const none=medRecMime(true);return (withA.indexOf('mp4')>=0)+'|'+(noA.indexOf('mp4')>=0)+'|'+(webmOnly.indexOf('webm')>=0)+'|'+(none==='');}finally{MediaRecorder.isTypeSupported=o;}}",
+      "expect": "true|true|true|true"
+    },
+    {
+      "name": "نبودِ MediaRecorder پیامِ روشن می‌دهد نه خطای خام",
+      "js": "()=>{const R=window.MediaRecorder;try{window.MediaRecorder=undefined;return medShrinkVideo(new File([new Uint8Array(99)],'x.mp4',{type:'video/mp4'}),()=>{},480,1e6).then(()=>'خطا نداد!').catch(e=>{const m=String(e&&e.message||e);return (m.indexOf('۵۰ مگ')>=0&&m.indexOf('بلد نیست')>=0)?'پیامِ روشن':'پیامِ مبهم: '+m;});}finally{window.MediaRecorder=R;}}",
+      "expect": "پیامِ روشن"
     }
   ],
   "click_test": {
