@@ -31,7 +31,7 @@
     }
   ],
   "login_done": "()=>{try{return !document.getElementById('app').classList.contains('hidden') && PRODUCTS.length>0 && document.querySelectorAll('#scr-dashboard .dash-btn').length>0}catch(e){return false}}",
-  "reset": "document.querySelectorAll('.overlay').forEach(o=>o.classList.add('hidden'))",
+  "reset": "document.querySelectorAll('.overlay,.sheetwrap').forEach(o=>o.classList.add('hidden'))",
   "forbidden": [
     "stock",
     "cost_price",
@@ -110,6 +110,10 @@
     [
       "فاکتور",
       "openInvoiceById('i1')"
+    ],
+    [
+      "کارهای فاکتور",
+      "openInvoiceById('i1').then(()=>invMore(true))"
     ],
     [
       "هشدارها",
@@ -244,6 +248,27 @@
       "wait": 900,
       "js": "()=>{insMenu();const m=document.getElementById('insBody').innerText;insPL(30);const p=document.getElementById('insBody').innerText;return ((m+p).indexOf('خرج')>=0?'هست':'نیست')+'|'+(typeof (window.INS||{}).exps)}",
       "expect": "نیست|undefined"
+    },
+    {
+      "name": "ابطال از نوارِ بالا برداشته شده و پشتِ «بیشتر» رفته",
+      "before": "openInvoiceById('i1')",
+      "wait": 900,
+      "js": "()=>{const bar=document.querySelector('#invoiceView .ov-bar');const n=bar.querySelectorAll('button').length;const hasVoid=bar.contains(document.getElementById('voidBtn'));const menuHidden=document.getElementById('invMenu').classList.contains('hidden');invMore(true);const open=!document.getElementById('invMenu').classList.contains('hidden');const inMenu=document.getElementById('invMenu').contains(document.getElementById('voidBtn'));invMore(false);return n+'|'+hasVoid+'|'+menuHidden+'|'+open+'|'+inMenu;}",
+      "expect": "3|false|true|true|true"
+    },
+    {
+      "name": "مبلغ‌به‌حروف فقط روی فاکتور و پیش‌فاکتور مانده",
+      "before": "nav('dashboard')",
+      "wait": 900,
+      "js": "()=>{const t=(document.getElementById('scr-dashboard').innerText||'');const sw=document.querySelectorAll('#scr-dashboard .sw').length;return sw+'|'+(/هزار تومان|میلیون تومان/.test(t));}",
+      "expect": "0|false"
+    },
+    {
+      "name": "سرصفحه‌ی فرمِ کالا اسمِ کالا و راهِ برگشت دارد",
+      "before": "nav('products'); openProductForm('p1')",
+      "wait": 500,
+      "js": "()=>{const w=document.getElementById('prodFormWrap');const t=(w.querySelector('.form-title')||{}).textContent||'';const b=[...w.querySelectorAll('button')].some(x=>/برگشت به لیست/.test(x.textContent));closeProductForm();const closed=w.classList.contains('hidden');return (t.indexOf('شلوار جین آبی')===0)+'|'+b+'|'+closed;}",
+      "expect": "true|true|true"
     }
   ],
   "click_test": {

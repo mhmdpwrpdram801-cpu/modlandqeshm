@@ -148,6 +148,16 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 .screen-title{font-size:18px;font-weight:700;margin-bottom:3px}
 .screen-sub{font-size:12.5px;color:var(--muted);margin-bottom:15px}
 .section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
+/* سرصفحه‌ی فرم — بدونِ این، فرم کلِ لیست را می‌بلعد و معلوم نیست داری کدام را ویرایش می‌کنی */
+.form-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;padding-bottom:11px;border-bottom:1px solid var(--line-soft)}
+.form-kick{font-size:11.5px;color:var(--muted);font-weight:600}
+.form-title{font-size:16px;font-weight:800;margin-top:2px;overflow-wrap:break-word}
+.form-head .btn{flex-shrink:0;white-space:nowrap}
+/* بدونِ این، scrollIntoView سرصفحه‌ی فرم را می‌بَرد زیرِ نوارِ چسبیده‌ی بالا و
+   نه اسمِ کالا دیده می‌شود نه دکمه‌ی برگشت */
+#prodFormWrap,#custFormWrap{scroll-margin-top:74px}
+.card-h{font-weight:800;font-size:14.5px;margin-bottom:4px}
+.card-sub{font-size:12px;color:var(--muted);margin-bottom:13px;line-height:1.6}
 
 .card{background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:15px;margin-bottom:12px;box-shadow:0 6px 18px rgba(80,60,10,.05)}
 .rowline{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -186,6 +196,10 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 .netrow.net b{color:#1f7a44;font-size:17px}
 .netcard.neg .netrow.net b{color:var(--credit)}
 .dash-actions{display:flex;gap:10px;margin-top:14px}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+/* gap لازم است: با flex، متن و شمارنده دو آیتمِ جدا می‌شوند و فاصله‌ی متنی حذف می‌شود
+   («سفارش‌های تلگرام(۱)» به‌جای «سفارش‌های تلگرام (۱)») */
+.dash-grid .dash-btn{display:flex;align-items:center;justify-content:center;gap:4px;text-align:center;min-height:58px;line-height:1.35}
 .dash-btn{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.04)}
 .dash-btn:active{background:var(--surf-press)}
 .seg{flex:1;background:var(--card);border:1.5px solid var(--line);border-radius:11px;padding:12px 8px;font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;transition:.15s}
@@ -247,11 +261,28 @@ html:has(.overlay:not(.hidden)){overflow:hidden}
 #invoiceView .ov-body>div{width:100%;max-width:760px}
 .ov-sheet{width:100%;max-width:640px;background:var(--card);border-radius:16px;padding:18px;box-shadow:0 18px 50px rgba(0,0,0,.3)}
 
+/* کشوی «بیشتر» — هم‌سطحِ پنجره‌ها (۶۰) است و چون بعد از آن‌ها در سند می‌آید، رویشان می‌نشیند.
+   بالاتر بردنِ z-index لازم نیست و مقیاسِ نام‌دار را می‌شکند. */
+.sheetwrap{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(20,16,10,.5)}
+.sheetwrap.hidden{display:none}
+.sheet-card{background:var(--card);border-top-left-radius:20px;border-top-right-radius:20px;padding:10px 10px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.3);max-height:80vh;overflow-y:auto}
+.sheet-h{font-weight:800;font-size:15px;padding:10px 8px 12px;text-align:center;color:var(--ink)}
+.sheet-b{display:block;width:100%;text-align:right;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 15px;margin-bottom:8px;font-family:inherit;font-size:14.5px;font-weight:700;color:var(--ink);cursor:pointer}
+.sheet-b:active{transform:scale(.99)}
+.sheet-b .sub{display:block;font-size:11.5px;font-weight:400;color:var(--muted);margin-top:3px}
+.sheet-b.danger{background:rgba(193,57,43,.08);border-color:rgba(193,57,43,.35);color:var(--danger)}
+html[data-theme="dark"] .sheet-b.danger{background:rgba(193,57,43,.14);border-color:rgba(193,57,43,.42)}
+.sheet-b.cancel{background:transparent;border-color:var(--line-soft);color:var(--muted);font-weight:600;text-align:center}
+.sheet-sep{height:1px;background:var(--line-soft);margin:12px 6px}
+
 /* spinner / toast */
 .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(42,32,8,.3);border-top-color:#2a2008;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px}
 @keyframes sp{to{transform:rotate(360deg)}}
-#toast{position:fixed;bottom:calc(var(--nav-h) + 80px);right:50%;transform:translateX(50%);background:#1a1713;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;z-index:80;opacity:0;transition:opacity .25s;max-width:90%;text-align:center;pointer-events:none}
+/* ۸۰ پیکسل بالاتر از نوار یعنی وسطِ محتوا؛ روی فاکتور دقیقاً روی «پرداخت‌شده» می‌افتاد */
+#toast{position:fixed;bottom:calc(var(--nav-h) + 14px);right:50%;transform:translateX(50%);background:#1a1713;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;z-index:80;opacity:0;transition:opacity .25s;max-width:90%;text-align:center;pointer-events:none}
 #toast.show{opacity:1}
+/* وقتی کشو باز است، پایینِ صفحه مالِ کشوست — پیام می‌رود بالا تا روی «ابطال» ننشیند */
+body:has(.sheetwrap:not(.hidden)) #toast{bottom:auto;top:76px}
 
 /* INVOICE DESIGN */
 .invoice{width:100%;max-width:760px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.3)}
@@ -305,7 +336,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
   #invoiceView, #invoiceView *{visibility:visible}
   #invoiceView{position:absolute;inset:0;background:#fff;overflow:visible; --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec; --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06; --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09); --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; color:#221d15}
   .overlay{position:absolute;background:#fff}
-  .ov-bar{display:none}
+  .ov-bar,.sheetwrap{display:none}
   .invoice{box-shadow:none;border:1px solid #d8c7a0;max-width:100%;border-radius:0}
 }
 .list-item .selbox{width:0;overflow:hidden;flex:0 0 auto;display:flex;align-items:center;justify-content:center;margin-inline-end:-10px;transition:width .12s ease}
@@ -361,20 +392,16 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <div class="screen-title">داشبورد</div>
     <div class="screen-sub">یک نگاه به وضعیت کسب‌وکار</div>
     <div id="dashStats"><div class="card" style="padding:14px"><div class="skel" style="height:10px;width:40%"></div><div class="skel" style="height:20px;width:70%;margin-top:9px"></div></div></div>
-      <div class="dash-actions" style="margin-top:10px">
+      <!-- یک شبکه‌ی دوستونی. قبلاً چهار ردیفِ flex با ۳-۲-۲-۱ دکمه بود و عرضِ دکمه‌ها
+           در هر ردیف فرق می‌کرد. ترتیب عمداً عوض نشده تا عادتِ دست به‌هم نریزد. -->
+      <div class="dash-grid">
         <button class="dash-btn" onclick="openReport()">📊 گزارش</button>
         <button class="dash-btn" onclick="openSalaries()">👥 حقوق کارکنان</button>
         <button class="dash-btn" onclick="openTgOrders()">🤖 سفارش‌های تلگرام<span id="dashTgCount"></span></button>
-      </div>
-      <div class="dash-actions" style="margin-top:8px">
         <button class="dash-btn" onclick="openShipments()">📦 ارسالی‌ها</button>
         <button class="dash-btn" onclick="openInsights()">💡 بینش‌ها و ابزارها</button>
-      </div>
-      <div class="dash-actions" style="margin-top:8px">
         <button class="dash-btn" onclick="openSearch()">🔎 جستجوی سراسری</button>
         <button class="dash-btn" onclick="document.getElementById('backupView').classList.remove('hidden')">💾 خروجی و پشتیبان</button>
-      </div>
-      <div class="dash-actions" style="margin-top:8px">
         <button class="dash-btn" onclick="openDiscounts()">🎟 کدهای تخفیف</button>
       </div>
       <div id="dashLists"></div>
@@ -462,16 +489,27 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
 
 <!-- INVOICE VIEW OVERLAY -->
 <div id="invoiceView" class="overlay hidden">
+  <!-- یک ردیف، سه دکمه. «ابطال» عمداً اینجا نیست: برگشت‌ناپذیر است و نباید کنارِ «بستن» بنشیند. -->
   <div class="ov-bar">
-    <button class="btn sm" style="background:#25d366;color:#fff" onclick="shareInvoiceImage('whatsapp')">📲 واتساپ</button>
-    <button class="btn sm blue" onclick="shareInvoiceImage('telegram')">✈️ تلگرام</button>
-    <button class="btn sm" onclick="window.print()">چاپ</button>
-    <button id="invRetBtn" class="btn sm" style="background:#b5860b;color:#fff" onclick="openInvoiceReturn()">↩️ مرجوعی</button>
-    <button id="payInvBtn" class="btn sm" style="background:var(--paid,#0a7);color:#fff" onclick="payFromInvoice()">💰 ثبتِ پرداخت</button>
-    <button id="voidBtn" class="btn sm red" onclick="voidCurrentInvoice()">ابطال</button>
+    <button id="payInvBtn" class="btn sm" style="flex:1;background:var(--paid,#0a7);color:#fff" onclick="payFromInvoice()">💰 ثبتِ پرداخت</button>
+    <button class="btn sm" onclick="invMore(true)">⋯ بیشتر</button>
     <button class="btn sm sec" onclick="closeInvoice()">بستن</button>
   </div>
   <div class="ov-body"><div id="invoiceRender"></div><div id="invPayInfo" style="margin-top:10px"></div></div>
+</div>
+
+<!-- کارهای فاکتور — بعد از #invoiceView می‌آید تا رویش بنشیند -->
+<div id="invMenu" class="sheetwrap hidden" onclick="if(event.target===this)invMore(false)">
+  <div class="sheet-card">
+    <div class="sheet-h">کارهای این فاکتور</div>
+    <button class="sheet-b" onclick="invMore(false);shareInvoiceImage('whatsapp')">📲 فرستادن در واتساپ<span class="sub">عکسِ فاکتور برای مشتری می‌رود</span></button>
+    <button class="sheet-b" onclick="invMore(false);shareInvoiceImage('telegram')">✈️ فرستادن در تلگرام<span class="sub">عکسِ فاکتور برای مشتری می‌رود</span></button>
+    <button class="sheet-b" onclick="invMore(false);window.print()">🖨 چاپ</button>
+    <button id="invRetBtn" class="sheet-b" onclick="invMore(false);openInvoiceReturn()">↩️ ثبتِ مرجوعی<span class="sub">جنس برگشته؛ از فاکتور کم می‌شود</span></button>
+    <div class="sheet-sep"></div>
+    <button id="voidBtn" class="sheet-b danger" onclick="invMore(false);voidCurrentInvoice()">🚫 ابطالِ فاکتور<span class="sub">کلِ فاکتور باطل می‌شود — برگشت‌ناپذیر</span></button>
+    <button class="sheet-b cancel" onclick="invMore(false)">بی‌خیال</button>
+  </div>
 </div>
 
 <!-- CUSTOMER DETAIL OVERLAY -->
@@ -1048,9 +1086,9 @@ async function renderDashboard(){
     const chartData=[]; for(let i=13;i>=0;i--){ const d=new Date(now.getTime()-i*86400000); chartData.push({label:faNum(iranJalaliKey(d).slice(8)),value:chartMap[tehranGregKey(d)]||0}); }
     let tgNew=[]; try{ tgNew=await sbGetAll("telegram_orders?select=id&status=eq.new"); }catch(e){}
     let html=`${tgNew.length?`<div class="card tgnew" style="padding:13px 15px;margin-bottom:12px;cursor:pointer" onclick="openTgOrders()"><b>🤖 ${faNum(tgNew.length)} سفارشِ جدید از تلگرام</b><div style="font-size:12px;color:var(--muted);margin-top:2px">بزن تا ببینی و به فاکتور تبدیل کنی</div></div>`:''}<div class="stat-grid">
-      <div class="stat accent"><div class="lbl">فروش امروز</div><div class="val num" style="${salesToday<0?'color:var(--danger)':''}">${faNum(salesToday)} <small>تومان</small></div>${moneyWords(salesToday)}</div>
-      <div class="stat accent"><div class="lbl">فروش این ماه</div><div class="val num" style="${salesMonth<0?'color:var(--danger)':''}">${faNum(salesMonth)} <small>تومان</small></div>${moneyWords(salesMonth)}</div>
-      <div class="stat ${receivables>0?'danger':''}"><div class="lbl">کل طلب از مشتری‌ها</div><div class="val num">${faNum(receivables)} <small>تومان</small></div>${moneyWords(receivables)}</div>
+      <div class="stat accent"><div class="lbl">فروش امروز</div><div class="val num" style="${salesToday<0?'color:var(--danger)':''}">${faNum(salesToday)} <small>تومان</small></div></div>
+      <div class="stat accent"><div class="lbl">فروش این ماه</div><div class="val num" style="${salesMonth<0?'color:var(--danger)':''}">${faNum(salesMonth)} <small>تومان</small></div></div>
+      <div class="stat ${receivables>0?'danger':''}"><div class="lbl">کل طلب از مشتری‌ها</div><div class="val num">${faNum(receivables)} <small>تومان</small></div></div>
       <div class="stat"><div class="lbl">فاکتورهای امروز</div><div class="val num">${faNum(countToday)} <small>عدد</small></div></div>
     </div>
     `;
@@ -1137,7 +1175,7 @@ async function renderTgOrders(){
       ${o.customer_address?`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">📍 ${esc(o.customer_address)}</div>`:''}
       <div style="border-top:1px solid var(--line);padding-top:8px;margin-bottom:8px">${its}</div>
       <div style="margin-bottom:9px">${pay}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><span style="font-weight:700">جمعِ کل</span><div style="text-align:left"><b class="num" style="color:var(--gold)">${faNum(o.total)} تومان</b>${moneyWords(o.total)}</div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><span style="font-weight:700">جمعِ کل</span><div style="text-align:left"><b class="num" style="color:var(--gold)">${faNum(o.total)} تومان</b></div></div>
       <div style="display:flex;gap:8px">
         <button onclick="convertTgOrder('${o.id}')" style="flex:1;background:var(--gold);color:#fff;border:0;border-radius:11px;padding:11px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✅ تبدیل به فاکتور</button>
         <button onclick="rejectTgOrder('${o.id}')" style="background:none;border:1px solid rgba(192,57,43,.35);border-radius:11px;padding:11px 14px;font-family:inherit;font-size:13px;font-weight:700;color:var(--credit);cursor:pointer">🗑 رد</button>
@@ -1642,7 +1680,8 @@ async function payFromInvoice(){
     try{ el.focus(); el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){ }
   }, 400);
 }
-function closeInvoice(){ document.getElementById('invoiceView').classList.add('hidden'); }
+function invMore(open){ const m=document.getElementById('invMenu'); if(m)m.classList.toggle('hidden',!open); }
+function closeInvoice(){ invMore(false); document.getElementById('invoiceView').classList.add('hidden'); }
 
 let _h2cP=null;
 function ensureH2C(){
@@ -1839,15 +1878,17 @@ function renderProducts(){
   if(PRODUCTS.length===0){ box.innerHTML='<div class="empty">هنوز کالایی ثبت نشده. با «کالای جدید» اضافه کن.</div>'; return; }
   const sorted=[...PRODUCTS].sort((a,b)=>{return String(a.name||'').localeCompare(String(b.name||''),'fa');});
   box.innerHTML='<input id="prodSearch" class="inp" placeholder="🔎 جستجوی کالا" oninput="filterList(\'prodSearch\',\'prodList\')" style="margin-bottom:10px">'+sorted.map(p=>{
-    return `<div class="list-item${SEL.mode==='prod'&&SEL.ids.has(p.id)?' selected':''}" data-id="${p.id}" data-s="${esc(p.name)}" onclick="rowTap('prod','${p.id}',event)">${selCbx('prod',p.id)}<div style="flex:1"><div class="li-main">${esc(p.name)}</div><div class="li-sub">قیمت: ${faNum(p.price)} تومان${(p.video_jin_url||p.video_jin_fid||p.video_carton_url||p.video_carton_fid)?' · 🎬':''}${(Array.isArray(p.photos)&&p.photos.length)?' · 👗':''}${(p.size_info&&String(p.size_info).trim())?' · 📏':''}</div>${Number(p.price)>0?`<div class="li-sub" style="color:var(--gold-lt);font-weight:600;font-size:11px">${numToFaWords(p.price)} تومان</div>`:''}</div></div>`;
+    return `<div class="list-item${SEL.mode==='prod'&&SEL.ids.has(p.id)?' selected':''}" data-id="${p.id}" data-s="${esc(p.name)}" onclick="rowTap('prod','${p.id}',event)">${selCbx('prod',p.id)}<div style="flex:1"><div class="li-main">${esc(p.name)}</div><div class="li-sub">قیمت: ${faNum(p.price)} تومان${(p.video_jin_url||p.video_jin_fid||p.video_carton_url||p.video_carton_fid)?' · 🎬':''}${(Array.isArray(p.photos)&&p.photos.length)?' · 👗':''}${(p.size_info&&String(p.size_info).trim())?' · 📏':''}</div></div></div>`;
   }).join('');
 }
+function closeProductForm(){ const w=document.getElementById('prodFormWrap'); if(w)w.classList.add('hidden'); window.scrollTo(0,0); }
+function closeCustomerForm(){ const w=document.getElementById('custFormWrap'); if(w)w.classList.add('hidden'); window.scrollTo(0,0); }
 function openProductForm(id){
   // فرم داخلِ صفحه‌ی کالاهاست؛ اگه از جست‌وجوی سراسری صدا زده بشه باید اول بریم همون صفحه، وگرنه هیچی دیده نمی‌شه
   if(document.getElementById('scr-products').classList.contains('hidden'))nav('products');
   const p=id?PRODUCTS.find(x=>x.id===id):null, w=document.getElementById('prodFormWrap');
   w.classList.remove('hidden');
-  w.innerHTML=`<div class="card"><div style="font-weight:700;margin-bottom:12px">${p?'ویرایش کالا':'کالای جدید'}</div>
+  w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${p?'ویرایشِ کالا':'کالای جدید'}</div>${p?`<div class="form-title">${esc(p.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeProductForm()">‹ برگشت به لیست</button></div>
     <div class="field"><label>نام کالا *</label><input id="pName" class="inp" value="${p?esc(p.name):''}"></div>
     <div class="ir-grid"><div class="f field" style="flex:1"><label>قیمت فروش (تومان)</label><input id="pPrice" class="inp" dir="ltr" inputmode="numeric" value="${p?Math.round(p.price||0):0}" oninput="grpInput(this);updatePPriceWords()"><div id="pPriceWords" class="words-hint"></div></div></div>
     <div class="field"><label>اندازه و قواره (برای رباتِ تلگرام)</label><textarea id="pSize" class="inp" rows="3" style="resize:vertical;min-height:70px" placeholder="مثلاً: قد ۷۵ سانت · فری‌سایز تا ۴۶ · جنس نخ‌پنبه">${p?esc(p.size_info||''):''}</textarea><div style="font-size:10.5px;color:var(--muted);margin-top:4px">مشتری تو تلگرام با دکمه‌ی «📏 اندازه قد و قواره کالا» همین متن را می‌بیند</div></div>
@@ -1857,7 +1898,7 @@ function openProductForm(id){
     <div id="medCarton" class="medbox"></div>
     <div id="medPhotos" class="medbox"></div>
     <div id="medStatus" style="font-size:11.5px;color:var(--gold);min-height:16px;margin-bottom:6px"></div>
-    <div class="rowline" style="margin-top:6px"><button class="btn" style="flex:1" onclick="saveProduct('${p?p.id:''}')">${p?'ذخیره تغییرات':'افزودن کالا'}</button><button class="btn sec sm" onclick="document.getElementById('prodFormWrap').classList.add('hidden')">انصراف</button></div>
+    <div class="rowline" style="margin-top:6px"><button class="btn" style="flex:1" onclick="saveProduct('${p?p.id:''}')">${p?'ذخیره تغییرات':'افزودن کالا'}</button><button class="btn sec sm" onclick="closeProductForm()">انصراف</button></div>
     ${p?'':`<button class="btn sec" style="width:100%;margin-top:8px" onclick="saveProduct('',true)">⚡ ذخیره و کالای بعدی</button>`}
     ${p?`<button class="btn red" style="margin-top:10px" onclick="deleteProduct('${p.id}')">🗑️ حذف کالا</button>`:''}
     <div id="pMsg" class="msg"></div></div>`;
@@ -1920,7 +1961,7 @@ async function renderCustomers(){
     else if(b>0)badge=`<span class="pill credit">طلب: ${faNum(b)}</span>`;
     else if(b<0)badge=`<span class="pill paid">بستانکار: ${faNum(-b)}</span>`;
     else badge=`<span class="pill paid">تسویه</span>`;
-    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?esc(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}${balOk?moneyWords(Math.abs(b)):''}</div></div>`;
+    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?esc(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}</div></div>`;
   }).join('');
 }
 async function renderCustomersByProduct(productId, box){
@@ -1940,11 +1981,11 @@ async function renderCustomersByProduct(productId, box){
 function openCustomerForm(id){
   const c=id?CUSTOMERS.find(x=>x.id===id):null, w=document.getElementById('custFormWrap');
   w.classList.remove('hidden');
-  w.innerHTML=`<div class="card"><div style="font-weight:700;margin-bottom:12px">${c?'ویرایش مشتری':'مشتری جدید'}</div>
+  w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${c?'ویرایشِ مشتری':'مشتری جدید'}</div>${c?`<div class="form-title">${esc(c.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeCustomerForm()">‹ برگشت به لیست</button></div>
     <div class="field"><label>نام مشتری / فروشگاه *</label><input id="cName" class="inp" value="${c?esc(c.name):''}"></div>
     <div class="ir-grid"><div class="f field" style="flex:1"><label>شماره تماس</label><input id="cPhone" class="inp" dir="ltr" inputmode="numeric" value="${c?esc(c.phone||''):''}"></div><div class="f field" style="flex:1"><label>شهر</label><input id="cCity" class="inp" value="${c?esc(c.city||''):''}"></div></div>
     <div class="field"><label>آدرس</label><input id="cAddr" class="inp" value="${c?esc(c.address||''):''}"></div>
-    <div class="rowline" style="margin-top:6px"><button class="btn" style="flex:1" onclick="saveCustomer('${c?c.id:''}')">${c?'ذخیره تغییرات':'افزودن مشتری'}</button><button class="btn sec sm" onclick="document.getElementById('custFormWrap').classList.add('hidden')">انصراف</button></div>
+    <div class="rowline" style="margin-top:6px"><button class="btn" style="flex:1" onclick="saveCustomer('${c?c.id:''}')">${c?'ذخیره تغییرات':'افزودن مشتری'}</button><button class="btn sec sm" onclick="closeCustomerForm()">انصراف</button></div>
     <div id="cMsg" class="msg"></div></div>`;
   w.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -1990,7 +2031,7 @@ async function openCustomer(id){
     let html=`<div class="ov-sheet">
       <div style="font-size:18px;font-weight:700">${esc(c.name||'')}</div>
       <div style="font-size:12.5px;color:var(--muted);margin-top:3px">${c.phone?esc(c.phone)+' · ':''}${esc(c.city||'')}</div>
-      <div class="stat ${balOk&&bal>0?'danger':''}" style="margin-top:14px;text-align:center"><div class="lbl">${balLabel}</div><div class="val num" style="color:${balColor}">${balOk?(faNum(Math.abs(bal))+' <small>تومان</small>'):'؟'}</div>${balOk?moneyWords(Math.abs(bal)):'<div class="sw" style="color:var(--danger)">بارگذاری نشد — اینترنت رو چک کن</div>'}</div>
+      <div class="stat ${balOk&&bal>0?'danger':''}" style="margin-top:14px;text-align:center"><div class="lbl">${balLabel}</div><div class="val num" style="color:${balColor}">${balOk?(faNum(Math.abs(bal))+' <small>تومان</small>'):'؟'}</div>${balOk?'':'<div class="sw" style="color:var(--danger)">بارگذاری نشد — اینترنت رو چک کن</div>'}</div>
       ${profileCard}
       ${bal>0?`<button onclick="waReminderFor('${id}',${bal})" style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:0;border-radius:12px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">📲 ارسالِ یادآوریِ بدهی در واتساپ</button>`:''}
       <button onclick="shareStatement('${id}')" style="width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer">📋 صورت‌حساب (عکس برای مشتری)</button>
@@ -2041,29 +2082,37 @@ async function addPayment(customerId){
 /* SETTINGS */
 function renderSettings(){
   const S=SETTINGS||{}, box=document.getElementById('settingsBody');
+  // قبلاً یک فرمِ بلندِ تخت بود و تمِ برنامه وسطِ اطلاعاتِ فروشگاه گیر کرده بود.
+  // حالا هرچه روی فاکتور می‌رود یک‌جا و با یک دکمه‌ی ذخیره است؛ تنظیماتِ گوشی جدا.
   box.innerHTML=`<div class="card">
+    <div class="card-h">🏪 اطلاعاتِ فروشگاه</div>
+    <div class="card-sub">این‌ها روی فاکتور و پیش‌فاکتورِ مشتری چاپ می‌شوند.</div>
     <div class="field"><label>نام فروشگاه</label><input id="sShop" class="inp" value="${esc(S.shop_name||'مدلند قشم')}"></div>
     <div class="field"><label>زیرعنوان</label><input id="sSub" class="inp" value="${esc(S.subtitle||'پخش عمده پوشاک')}"></div>
     <div class="field"><label>آدرس</label><input id="sAddr" class="inp" value="${esc(S.address||'')}"></div>
+    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" value="${esc(S.phone||'')}"></div>
+    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" value="${esc(S.phone2||'')}"></div>
     <div class="ir-grid"><div class="f field" style="flex:1"><label>اینستاگرام</label><input id="sIg" class="inp" dir="ltr" value="${esc(S.instagram||'')}"></div><div class="f field" style="flex:1"><label>تلگرام</label><input id="sTg" class="inp" dir="ltr" value="${esc(S.telegram||'')}"></div></div>
+    <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" class="inp" value="${esc(S.return_policy||'')}"></div>
+    <button class="btn" onclick="saveSettings()">ذخیره تنظیمات</button>
+    <div id="sMsg" class="msg"></div>
+  </div>
+  <div class="card">
+    <div class="card-h">📱 ظاهر و به‌روزرسانی</div>
+    <div class="card-sub">این‌ها روی همین گوشی ذخیره می‌شوند، نه روی سرور.</div>
     <div class="field"><label>تمِ برنامه</label>
       <div class="theme-row">
         <button type="button" class="theme-opt" data-theme="light"  onclick="setTheme('light')">☀️ روشن</button>
         <button type="button" class="theme-opt" data-theme="dark"   onclick="setTheme('dark')">🌙 تاریک</button>
         <button type="button" class="theme-opt" data-theme="system" onclick="setTheme('system')">📱 خودکار</button>
       </div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:5px">«خودکار» یعنی هرچی گوشیت باشه. رو همین گوشی ذخیره می‌شه.</div>
-      <div style="margin-top:9px"><button type="button" class="btn sm sec" onclick="pwaReset()">🧹 پاک کردنِ کش و گرفتنِ نسخه‌ی تازه</button>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">اگه بعدِ آپلود نسخه‌ی جدید رو نمی‌بینی، اینو بزن.</div></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:5px">«خودکار» یعنی هرچی گوشیت باشه.</div>
     </div>
-    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" value="${esc(S.phone||'')}"></div>
-    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" value="${esc(S.phone2||'')}"></div>
-    <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" class="inp" value="${esc(S.return_policy||'')}"></div>
-    <button class="btn" onclick="saveSettings()">ذخیره تنظیمات</button>
-    <div id="sMsg" class="msg"></div>
+    <button type="button" class="btn sm sec" onclick="pwaReset()">🧹 پاک کردنِ کش و گرفتنِ نسخه‌ی تازه</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">اگه بعدِ آپلود نسخه‌ی جدید رو نمی‌بینی، اینو بزن.</div>
   </div>
-  <div class="card"><div style="font-weight:700;margin-bottom:6px">لیست قیمت / کاتالوگ</div><div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">یک عکسِ خوشگل از کالاها و قیمت‌ها بساز و برای مشتری‌ها در واتساپ یا تلگرام بفرست.</div><button class="btn sec" onclick="shareCatalog()">📑 ساختِ لیست قیمت / کاتالوگ</button></div>
-  <div class="card"><div style="font-weight:700;margin-bottom:6px">پشتیبان‌گیری</div><div style="font-size:12.5px;color:var(--muted);margin-bottom:12px">یک فایل اکسل از همه‌ی فاکتورها و مشتری‌ها برای بایگانی دانلود کن.</div><button class="btn sec" onclick="exportBackupCSV()">⬇️ دانلود پشتیبانِ کامل (اکسل)</button></div>`;
+  <div class="card"><div class="card-h">📑 لیست قیمت / کاتالوگ</div><div class="card-sub">یک عکسِ خوشگل از کالاها و قیمت‌ها بساز و برای مشتری‌ها در واتساپ یا تلگرام بفرست.</div><button class="btn sec" onclick="shareCatalog()">📑 ساختِ لیست قیمت / کاتالوگ</button></div>
+  <div class="card"><div class="card-h">💾 پشتیبان‌گیری</div><div class="card-sub">یک فایل اکسل از همه‌ی فاکتورها و مشتری‌ها برای بایگانی دانلود کن.</div><button class="btn sec" onclick="exportBackupCSV()">⬇️ دانلود پشتیبانِ کامل (اکسل)</button></div>`;
   document.querySelectorAll('.theme-opt').forEach(function(b){ b.classList.toggle('on', b.dataset.theme===getTheme()); });
 }
 /* ===== RETURNS (مرجوعی) ===== */
@@ -2093,12 +2142,12 @@ async function renderSalaries(){
       <div id="salMsg" class="msg"></div>
       <button class="btn" onclick="addSalary()">➕ ثبتِ حقوق</button>
     </div>
-    <div class="netrow net" style="font-size:15px;margin-bottom:10px;border:0"><span>جمعِ حقوقِ پرداختیِ این ماه</span><div style="text-align:left"><b class="num" style="color:var(--credit)">${faNum(monthTotal)} تومان</b>${moneyWords(monthTotal)}</div></div>
+    <div class="netrow net" style="font-size:15px;margin-bottom:10px;border:0"><span>جمعِ حقوقِ پرداختیِ این ماه</span><div style="text-align:left"><b class="num" style="color:var(--credit)">${faNum(monthTotal)} تومان</b></div></div>
     <div style="font-weight:700;margin:6px 0">کارمندان <span style="font-size:12px;color:var(--muted);font-weight:400">(بزن تا جزئیات و حذف)</span></div>
     ${empHtml}
     <div style="font-weight:700;margin:16px 0 6px">آخرین پرداخت‌ها</div>`;
   if(sals.length===0) html+='<div class="empty" style="padding:14px">هنوز حقوقی ثبت نشده</div>';
-  else html+=sals.slice(0,50).map(s=>`<div class="list-item"><div><div class="li-main">${esc(s.employee_name||'کارمند')}</div><div class="li-sub">${s.month?'ماهِ '+esc(s.month):esc(s.date||'')}${s.note?' · '+esc(s.note):''}</div></div><div class="li-end" style="display:flex;align-items:center;gap:10px"><div style="text-align:left"><b class="num" style="color:var(--credit)">${faNum(s.amount)}</b>${moneyWords(s.amount)}</div><button onclick="deleteSalary('${s.id}')" style="background:none;border:0;color:var(--muted);font-size:17px;cursor:pointer">🗑</button></div></div>`).join('');
+  else html+=sals.slice(0,50).map(s=>`<div class="list-item"><div><div class="li-main">${esc(s.employee_name||'کارمند')}</div><div class="li-sub">${s.month?'ماهِ '+esc(s.month):esc(s.date||'')}${s.note?' · '+esc(s.note):''}</div></div><div class="li-end" style="display:flex;align-items:center;gap:10px"><div style="text-align:left"><b class="num" style="color:var(--credit)">${faNum(s.amount)}</b></div><button onclick="deleteSalary('${s.id}')" style="background:none;border:0;color:var(--muted);font-size:17px;cursor:pointer">🗑</button></div></div>`).join('');
   html+='</div>'; body.innerHTML=html;
 }
 async function addSalary(){
@@ -2125,7 +2174,7 @@ function openEmployee(i){
       <div class="netrow"><span>از کِی اومده</span><b>${esc(faDigits(since))}</b></div>
       ${firstMonth?`<div class="netrow"><span>اولین ماهِ حقوق</span><b>${esc(faDigits(firstMonth))}</b></div>`:''}
       <div class="netrow"><span>تعدادِ پرداخت</span><b>${faNum(e.rows.length)}</b></div>
-      <div class="netrow net"><span>جمعِ کلِ پرداختی</span><div style="text-align:left"><b class="num" style="color:var(--credit)">${faNum(e.total)} ت</b>${moneyWords(e.total)}</div></div>
+      <div class="netrow net"><span>جمعِ کلِ پرداختی</span><div style="text-align:left"><b class="num" style="color:var(--credit)">${faNum(e.total)} ت</b></div></div>
     </div>
     <div style="font-weight:700;margin:6px 0">پرداخت‌ها</div>
     ${pays||'<div class="empty">—</div>'}
@@ -2235,7 +2284,7 @@ function insPL(days){ if(days)window.PL_DAYS=days; const D=window.PL_DAYS; const
       ${row('فروش (بعدِ تخفیف و مرجوعی)',rev,'var(--accent)')}
       ${sal>0?row('حقوق',sal,'var(--danger)',true):''}
       ${retVal>0?`<div class="netrow" style="opacity:.72"><span>از این‌ها، مرجوعیِ مستقل (قبلاً در فروش کم شد)</span><b class="num">${faNum(retVal)}</b></div>`:''}
-      <div class="netrow net" style="font-size:17px;margin-top:6px"><span>باقی‌مانده</span><div style="text-align:left"><b class="num" style="color:${net>=0?'var(--profit,#0a7)':'var(--danger)'}">${net<0?'− ':''}${faNum(Math.abs(net))} ت</b>${net<0?`<div class="sw">ضررِ ${numToFaWords(Math.abs(net))} تومان</div>`:moneyWords(net)}</div></div>
+      <div class="netrow net" style="font-size:17px;margin-top:6px"><span>باقی‌مانده</span><div style="text-align:left"><b class="num" style="color:${net>=0?'var(--profit,#0a7)':'var(--danger)'}">${net<0?'− ':''}${faNum(Math.abs(net))} ت</b></div></div>
     </div>
     <div style="font-size:11.5px;color:var(--muted);margin-top:10px">فاکتورهای لغوشده حساب نشدن.</div>`;
   document.getElementById('insBody').innerHTML=`<div class="ov-sheet">${h}</div>`;
@@ -2445,15 +2494,15 @@ function renderReport(ym){
   (D.rets||[]).forEach(r=>{ if(iranJalaliKey(new Date(r.created_at)).slice(0,7)!==ym)return; retVal+=Number(r.total_value||0); if(r.settlement==='cash')received-=Number(r.total_value||0); if(r.customer_id)custAgg[r.customer_id]=(custAgg[r.customer_id]||0)-Number(r.total_value||0); asArray(r.items).forEach(it=>{ retCost+=Number(it.quantity||0)*0; const pk=it.product_id||it.name; if(pk&&prodAgg[pk])prodAgg[pk].qty=Math.max(0,prodAgg[pk].qty-Number(it.quantity||0)); }); });
   const netSales=sales-retVal;
   const net=netSales-exp; const topP=Object.values(prodAgg).filter(p=>p.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,5); const topC=Object.entries(custAgg).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const S=SETTINGS||{}; const row=(l,v,c,amt)=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--rep-line);font-size:14px"><span style="color:var(--rep-mut)">${l}</span><div style="text-align:left"><b style="${c?'color:'+c:''}">${v}</b>${amt?moneyWords(amt):''}</div></div>`;
+  const S=SETTINGS||{}; const row=(l,v,c)=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--rep-line);font-size:14px"><span style="color:var(--rep-mut)">${l}</span><div style="text-align:left"><b style="${c?'color:'+c:''}">${v}</b></div></div>`;
   let html=`<div id="repCard" style="background:var(--rep-bg);border-radius:14px;padding:22px;border:1px solid var(--line);color:var(--rep-ink)">
     <div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid #c0901c;padding-bottom:14px;margin-bottom:8px">
       ${logoHTML(50)}
       <div><div style="font-size:19px;font-weight:700">${esc(S.shop_name||'مدلند قشم')}</div><div style="font-size:12.5px;color:#9a6f08;font-weight:700">گزارشِ ماهِ ${faDigits(ym.replace('-','/'))}</div></div>
     </div>
-    ${retVal>0?`<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--rep-line);font-size:14px"><span style="color:var(--rep-mut)">فروش <span style="font-size:10.5px;color:var(--rep-dim)">(پس از کسرِ ${faNum(retVal)} ت مرجوعی)</span></span><div style="text-align:left"><b>${faNum(netSales)} ت</b>${moneyWords(netSales)}</div></div>`:row('فروش', faNum(netSales)+' ت', null, netSales)}
+    ${retVal>0?`<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--rep-line);font-size:14px"><span style="color:var(--rep-mut)">فروش <span style="font-size:10.5px;color:var(--rep-dim)">(پس از کسرِ ${faNum(retVal)} ت مرجوعی)</span></span><div style="text-align:left"><b>${faNum(netSales)} ت</b></div></div>`:row('فروش', faNum(netSales)+' ت', null, netSales)}
     ${row('حقوقِ کارکنان', '− '+faNum(exp)+' ت','#c0392b', exp)}
-    <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #c0901c;margin-top:4px;font-size:16px;font-weight:700"><span>باقی‌مانده پس از حقوق</span><div style="text-align:left"><b style="color:${net<0?'#c0392b':'#1f7a44'}">${net<0?'− ':''}${faNum(Math.abs(net))} ت</b>${net<0?`<div class="sw">ضررِ ${numToFaWords(Math.abs(net))} تومان</div>`:moneyWords(net)}</div></div>
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #c0901c;margin-top:4px;font-size:16px;font-weight:700"><span>باقی‌مانده پس از حقوق</span><div style="text-align:left"><b style="color:${net<0?'#c0392b':'#1f7a44'}">${net<0?'− ':''}${faNum(Math.abs(net))} ت</b></div></div>
     ${row('تعدادِ فاکتور', faNum(cnt)+' عدد')}
     ${row('وصول‌شده (دریافتی این ماه)', faNum(received)+' ت', null, received)}
     <div style="margin-top:16px;font-weight:700;font-size:14px;color:#9a6f08">🔥 ۵ کالای پرفروش</div>
@@ -2539,7 +2588,7 @@ async function renderQuotes(){
   let qs=[]; try{ qs=await sbGetAll("quotes?select=*&order=created_at.desc"); }catch(e){}
   let html=`<div class="ov-sheet"><div style="font-size:18px;font-weight:700;margin-bottom:4px">🧾 پیش‌فاکتورها / سفارش‌ها</div><div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">سفارش‌هایی که هنوز نهایی نشده‌اند. هر وقت تأیید شد «تبدیل به فاکتور» بزن.</div>`;
   if(qs.length===0) html+='<div class="empty" style="padding:16px">پیش‌فاکتوری ثبت نشده</div>';
-  else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc((q.created_at||'').slice(0,10))}${q.note?' · '+esc(q.note):''}</div>${moneyWords(q.items_total||0)}</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button><button class="btn sm" style="flex:1" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm red" onclick="deleteQuote('${q.id}')">حذف</button></div></div>`; }).join('');
+  else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc((q.created_at||'').slice(0,10))}${q.note?' · '+esc(q.note):''}</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button><button class="btn sm" style="flex:1" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm red" onclick="deleteQuote('${q.id}')">حذف</button></div></div>`; }).join('');
   html+='</div>'; body.innerHTML=html;
 }
 async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+encodeURIComponent(id)))[0]; }catch(e){ return null; } }
