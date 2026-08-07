@@ -52,6 +52,9 @@ html[data-theme="dark"] .netcard.neg .netrow.net{ border-top-color:rgba(240,107,
 html[data-theme="dark"] .pill.paid{ background:rgba(78,192,137,.16); }
 html[data-theme="dark"] .pill.partial{ background:rgba(224,176,62,.16); }
 html[data-theme="dark"] .pill.credit{ background:rgba(240,107,86,.16); }
+/* کارتِ هشدار/جمعِ صفحه‌ی مرجوعی — قبلاً زمینه‌ی روشنِ ثابت داشت و در تمِ تیره ناخوانا بود */
+.warnbox{background:#fff7e6;border-color:#e7c980}
+html[data-theme="dark"] .warnbox{ background:rgba(224,176,62,.10); border-color:rgba(224,176,62,.34); }
 /* کارتِ «سفارشِ جدید از تلگرام» هم زمینه‌ی روشنِ ثابت داشت */
 .tgnew{background:linear-gradient(180deg,#eef6ff,#f6fbff);border:1px solid #cfe2f5}
 html[data-theme="dark"] .tgnew{ background:linear-gradient(180deg,#1b2430,#18202b); border-color:rgba(91,155,232,.30); }
@@ -203,6 +206,9 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 .ir-grid{display:flex;gap:8px}
 .ir-grid .f{flex:1}
 .ir-grid .f label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+/* قیمتِ واحد دیگر دستی وارد نمی‌شود: از خودِ کالا می‌آید و اینجا فقط نشان داده می‌شود */
+.ir-linecalc{text-align:left;font-size:11px;color:var(--muted);margin-top:3px;min-height:14px}
+.linkbtn{background:none;border:0;padding:0;font-family:inherit;font-size:11px;font-weight:700;color:var(--gold-lt);text-decoration:underline;cursor:pointer}
 .ir-line{text-align:left;font-size:12.5px;color:var(--gold-lt);font-weight:700;margin-top:8px}
 .words-hint{font-size:11px;color:var(--gold-lt);font-weight:700;margin-top:5px;min-height:14px;line-height:1.6}
 .sw{font-size:10px;color:var(--gold-lt);font-weight:600;line-height:1.5;margin-top:2px}
@@ -272,8 +278,10 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
 .inv-tbl th{background:linear-gradient(180deg,var(--inv-hd-a),var(--inv-hd-b));color:var(--gold-lt);font-size:11.5px;font-weight:700;padding:11px 8px;text-align:center}
 .inv-tbl th.d{text-align:right}
 .inv-tbl td{padding:11px 8px;font-size:12.5px;text-align:center;border-top:1px solid var(--line-soft)}
-.inv-tbl td.d{text-align:right;font-weight:700}
+.inv-tbl td.d{text-align:right;font-weight:700;overflow-wrap:break-word}
 .inv-tbl td.n{font-variant-numeric:tabular-nums;color:var(--gold-lt)}
+/* گوشیِ باریک: بدونِ این، ستونِ «قیمت کل» از کادرِ فاکتور بیرون می‌زد و چون overflow:hidden است بریده می‌شد */
+@media (max-width:360px){ .inv-tbl th,.inv-tbl td{padding:8px 4px;font-size:11px} .inv-tbl td.d{font-size:11.5px} }
 .inv-tot{display:flex;justify-content:flex-start;margin-top:16px}
 .inv-tot .box{width:300px;max-width:100%}
 .inv-tot .tr{display:flex;justify-content:space-between;font-size:13px;padding:6px 2px;color:var(--muted)}
@@ -1225,7 +1233,6 @@ async function fillFromLastInvoice(){
       if(!p){ missing.push(it.product_name||'یه کالا'); return; }
       addItemRow(); const row=wrap.lastElementChild;
       row.querySelector('.ir-prod').value=p.id;
-      const pe=row.querySelector('.ir-price'); pe.value=String(Math.round(p.price||0)); grpInput(pe);
       row.querySelector('.ir-qty').value=String(it.quantity||1);
       added++;
     });
@@ -1238,9 +1245,8 @@ function addItemRow(){
   const wrap=document.getElementById('itemsWrap'), div=document.createElement('div');
   div.className='itemrow';
   div.innerHTML=`<div class="ir-top"><select class="inp ir-prod" onchange="onPickProduct(this)">${productOptions()}</select><button class="del" title="حذفِ این قلم" aria-label="حذفِ این قلم" onclick="this.closest('.itemrow').remove();recalc()">×</button></div>
-    <div class="ir-grid"><div class="f"><label>تعداد</label><input class="inp ir-qty" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div>
-    <div class="f"><label>قیمت واحد (تومان)</label><input class="inp ir-price" dir="ltr" inputmode="numeric" value="0" oninput="grpInput(this);recalc()"><div class="ir-priceword words-hint"></div></div></div>
-    <div class="ir-line">جمع: <span class="ir-linev">۰</span></div>`;
+    <div class="ir-grid"><div class="f"><label>تعداد</label><input class="inp ir-qty" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div></div>
+    <div class="ir-line">جمع: <span class="ir-linev">۰</span></div><div class="ir-linecalc"></div>`;
   wrap.appendChild(div); recalc();
 }
 /* ===== فیلم و عکسِ کالا ===== */
@@ -1296,7 +1302,17 @@ async function medShrinkVideo(file, onProgress, maxDim, targetBytes){
   let ac=null;
   try{
     await new Promise((res,rej)=>{ v.onloadedmetadata=()=>res(); v.onerror=()=>rej(new Error('این فیلم باز نشد — شاید فرمتش برای مرورگر ناشناسه 🙏')); setTimeout(()=>rej(new Error('خوندنِ فیلم طول کشید 🙏')),25000); });
-    const dur=Number(v.duration)||0;
+    let dur=Number(v.duration)||0;
+    if(!dur||!isFinite(dur)){
+      // بعضی فیلم‌ها طولشان در سرصفحه نیست و مرورگر Infinity می‌دهد (ضبطِ خودِ گوشی و
+      // فایل‌های فوروارد‌شده). با یک پرش به انتها، مرورگر مجبور می‌شود واقعی حسابش کند.
+      dur = await new Promise((res)=>{
+        let done=false; const fin=(x)=>{ if(done)return; done=true; try{ v.ontimeupdate=null; }catch(_){} res(Number(x)||0); };
+        v.ontimeupdate=()=>{ const d=Number(v.duration); try{ v.currentTime=0; }catch(_){} fin(isFinite(d)?d:0); };
+        try{ v.currentTime=1e101; }catch(_){ fin(0); }
+        setTimeout(()=>fin(0), 8000);
+      });
+    }
     if(!dur||!isFinite(dur)) throw new Error('طولِ فیلم خونده نشد 🙏');
     let w=v.videoWidth||720, h=v.videoHeight||1280;
     if(Math.max(w,h)>maxDim){ const s=maxDim/Math.max(w,h); w=Math.max(2,Math.round(w*s/2)*2); h=Math.max(2,Math.round(h*s/2)*2); }
@@ -1357,6 +1373,23 @@ async function medShrinkVideo(file, onProgress, maxDim, targetBytes){
     try{ if(ac) ac.close(); }catch(_){}
   }
 }
+/* بعضی گوشی‌ها/مرورگرها در رزولوشنِ بالا رمزگذار را کم می‌آورند و **بی‌سر‌و‌صدا** فایلِ
+   خرابِ چندکیلوبایتی می‌دهند. پس هر خروجی قبل از آپلود باید باز شود و بُعد داشته باشد. */
+async function medVideoUsable(f){
+  if(!f||!f.size) return false;
+  let u=null;
+  try{
+    u=URL.createObjectURL(f);
+    const el=document.createElement('video'); el.preload='metadata'; el.muted=true; el.src=u;
+    return await new Promise((res)=>{ let done=false; const fin=(x)=>{ if(done)return; done=true; res(x); };
+      // فقط بُعدِ تصویر ملاک است. طول را عمداً نمی‌سنجیم: خیلی از فیلم‌های سالم
+      // طولشان در سرصفحه نیست و مرورگر Infinity می‌دهد.
+      el.onloadedmetadata=()=>fin(el.videoWidth>0 && el.videoHeight>0);
+      el.onerror=()=>fin(false);
+      setTimeout(()=>fin(el.videoWidth>0 && el.videoHeight>0), 12000); });
+  }catch(_){ return false; }
+  finally{ try{ if(u)URL.revokeObjectURL(u); }catch(_){} }
+}
 async function medHandle(kind, files){
   const st=document.getElementById('medStatus');
   try{
@@ -1381,10 +1414,16 @@ async function medHandle(kind, files){
       if(f0.size>LIM){
         const mb=(x)=>faNum(Math.round(x/1048576));
         const prog=(lbl)=>(p)=>{ if(st)st.textContent='🎬 '+lbl+' '+faNum(Math.round(p*100))+'٪ — صفحه رو نبند'; };
-        if(st)st.textContent='🎬 این فیلم '+mb(f0.size)+' مگه — دارم کیفیتشو کم می‌کنم…';
-        f=await medShrinkVideo(f0, prog('کم‌کردنِ حجم'), 720, 42*1024*1024);
-        if(f.size>LIM){ f=await medShrinkVideo(f0, prog('یه‌بارِ دیگه'), 540, 28*1024*1024); }
-        if(f.size>LIM){ toast('بازم بالای ۵۰ مگ موند — فیلمو کوتاه‌تر بگیر 🙏'); if(st)st.textContent=''; return; }
+        if(st)st.textContent='🎬 این فیلم '+mb(f0.size)+' مگه و تلگرام بیشتر از ۵۰ نمی‌گیره — دارم کمترین کمِ لازم رو می‌زنم…';
+        // از بالاترین کیفیت شروع کن و فقط وقتی پایین برو که جا نشده یا خروجی سالم درنیامده.
+        // قبلاً هر فیلمی مستقیم ۷۲۰ می‌شد، حتی اگر فقط چند مگ اضافه داشت.
+        f=null;
+        for(const [dim,target,lbl] of [[1440,46*1024*1024,'کم‌کردنِ حجم'],[1080,38*1024*1024,'یه‌بارِ دیگه'],[720,28*1024*1024,'بارِ آخر']]){
+          let out=null;
+          try{ out=await medShrinkVideo(f0, prog(lbl), dim, target); }catch(e){ if(dim===720) throw e; continue; }
+          if(out && out.size<=LIM && await medVideoUsable(out)){ f=out; break; }
+        }
+        if(!f){ toast('این فیلم جا نشد یا سالم فشرده نشد — کوتاه‌ترش بگیر 🙏'); if(st)st.textContent=''; return; }
         toast('فیلم از '+mb(f0.size)+' مگ شد '+mb(f.size)+' مگ '+(f.__audio?'(با صدا) ✅':'⚠️ بی‌صدا'));
         if(!f.__audio) toast('⚠️ صدای این فیلم نیومد — اگه صدا مهمه، فیلمِ کوتاه‌تر و زیرِ ۵۰ مگ بذار');
       }
@@ -1460,13 +1499,36 @@ function discountAmount(total){
   if(m==='p'){ let pct=faFloat(el.value); if(isNaN(pct)||pct<0)pct=0; if(pct>100)pct=100; return Math.round(Number(total||0)*pct/100); }
   return parseNum(el.value);
 }
-function onPickProduct(sel){ const row=sel.closest('.itemrow'), p=PRODUCTS.find(x=>x.id===sel.value), pe=row.querySelector('.ir-price'); if(p){ pe.value=Math.round(p.price||0); grpInput(pe); } recalc(); }
+/* قیمتِ واحد هیچ فیلدی ندارد — از خودِ کالا خوانده می‌شود.
+   استثنا: پیش‌فاکتور. قیمتی که به مشتری قول داده شده روی خودِ ردیف قفل می‌شود
+   (data-lock) تا با تغییرِ قیمتِ کالا عوض نشود. با عوض‌کردنِ کالا قفل باز می‌شود. */
+function rowListPrice(row){ const sel=row&&row.querySelector('.ir-prod'); if(!sel||!sel.value)return 0;
+  const p=PRODUCTS.find(x=>String(x.id)===String(sel.value)); return p?Math.max(0,Math.round(Number(p.price)||0)):0; }
+function rowUnitPrice(row){ if(!row)return 0;
+  const lock=row.dataset?row.dataset.lock:null;
+  if(lock!=null && lock!=='' && Number(lock)>0) return Math.max(0,Math.round(Number(lock)));
+  return rowListPrice(row); }
+function rowUseListPrice(row){ if(row&&row.dataset)delete row.dataset.lock; recalc(); }
+function onPickProduct(sel){ const row=sel.closest('.itemrow'); if(row&&row.dataset)delete row.dataset.lock; recalc(); }
 function recalc(){
   let total=0;
   document.querySelectorAll('.itemrow').forEach(row=>{
-    const pid=row.querySelector('.ir-prod').value, q=parseNum(row.querySelector('.ir-qty').value), pr=parseNum(row.querySelector('.ir-price').value), line=(pid&&q>0&&pr>0)?q*pr:0;
+    const pid=row.querySelector('.ir-prod').value, q=parseNum(row.querySelector('.ir-qty').value), pr=rowUnitPrice(row), line=(pid&&q>0&&pr>0)?q*pr:0;
     row.querySelector('.ir-linev').textContent=faNum(line);
-    const pw=row.querySelector('.ir-priceword'); if(pw)pw.textContent=pr>0?numToFaWords(pr)+' تومان':'';
+    const lc=row.querySelector('.ir-linecalc');
+    if(lc){
+      if(!pid){ lc.textContent=''; }
+      else if(!(pr>0)){ lc.textContent='قیمتِ این کالا ثبت نشده'; }
+      else{
+        const locked=!!(row.dataset&&row.dataset.lock), today=rowListPrice(row);
+        let t=faNum(q>0?q:0)+' عدد × '+faNum(pr)+' تومان';
+        if(locked) t+=' · قیمتِ پیش‌فاکتور';
+        lc.textContent=t;
+        if(locked && today>0 && today!==pr){
+          lc.innerHTML=esc(t)+' — <button type="button" class="linkbtn" onclick="rowUseListPrice(this.closest(\'.itemrow\'))">قیمتِ امروز '+faNum(today)+' بشه؟</button>';
+        }
+      }
+    }
     total+=line;
   });
   const disc=discountAmount(total);
@@ -1481,7 +1543,7 @@ async function submitInvoice(){
   const msg=document.getElementById('nMsg'); msg.className='msg'; msg.textContent='';
   const items=[]; let bad=false, missingProduct=false;
   document.querySelectorAll('.itemrow').forEach(row=>{
-    const pid=row.querySelector('.ir-prod').value, q=parseNum(row.querySelector('.ir-qty').value), pr=parseNum(row.querySelector('.ir-price').value);
+    const pid=row.querySelector('.ir-prod').value, q=parseNum(row.querySelector('.ir-qty').value), pr=rowUnitPrice(row);
     if(!pid&&q>0&&pr>0)missingProduct=true;
     if(pid&&q>0)items.push({product_id:pid,quantity:q,unit_price:pr}); else if(pid&&q<=0)bad=true;
   });
@@ -1663,13 +1725,13 @@ async function openInvoiceReturn(){
   let html=`<div class="ov-sheet">
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">↩️ ثبتِ مرجوعی از فاکتور</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">تعدادی که هر کالا مرجوع شده را وارد کن. از فاکتور کم می‌شود و مبلغش به حسابِ مشتری برمی‌گردد.</div>`;
-  if(Number(CURRENT_INV.discount||0)>0)html+=`<div class="card" style="padding:10px 12px;margin-bottom:10px;font-size:12px;background:#fff7e6;border-color:#e7c980">این فاکتور تخفیف داشته؛ مبلغِ دقیقِ برگشتی موقعِ ثبت با احتسابِ تخفیف حساب می‌شود.</div>`;
+  if(Number(CURRENT_INV.discount||0)>0)html+=`<div class="card warnbox" style="padding:10px 12px;margin-bottom:10px;font-size:12px">این فاکتور تخفیف داشته؛ مبلغِ دقیقِ برگشتی موقعِ ثبت با احتسابِ تخفیف حساب می‌شود.</div>`;
   html+=items.map(it=>`<div class="card" style="padding:12px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(it.name||'کالا')}</b><span style="font-size:12px;color:var(--muted)">${faNum(it.quantity)} عدد × ${faNum(it.unit_price)} ت</span></div>
     <div class="f"><label>تعدادِ مرجوعی (حداکثر ${faNum(it.quantity)})</label>
       <input class="inp invret-qty" data-iid="${esc(it.iid||'')}" data-pid="${esc(it.product_id)}" data-max="${it.quantity}" data-price="${it.unit_price}" dir="ltr" inputmode="numeric" value="0" oninput="invReturnRecalc()"></div>
   </div>`).join('');
-  html+=`<div class="card" style="padding:14px;display:flex;justify-content:space-between;align-items:center;background:#fff7e6;border-color:#e7c980"><b>مبلغی که به مشتری برمی‌گردد</b><div style="text-align:left"><b class="num" id="invRetTotal" style="font-size:18px;color:var(--gold)">۰ تومان</b><div class="sw" id="invRetWords"></div></div></div>
+  html+=`<div class="card warnbox" style="padding:14px;display:flex;justify-content:space-between;align-items:center"><b>مبلغی که به مشتری برمی‌گردد</b><div style="text-align:left"><b class="num" id="invRetTotal" style="font-size:18px;color:var(--gold)">۰ تومان</b><div class="sw" id="invRetWords"></div></div></div>
     <div id="invRetMsg" class="msg"></div>
     <button class="btn" id="invRetSubmit" onclick="submitInvoiceReturn()" style="margin-top:6px">ثبتِ مرجوعی</button>
   </div>`;
@@ -2083,18 +2145,17 @@ async function openInsights(){
   const body=document.getElementById('insBody'); body.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>';
   const failed=[];
   const P=(key,pth)=>sbGetAll(pth).catch(()=>{ failed.push(key); return []; });
-  const [inv,items,prods,bals,custs,exps,sals,rets]=await Promise.all([
+  const [inv,items,prods,bals,custs,sals,rets]=await Promise.all([
     P('inv',"invoices?select=id,status,created_at,total_amount,discount,customer_id,buyer_name"),
     P('items',"invoice_items?select=product_id,product_name,quantity,invoice_id,created_at"),
     P('prods',"products?select=id,name,price,created_at"),
     P('bals',"customer_balances?select=id,balance"),
     P('custs',"customers?select=id,name,phone"),
-    P('exps',"expenses?select=amount,category,created_at"),
     P('sals',"salaries?select=amount,created_at"),
     P('rets',"returns?select=total_value,items,created_at,invoice_id,customer_id")
   ]);
   const cancelled=new Set(inv.filter(x=>x.status==='cancelled').map(x=>x.id));
-  window.INS={inv,items,prods,bals,custs,exps,sals,rets,cancelled,now:Date.now(),failed};
+  window.INS={inv,items,prods,bals,custs,sals,rets,cancelled,now:Date.now(),failed};
   insMenu();
 }
 function insMenu(){
@@ -2104,7 +2165,7 @@ function insMenu(){
     ${insFailBanner()}
     <button class="dash-btn" style="width:100%;text-align:right" onclick="insAlerts()">🔔 مرکزِ هشدارِ روزانه<div style="font-size:11.5px;color:var(--muted);font-weight:400">هرچی امروز باید حواست بهش باشه، یکجا</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">💰 پول</div>
-    <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insPL()">📊 گزارشِ فروش<div style="font-size:11.5px;color:var(--muted);font-weight:400">فروش منهای خرج، حقوق و مرجوعی</div></button>
+    <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insPL()">📊 گزارشِ فروش<div style="font-size:11.5px;color:var(--muted);font-weight:400">فروش منهای حقوق و مرجوعی</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">👥 مشتری</div>
     <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insChurn()">🚶 رادارِ ریزشِ مشتری<div style="font-size:11.5px;color:var(--muted);font-weight:400">کیا کم‌پیدا شدن و باید بکشونی‌شون</div></button>
     <button class="dash-btn" style="width:100%;text-align:right" onclick="insTop()">🏆 پرخریدترین مشتریا<div style="font-size:11.5px;color:var(--muted);font-weight:400">کی بیشتر ازت خرید کرده</div></button>
@@ -2115,7 +2176,7 @@ function insMenu(){
   </div>`;
 }
 function insBack(){ return `<button class="btn sm sec" style="margin-bottom:12px" onclick="insMenu()">‹ برگشت</button>`; }
-const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',exps:'خرج‌ها',sals:'حقوق',rets:'مرجوعی‌ها'};
+const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',sals:'حقوق',rets:'مرجوعی‌ها'};
 function insFailed(keys){ const f=(window.INS&&window.INS.failed)||[]; return keys?f.filter(k=>keys.indexOf(k)>=0):f; }
 function insFailBanner(keys){ const bad=insFailed(keys); if(!bad.length)return '';
   return `<div class="card" style="padding:12px;margin-bottom:12px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ این‌ها بارگذاری نشدند:</b> ${bad.map(k=>esc(INS_SRC_FA[k]||k)).join('، ')}<div style="font-size:11.5px;color:var(--muted);margin-top:4px">پس عددهای این صفحه ناقص‌اند. اینترنت رو چک کن و از اول باز کن.</div></div>`; }
@@ -2157,21 +2218,21 @@ function _sumBy(arr,f){ return arr.reduce((s,x)=>s+Number(f(x)||0),0); }
 /* --- گزارشِ فروش --- */
 window.PL_DAYS=30;
 function insPL(days){ if(days)window.PL_DAYS=days; const D=window.PL_DAYS; const I=window.INS; const since=D>0?_insPeriod(D):0;
-  if(insFailed(['inv','rets','exps','sals','prods']).length){ insBlocked(['inv','rets','exps','sals','prods'],'📊 گزارشِ فروش'); return; }
+  if(insFailed(['inv','rets','sals','prods']).length){ insBlocked(['inv','rets','sals','prods'],'📊 گزارشِ فروش'); return; }
   const inv=insValidInv(since);
   const inRange=(x)=>!since||new Date(x.created_at).getTime()>=since;
   const stRets=I.rets.filter(r=>!r.invoice_id&&inRange(r));
   const retVal=_sumBy(stRets,x=>x.total_value);
   const rev=_sumBy(inv,v=>v.total_amount)-retVal;
-  const exp=_sumBy(I.exps.filter(inRange),x=>x.amount); const sal=_sumBy(I.sals.filter(inRange),x=>x.amount); const ret=retVal;
-  const net=rev-exp-sal;
+  // خرج در پنل جایی برای ثبت ندارد، پس از گزارش هم برداشته شد تا عددِ گمراه‌کننده نسازد
+  const sal=_sumBy(I.sals.filter(inRange),x=>x.amount);
+  const net=rev-sal;
   const tab=(d,t)=>`<button class="btn sm ${D===d?'':'sec'}" style="flex:1" onclick="insPL(${d})">${t}</button>`;
   const row=(l,v,c,neg)=>`<div class="netrow"><span>${l}</span><b class="num" style="color:${c||'inherit'}">${neg&&v>0?'− ':''}${faNum(v)}</b></div>`;
   let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:10px">📊 گزارشِ فروش</div>
     <div style="display:flex;gap:6px;margin-bottom:14px">${tab(30,'۳۰ روز')}${tab(90,'۹۰ روز')}${tab(0,'کل')}</div>
     <div class="card" style="padding:14px">
       ${row('فروش (بعدِ تخفیف و مرجوعی)',rev,'var(--accent)')}
-      ${exp>0?row('خرج‌ها',exp,'var(--danger)',true):''}
       ${sal>0?row('حقوق',sal,'var(--danger)',true):''}
       ${retVal>0?`<div class="netrow" style="opacity:.72"><span>از این‌ها، مرجوعیِ مستقل (قبلاً در فروش کم شد)</span><b class="num">${faNum(retVal)}</b></div>`:''}
       <div class="netrow net" style="font-size:17px;margin-top:6px"><span>باقی‌مانده</span><div style="text-align:left"><b class="num" style="color:${net>=0?'var(--profit,#0a7)':'var(--danger)'}">${net<0?'− ':''}${faNum(Math.abs(net))} ت</b>${net<0?`<div class="sw">ضررِ ${numToFaWords(Math.abs(net))} تومان</div>`:moneyWords(net)}</div></div>
@@ -2458,7 +2519,7 @@ function clearPendingQuote(){ window.PENDING_QUOTE_DELETE=null; window.EDITING_Q
 async function saveQuote(){
   const msg=document.getElementById('nMsg'); msg.className='msg'; msg.textContent='';
   const items=[]; let bad=false, missingProduct=false;
-  document.querySelectorAll('.itemrow').forEach(r=>{ const sel=r.querySelector('.ir-prod'); const pid=sel.value, q=parseNum(r.querySelector('.ir-qty').value), pr=parseNum(r.querySelector('.ir-price').value); if(!pid&&q>0&&pr>0)missingProduct=true; if(pid&&q>0)items.push({product_id:pid,product_name:((PRODUCTS.find(x=>x.id===pid)||{}).name||''),quantity:q,unit_price:pr}); else if(pid&&q<=0)bad=true; });
+  document.querySelectorAll('.itemrow').forEach(r=>{ const sel=r.querySelector('.ir-prod'); const pid=sel.value, q=parseNum(r.querySelector('.ir-qty').value), pr=rowUnitPrice(r); if(!pid&&q>0&&pr>0)missingProduct=true; if(pid&&q>0)items.push({product_id:pid,product_name:((PRODUCTS.find(x=>x.id===pid)||{}).name||''),quantity:q,unit_price:pr}); else if(pid&&q<=0)bad=true; });
   if(missingProduct){ msg.className='msg err'; msg.textContent='برای ردیفی که قیمت دارد، باید کالا انتخاب شود'; return; }
   if(items.length===0){ msg.className='msg err'; msg.textContent='حداقل یک کالا با تعداد معتبر اضافه کن'; return; }
   if(bad){ msg.className='msg err'; msg.textContent='تعداد یکی از کالاها نامعتبر است'; return; }
@@ -2485,7 +2546,8 @@ async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+
 function _fillFormFromQuote(q){
   document.getElementById('nName').value=q.buyer_name||''; document.getElementById('nPhone').value=q.buyer_phone||''; document.getElementById('nCity').value=q.buyer_city||''; document.getElementById('nNote').value=q.note||''; document.getElementById('nDiscount').value=q.discount||0; document.getElementById('nPaid').value=0;
   const wrap=document.getElementById('itemsWrap'); wrap.innerHTML='';
-  asArray(q.items).forEach(it=>{ addItemRow(); const rows=document.querySelectorAll('.itemrow'); const r=rows[rows.length-1]; const sel=r.querySelector('.ir-prod'); sel.value=it.product_id; r.querySelector('.ir-qty').value=it.quantity; r.querySelector('.ir-price').value=Math.round(it.unit_price||0); });
+  asArray(q.items).forEach(it=>{ addItemRow(); const rows=document.querySelectorAll('.itemrow'); const r=rows[rows.length-1]; const sel=r.querySelector('.ir-prod'); sel.value=it.product_id; r.querySelector('.ir-qty').value=it.quantity;
+    const up=Math.round(Number(it.unit_price)||0); if(up>0)r.dataset.lock=String(up); });
   if(document.querySelectorAll('.itemrow').length===0)addItemRow();
   if(typeof checkCustomerMatch==='function')checkCustomerMatch(); recalc();
 }

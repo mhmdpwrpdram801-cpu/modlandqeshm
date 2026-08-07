@@ -33,6 +33,7 @@ def load_cfg(path, html):
             print("  ℹ️  تنظیماتی پیدا نشد — حالتِ خودکار (بررسی‌های عمومی)")
     d.setdefault('name', os.path.basename(html))
     d.setdefault('login', [])
+    d.setdefault('login_done', '')
     d.setdefault('screens', [])
     d.setdefault('reset', '')
     d.setdefault('fixture', '')
@@ -291,7 +292,8 @@ def runtime_checks(url, cfg, html_path):
         except Exception: pass
 
     with sync_playwright() as pw:
-        br = pw.chromium.launch()
+        # پرچمِ پخشِ خودکار لازم است وگرنه مسیرِ فشرده‌سازیِ فیلم اصلاً اجرا نمی‌شود
+        br = pw.chromium.launch(args=['--autoplay-policy=no-user-gesture-required','--mute-audio'])
         pg = br.new_page(viewport={'width': 412, 'height': 900})
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.on('response', lambda r: netfail.append(f"{r.status} {r.url[:80]}") if r.status >= 400 else None)
@@ -312,6 +314,19 @@ def runtime_checks(url, cfg, html_path):
                 pg.wait_for_timeout(step.get('wait', 250))
             except Exception as ex: warn("مرحله‌ی ورود رد شد: " + str(ex)[:70])
         if cfg['login']: pg.wait_for_timeout(900)
+
+        # بدونِ این، ورودِ نیمه‌کاره خودش را به‌شکلِ ده‌ها «باگ» جعلی نشان می‌دهد:
+        # صفحه‌ی ورود سرِ جایش می‌ماند، هر کلیک timeout می‌دهد و هر بررسی صفر برمی‌گرداند.
+        if cfg['login_done']:
+            try:
+                pg.wait_for_function(cfg['login_done'], timeout=25000)
+                ok("برنامه بعد از ورود واقعاً آماده شد")
+            except Exception:
+                bad("بعد از ورود برنامه آماده نشد — ورود ناموفق بوده، نه برنامه خراب")
+                print("     ادامه نمی‌دهم: روی صفحه‌ی ورود، هر کلیک timeout می‌دهد و هر")
+                print("     بررسی صفر برمی‌گرداند و ده‌ها باگِ جعلی ساخته می‌شود.")
+                print("     اول مرحله‌ی login در تنظیمات را درست کن.")
+                br.close(); return
 
         screens = [tuple(s) for s in cfg['screens']]
         guessed = not screens
