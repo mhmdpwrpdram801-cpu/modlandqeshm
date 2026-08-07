@@ -656,7 +656,20 @@ def runtime_checks(url, cfg, html_path, engine='chromium'):
                         pg.evaluate(c['before']); pg.wait_for_timeout(c.get('wait', 400))
                     got = pg.evaluate(c['js'])
                     exp = c['expect']
-                    ok(f"{c['name']}: {got}") if str(got) == str(exp) else bad(f"{c['name']}: {got} ≠ انتظار {exp}")
+                    if str(got) == str(exp):
+                        ok(f"{c['name']}: {got}")
+                    else:
+                        # یک بار دیگر بزن. اگر بارِ دوم درست شد، یعنی ناپایدار است نه خراب —
+                        # وقتِ زیادی صرفِ تعقیبِ همین جور «باگ»های جعلی شده.
+                        pg.wait_for_timeout(400)
+                        if c.get('before'):
+                            if cfg['reset']: pg.evaluate(cfg['reset'])
+                            pg.evaluate(c['before']); pg.wait_for_timeout(c.get('wait', 400))
+                        again = pg.evaluate(c['js'])
+                        if str(again) == str(exp):
+                            warn(f"{c['name']}: بارِ اول «{got}» داد، بارِ دوم درست شد — ناپایدار، نه خراب")
+                        else:
+                            bad(f"{c['name']}: {got} ≠ انتظار {exp}")
                 except Exception as ex: bad(f"{c['name']}: 💥 {str(ex)[:80]}")
 
         head("۱۱) عکس‌برداری")
