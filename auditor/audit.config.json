@@ -423,6 +423,26 @@
       "name": "پاسخِ کهنه‌ی فاکتور روی فاکتورِ تازه نمی‌نشیند",
       "js": "()=>{const f=window.fetch;window.fetch=function(u){const s=String(u);const p=f.apply(this,arguments);return s.indexOf('invoices?select=*&id=eq.i1')>=0?new Promise(r=>setTimeout(()=>r(p),600)):p;};const w=(ms)=>new Promise(r=>setTimeout(r,ms));openInvoiceById('i1');return w(60).then(()=>{openInvoiceById('i2');return w(1400);}).then(()=>{window.fetch=f;const t=document.getElementById('invoiceRender').textContent;document.getElementById('invoiceView').classList.add('hidden');return /۱٬۰۰۲/.test(t)?'تازه':(/۱٬۰۰۱/.test(t)?'کهنه':'?');});}",
       "expect": "تازه"
+    },
+    {
+      "name": "گزارشِ خطا هیچ شماره یا پرس‌وجویی را بیرون نمی‌فرستد",
+      "js": "()=>{const f=window.fetch;window.__SENT=[];window.fetch=function(u,o){const s=String(u);if(s.indexOf('client_errors')>=0){window.__SENT.push(JSON.parse(o.body));return Promise.resolve(new Response('',{status:201}));}return f.apply(this,arguments);};const bak=_errSent;_errSent=0;_errSeen.clear();reportError('reported','خطا در customers?phone=ilike.*09171112233*&select=name — مشتری 09359998877');return new Promise(r=>setTimeout(r,60)).then(()=>{window.fetch=f;const m=(window.__SENT[0]||{}).message||'';_errSent=bak;return (/09171112233|09359998877|ilike/.test(m)?'نشت دارد':'پاک')+'|'+(m?'فرستاد':'نفرستاد');});}",
+      "expect": "پاک|فرستاد"
+    },
+    {
+      "name": "گزارشِ خطا سقف دارد و پیامِ تکراری را دوباره نمی‌فرستد",
+      "js": "()=>{const f=window.fetch;window.__SENT=[];window.fetch=function(u,o){const s=String(u);if(s.indexOf('client_errors')>=0){window.__SENT.push(JSON.parse(o.body));return Promise.resolve(new Response('',{status:201}));}return f.apply(this,arguments);};_errSent=0;_errSeen.clear();reportError('reported','یکسان');reportError('reported','یکسان');for(let i=0;i<20;i++)reportError('reported','جدا '+i);return new Promise(r=>setTimeout(r,80)).then(()=>{window.fetch=f;const n=window.__SENT.length,d=window.__SENT.filter(x=>x.message==='یکسان').length;_errSent=0;_errSeen.clear();return (n<=8?'زیرِ سقف':'از سقف رد شد')+'|تکراری='+d;});}",
+      "expect": "زیرِ سقف|تکراری=1"
+    },
+    {
+      "name": "خطای واقعی و ردشدنِ بی‌صاحب خودکار ثبت می‌شوند",
+      "js": "()=>{const f=window.fetch;window.__SENT=[];window.fetch=function(u,o){const s=String(u);if(s.indexOf('client_errors')>=0){window.__SENT.push(JSON.parse(o.body));return Promise.resolve(new Response('',{status:201}));}return f.apply(this,arguments);};_errSent=0;_errSeen.clear();setTimeout(()=>{throw new Error('خطای آزمایشی');},0);Promise.reject(new Error('ردشدنِ آزمایشی'));return new Promise(r=>setTimeout(r,400)).then(()=>{window.fetch=f;const k=window.__SENT.map(x=>x.kind).sort().join(',');_errSent=0;_errSeen.clear();return k;});}",
+      "expect": "error,rejection"
+    },
+    {
+      "name": "خطای خودِ گزارش‌دهنده حلقه نمی‌سازد",
+      "js": "()=>{const f=window.fetch;let n=0;window.fetch=function(u){if(String(u).indexOf('client_errors')>=0){n++;throw new Error('شکستِ عمدیِ فرستادن');}return f.apply(this,arguments);};_errSent=0;_errSeen.clear();try{reportError('reported','یک خطا');}catch(e){window.fetch=f;return 'throw کرد: '+e.message;}return new Promise(r=>setTimeout(r,200)).then(()=>{window.fetch=f;_errSent=0;_errSeen.clear();return n===1?'یک بار، بدونِ حلقه':('چند بار: '+n);});}",
+      "expect": "یک بار، بدونِ حلقه"
     }
   ],
   "click_test": {
