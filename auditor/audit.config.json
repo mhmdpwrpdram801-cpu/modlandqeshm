@@ -368,6 +368,21 @@
       "name": "بستن با دکمه‌ی خودِ برنامه، تاریخچه را انباشته نمی‌کند",
       "js": "()=>{const V=document.getElementById('reportView');const wait=()=>new Promise(r=>setTimeout(r,80));return wait().then(()=>{V.classList.remove('hidden');return wait();}).then(()=>{V.classList.add('hidden');return wait().then(wait);}).then(()=>String(_ovMarks)+'|'+String(_ovOpen.length));}",
       "expect": "0|0"
+    },
+    {
+      "name": "پاسخِ کهنه‌ی جست‌وجوی فاکتور روی لیستِ کامل نمی‌نشیند",
+      "js": "()=>{const f=window.fetch;window.fetch=function(u){const s=String(u);const slow=s.indexOf('/rest/v1/invoices')>=0&&s.indexOf('or=')>=0;const p=f.apply(this,arguments);return slow?new Promise(r=>setTimeout(()=>r(p),500)):p;};const box=document.getElementById('invList');const w=(ms)=>new Promise(r=>setTimeout(r,ms));return nav('invoices'),w(250).then(()=>{document.getElementById('invSearch').value='گل';searchInvoices();return w(40);}).then(()=>{document.getElementById('invSearch').value='';searchInvoices();return w(1100);}).then(()=>{window.fetch=f;return /نتیجه/.test(box.textContent)?'پاسخِ کهنه نشست':'درست';});}",
+      "expect": "درست"
+    },
+    {
+      "name": "در جست‌وجوی سراسری، نتیجه‌ی حرفِ قبلی روی حرفِ تازه نمی‌نشیند",
+      "js": "()=>{const f=window.fetch;window.fetch=function(u){const s=String(u);const slow=s.indexOf('/rest/v1/products')>=0&&s.indexOf('ilike')>=0;const p=f.apply(this,arguments);return slow?new Promise(r=>setTimeout(()=>r(p),500)):p;};const w=(ms)=>new Promise(r=>setTimeout(r,ms));const body=document.getElementById('searchBody');document.getElementById('searchView').classList.remove('hidden');document.getElementById('gsInput').value='شلوار';gsRun();return w(40).then(()=>{document.getElementById('gsInput').value='';return gsRun();}).then(()=>w(1100)).then(()=>{window.fetch=f;document.getElementById('searchView').classList.add('hidden');return /آخرین فاکتورها/.test(body.textContent)?'درست':'پاسخِ کهنه نشست: '+body.textContent.slice(0,40);});}",
+      "expect": "درست"
+    },
+    {
+      "name": "شماره‌گذاریِ جعبه‌ها واقعاً جلو می‌رود",
+      "js": "()=>{const a=seqStart('__t');const b=seqStart('__t');return String(b===a+1)+'|'+String(seqStale('__t',a))+'|'+String(seqStale('__t',b));}",
+      "expect": "true|true|false"
     }
   ],
   "click_test": {
