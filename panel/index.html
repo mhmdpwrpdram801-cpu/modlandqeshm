@@ -20,7 +20,7 @@
   --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec;
   --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06;
   --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09);
-  --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; --rep-bg:#ffffff; --rep-ink:#221d15; --rep-line:#eeeeee; --rep-mut:#555555; --rep-dim:#999999; --ovbar:#faf6ec; --ovbar-line:rgba(192,144,28,.28); --surf-hi:#fbf4e3; --surf-press:#f6efdc;
+  --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --danger:#c0392b; --accent:#9a6f08; --profit:#1f7a44; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; --rep-bg:#ffffff; --rep-ink:#221d15; --rep-line:#eeeeee; --rep-mut:#555555; --rep-dim:#999999; --ovbar:#faf6ec; --ovbar-line:rgba(192,144,28,.28); --surf-hi:#fbf4e3; --surf-press:#f6efdc;
   --nav-h:62px;
 }
 html[data-theme="dark"]{
@@ -28,7 +28,7 @@ html[data-theme="dark"]{
   --bg:#121316; --card:#1b1d21; --panel:#212429;
   --gold:#e3b64a; --gold-lt:#f0cd72; --gold-dp:#c79a2e;
   --ink:#eceef2; --muted:#9aa0ab; --line:rgba(227,182,74,.30); --line-soft:rgba(236,238,242,.08);
-  --paid:#4ec089; --partial:#e0b03e; --credit:#f06b56; --blue:#5b9be8; --inv-hd-a:#2b2921; --inv-hd-b:#24221c; --inv-gr-a:#2e2a1f; --inv-gr-b:#26231a; --rep-bg:#1b1d21; --rep-ink:#eceef2; --rep-line:rgba(236,238,242,.12); --rep-mut:#9aa0ab; --rep-dim:#7c8390; --ovbar:#1a1713; --ovbar-line:rgba(227,182,74,.22); --surf-hi:#2a2620; --surf-press:#23201a;
+  --paid:#4ec089; --partial:#e0b03e; --credit:#f06b56; --danger:#f06b56; --accent:#f0cd72; --profit:#5ed69b; --blue:#5b9be8; --inv-hd-a:#2b2921; --inv-hd-b:#24221c; --inv-gr-a:#2e2a1f; --inv-gr-b:#26231a; --rep-bg:#1b1d21; --rep-ink:#eceef2; --rep-line:rgba(236,238,242,.12); --rep-mut:#9aa0ab; --rep-dim:#7c8390; --ovbar:#1a1713; --ovbar-line:rgba(227,182,74,.22); --surf-hi:#2a2620; --surf-press:#23201a;
 }
 html[data-theme="dark"] body{
   background:
@@ -101,7 +101,7 @@ html[data-theme="dark"] .skel::after{background:linear-gradient(90deg,transparen
 .theme-row{display:flex;gap:8px}
 .theme-opt{flex:1;padding:11px 6px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13.5px;font-weight:600;cursor:pointer}
 .theme-opt.on{background:var(--gold);color:#fff;border-color:var(--gold)}
-.force-light{ --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec; --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06; --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09); --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; --rep-bg:#ffffff; --rep-ink:#221d15; --rep-line:#eeeeee; --rep-mut:#555555; --rep-dim:#999999; color:var(--ink); }
+.force-light{ --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec; --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06; --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09); --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --danger:#c0392b; --accent:#9a6f08; --profit:#1f7a44; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; --rep-bg:#ffffff; --rep-ink:#221d15; --rep-line:#eeeeee; --rep-mut:#555555; --rep-dim:#999999; color:var(--ink); }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);font-family:'Vazirmatn','Tahoma',sans-serif;color:var(--ink);font-size:15px}
 input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
@@ -350,7 +350,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
 @media print{
   body *{visibility:hidden}
   #invoiceView, #invoiceView *{visibility:visible}
-  #invoiceView{position:absolute;inset:0;background:#fff;overflow:visible; --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec; --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06; --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09); --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; color:#221d15}
+  #invoiceView{position:absolute;inset:0;background:#fff;overflow:visible; --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec; --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06; --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09); --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --danger:#c0392b; --accent:#9a6f08; --profit:#1f7a44; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; color:#221d15}
   .overlay{position:absolute;background:#fff}
   .ov-bar,.sheetwrap{display:none}
   .invoice{box-shadow:none;border:1px solid #d8c7a0;max-width:100%;border-radius:0}
@@ -744,7 +744,18 @@ document.addEventListener('keydown',function(e){
 /* ask() جایگزینِ await ask() است و همان قرارداد را دارد: true یعنی ادامه بده.
    خطِ اولِ متن اگر با ⚠️ شروع شود، جدا و برجسته نشان داده می‌شود — همان خطی که
    در await ask()ِ بومی قاطیِ بقیه می‌شد و کسی نمی‌خواندش. */
+/* یک <dialog> بیشتر نداریم، پس دو پرسشِ هم‌زمان همدیگر را خراب می‌کنند: دومی متن و
+   دکمه‌های اولی را عوض می‌کند، showModal روی پنجره‌ی بازِ قبلی خطا می‌دهد و می‌افتد
+   روی confirmِ بومی، و Promiseی اولی تا ابد معلق می‌مانَد. با دو بار زدنِ سریعِ یک
+   دکمه روی گوشی به‌راحتی پیش می‌آید. پس صفشان می‌کنیم: هرکه دیرتر آمد، منتظر می‌مانَد. */
+let _askChain=Promise.resolve();
 function ask(message, opts){
+  const run=()=>_askOne(message,opts);
+  const p=_askChain.then(run,run);
+  _askChain=p.then(()=>{},()=>{});   /* زنجیره نباید با یک خطا قطع شود */
+  return p;
+}
+function _askOne(message, opts){
   const o=opts||{};
   const dlg=document.getElementById('askDlg');
   if(!dlg||typeof dlg.showModal!=='function') return Promise.resolve(confirm(message));
@@ -773,9 +784,30 @@ function ask(message, opts){
     try{ dlg.showModal(); }catch(_){ finish(confirm(raw)); }
   });
 }
-function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2300); }
+/* تایمرِ قبلی باید لغو شود، وگرنه پیامِ دوم با تایمرِ پیامِ اول زودتر از موعد محو می‌شود */
+let _toastT=null;
+function toast(m){ const t=document.getElementById('toast'); if(!t)return; t.textContent=m; t.classList.add('show');
+  if(_toastT)clearTimeout(_toastT); _toastT=setTimeout(()=>{ _toastT=null; t.classList.remove('show'); },2300); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function copyText(t){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t); toast('کپی شد ✅'); return; } }catch(e){} try{ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('کپی شد ✅'); }catch(e){ toast('کپی نشد — دستی انتخاب کن'); } }
+/* «کپی شد ✅» فقط وقتی که واقعاً کپی شده باشد. writeText یک Promise است: قبلاً
+   بدونِ منتظر ماندن پیامِ موفقیت می‌داد و اگر مرورگر رد می‌کرد (سافاری بیرون از
+   لمسِ کاربر) هم پیامِ دروغ می‌داد هم یک «ردشدنِ بی‌صاحب» بالا می‌آمد. */
+function _copyFallback(t){
+  try{ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const ok=document.execCommand('copy'); document.body.removeChild(ta);
+    toast(ok?'کپی شد ✅':'کپی نشد — دستی انتخاب کن');
+  }catch(e){ toast('کپی نشد — دستی انتخاب کن'); }
+}
+function copyText(t){
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(()=>toast('کپی شد ✅'),()=>_copyFallback(t));
+      return;
+    }
+  }catch(e){}
+  _copyFallback(t);
+}
 function _normS(s){ return String(s==null?'':s).replace(/[۰-۹]/g,ch=>ch.charCodeAt(0)-1776).replace(/[٠-٩]/g,ch=>ch.charCodeAt(0)-1632).toLowerCase(); }
 function filterList(inpId,listId){ const inp=document.getElementById(inpId); if(!inp)return; const q=_normS(inp.value.trim()); document.querySelectorAll('#'+listId+' .list-item').forEach(el=>{ el.style.display=(!q||_normS(el.dataset.s||'').includes(q))?'':'none'; }); }
 function grpInput(el){ if(!el)return; const sep='٬'; const start=el.selectionStart; const before=el.value.slice(0,start==null?el.value.length:start); const dBefore=normalizeDigits(before).replace(/[^\d]/g,'').length; const raw=normalizeDigits(el.value).replace(/[^\d]/g,''); if(!raw){ el.value=''; return; } const g=faNum(Number(raw)); el.value=g; let pos=0,seen=0; while(pos<g.length&&seen<dBefore){ if(g[pos]!==sep)seen++; pos++; } try{ el.setSelectionRange(pos,pos); }catch(e){} }
@@ -1874,6 +1906,21 @@ function ensureH2C(){
   });
   return _h2cP;
 }
+/* فرستادن یا دانلودِ عکس — یک جا، چون هر چهار جا یک اشتباه داشتند:
+   اگر navigator.share رد می‌شد هیچ اتفاقی نمی‌افتاد. کاربر دکمه را می‌زد و
+   نه عکسی می‌آمد نه پیامی. روی سافاری این حالتِ عادی است: بینِ کلیکِ کاربر تا
+   آماده شدنِ عکس (بارگذاریِ h2c + رندر + toBlob) «اجازه‌ی کاربر» منقضی می‌شود و
+   share با NotAllowedError رد می‌شود. حالا فقط وقتی ساکت می‌مانیم که خودِ کاربر
+   لغو کرده باشد (AbortError)؛ بقیه‌ی خطاها می‌افتند روی دانلود. */
+async function shareOrDownload(blob, filename, shareData, okMsg){
+  const file=new File([blob],filename,{type:blob.type||'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share(Object.assign({files:[file]},shareData||{})); return; }
+    catch(e){ if(e&&e.name==='AbortError')return; }   /* خودش لغو کرد — بی‌صدا */
+  }
+  dlBlob(blob, filename);
+  toast(okMsg||'عکس دانلود شد ✅');
+}
 async function shareInvoiceImage(target){
   const el=document.querySelector('#invoiceRender .invoice'); if(!el)return;
   if(!(await ensureH2C())){ toast('ابزارِ عکس بارگذاری نشد، از چاپ استفاده کن'); return; }
@@ -1882,16 +1929,11 @@ async function shareInvoiceImage(target){
   const caption=((SETTINGS&&SETTINGS.shop_name)||'مدلند قشم')+' — فاکتور فروش';
   try{
     el.classList.add('force-light');
-    const canvas=await html2canvas(el,{scale:2,backgroundColor:'#ffffff',useCORS:true}).finally(()=>el.classList.remove('force-light'));
+    const canvas=await renderToCanvas(el,{useCORS:true}).finally(()=>el.classList.remove('force-light'));
     canvas.toBlob(async(blob)=>{
       if(!blob){ toast('خطا در ساخت عکس'); return; }
-      const file=new File([blob],'factor-modland.png',{type:'image/png'});
-      if(navigator.canShare&&navigator.canShare({files:[file]})){
-        try{ await navigator.share({files:[file],text:caption,title:'فاکتور مدلند'}); }catch(e){}
-      }else{
-        const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download='factor-modland.png'; a.click(); URL.revokeObjectURL(url);
-        toast(appName?('عکس ذخیره شد ✅ حالا در '+appName+' بفرستش'):'عکس فاکتور دانلود شد ✅');
-      }
+      await shareOrDownload(blob,'factor-modland.png',{text:caption,title:'فاکتور مدلند'},
+        appName?('عکس ذخیره شد ✅ حالا در '+appName+' بفرستش'):'عکس فاکتور دانلود شد ✅');
     },'image/png');
   }catch(e){ toast('خطا در ساخت عکس'); }
 }
@@ -2042,12 +2084,17 @@ async function searchInvoices(){
 }
 async function openInvoiceById(id){
   toast('در حال باز کردن…');
+  // دو فاکتور را پشتِ سرِ هم باز کنی و پاسخِ اولی دیرتر برسد، فاکتورِ اول روی دومی
+  // می‌نشیند و CURRENT_INV هم مالِ همان می‌شود — یعنی «ابطال» و «ثبتِ پرداخت» روی
+  // فاکتوری عمل می‌کنند که تو نمی‌بینی. پس فقط تازه‌ترین درخواست حق دارد بنویسد.
+  const _q=seqStart('invoiceRender');
   try{
     const _iid=encodeURIComponent(id);
     const [_invArr,items]=await Promise.all([                       // با هم
       sbGet("invoices?select=*&id=eq."+_iid),
       sbGetAll("invoice_items?select=*&invoice_id=eq."+_iid+"&order=created_at.asc")
     ]);
+    if(seqStale('invoiceRender',_q))return;   /* در این فاصله فاکتورِ دیگری باز شده */
     const inv=_invArr[0];
     if(!inv){ toast('فاکتور پیدا نشد یا حذف شده'); return; }
     const data={ id:inv.id, invoice_number:inv.invoice_number, date:inv.date, buyer_name:inv.buyer_name, buyer_phone:inv.buyer_phone, buyer_city:inv.buyer_city, items_total:inv.items_total, discount:inv.discount, total_amount:inv.total_amount, paid_amount:inv.paid_amount, status:inv.status, items:items.map(it=>({name:it.product_name,quantity:it.quantity,unit_price:it.unit_price})) };
@@ -2059,6 +2106,7 @@ async function openInvoiceById(id){
     document.getElementById('invoiceView').classList.remove('hidden'); window.scrollTo(0,0);
     try{
       const ps=await sbGetAll("payments?select=amount,date&invoice_id=eq."+_iid+"&order=created_at.asc");
+      if(seqStale('invoiceRender',_q))return;
       const later=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0);
       if(_pi && later>0){
         const rem=Math.max(0, Number(inv.total_amount||0)-Number(inv.paid_amount||0)-later);
@@ -2211,6 +2259,10 @@ async function openCustomer(id){
   const box=document.getElementById('custRender');
   document.getElementById('custView').classList.remove('hidden'); window.scrollTo(0,0);
   box.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>';
+  // دو مشتری را پشتِ سرِ هم باز کنی و پاسخِ اولی دیرتر برسد، صفحه‌ی مشتریِ اول روی
+  // دومی می‌نشیند — و دکمه‌ی «ثبت پرداخت» شناسه‌ی همان را در خود دارد. یعنی پول به
+  // حسابِ اشتباه. پس فقط تازه‌ترین درخواست حق دارد بنویسد.
+  const _q=seqStart('custRender');
   try{
     // هر پنج‌تا مستقل‌ان — با هم می‌فرستیم، نه پشتِ سرِ هم (رو VPN پنج برابر فرق می‌کنه)
     const _eid=encodeURIComponent(id);
@@ -2221,6 +2273,7 @@ async function openCustomer(id){
       sbGet("customer_balances?select=balance&id=eq."+_eid).then(r=>({ok:true,v:Number((r[0]||{}).balance||0)})).catch(()=>({ok:false,v:0})),
       sbGetAll("invoice_items?select=product_name,quantity,line_total,invoices!inner(customer_id,status)&invoices.customer_id=eq."+_eid+"&invoices.status=neq.cancelled&order=created_at.asc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]}))
     ]);
+    if(seqStale('custRender',_q))return;   /* در این فاصله مشتریِ دیگری باز شده */
     const c=_c[0]||{}; const invs=_invs; const pays=_pays;
     let bal=_bal.v, balOk=_bal.ok;
     let topItems=[];
@@ -2253,7 +2306,7 @@ async function openCustomer(id){
     PAY_FOR_INV = null;
     PAY_REQ_ID = (window.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Date.now()+Math.random().toString(16).slice(2));
     const pa=document.getElementById('payAmount'); if(pa)pa.addEventListener('input',()=>{ grpInput(pa); const w=document.getElementById('payWords'); const v=parseNum(pa.value); w.textContent=v>0?numToFaWords(v)+' تومان':''; });
-  }catch(e){ box.innerHTML='<div class="ov-sheet"><div class="empty">'+esc(e.message)+'</div></div>'; }
+  }catch(e){ if(seqStale('custRender',_q))return; box.innerHTML='<div class="ov-sheet"><div class="empty">'+esc(e.message)+'</div></div>'; }
 }
 function closeCustomer(){ document.getElementById('custView').classList.add('hidden'); }
 async function deleteCustomer(id){
@@ -2386,12 +2439,11 @@ function openEmployee(i){
 }
 async function deleteEmployee(i){
   const e=(window.EMP_LIST||[])[i]; if(!e)return;
-  if(!await ask('کارمند «'+e.name+'» و هر '+e.rows.length+' ردیفِ حقوقش برای همیشه حذف شود؟ این کار برگشت ندارد.'))return;
+  if(!await ask('کارمند «'+e.name+'» و هر '+faNum(e.rows.length)+' ردیفِ حقوقش برای همیشه حذف شود؟ این کار برگشت ندارد.'))return;
   try{ await Promise.all(_chunks(e.rows.map(s=>s.id),60).map(ch=>sbFetch("salaries?id=in.("+_inList(ch)+")",{method:"DELETE",headers:{"Prefer":"return=minimal"}}).then(r=>{ if(!r.ok)throw new Error('خطا در حذف'); }))); toast('کارمند حذف شد'); await renderSalaries(); }catch(err){ toast(err.message); }
 }
 
 /* ===== INSIGHTS & TOOLS (بینش‌ها و ابزارها) ===== */
-const INS_LEAD_DAYS=21, INS_WINDOW=30, INS_SLEEP=30;
 async function openInsights(){
   document.getElementById('insightsView').classList.remove('hidden');
   const body=document.getElementById('insBody'); body.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>';
@@ -2440,12 +2492,13 @@ function insRetQty(pid,sinceMs){ const I=window.INS; let q=0; (I.rets||[]).forEa
 function insTop(){
   if(insFailed(['inv','rets','prods','custs']).length){ insBlocked(['inv','rets','prods','custs'],'🏆 پرخریدترین مشتریا'); return; }
   const I=window.INS; const g={};
-  I.inv.forEach(v=>{ if(v.status==='cancelled')return; const key=v.customer_id||('n:'+(v.buyer_name||'بدون نام')); const rev=Number(v.total_amount||0); const prof=rev; const nm=v.customer_id?((I.custs.find(c=>c.id===v.customer_id)||{}).name||v.buyer_name||'مشتری'):(v.buyer_name||'بدون نام'); (g[key]=g[key]||{name:nm,rev:0,prof:0,cnt:0}); g[key].rev+=rev; g[key].prof+=prof; g[key].cnt++; });
-  (I.rets||[]).forEach(r=>{ if(r.invoice_id)return; const key=r.customer_id; if(!key||!g[key])return; const rv=Number(r.total_value||0); g[key].rev-=rv; g[key].prof-=rv; });
-  const rows=Object.values(g).sort((a,b)=>b.prof-a.prof).slice(0,25);
+  const _cn={}; I.custs.forEach(c=>{ _cn[c.id]=c.name; });   /* یک بار نقشه بساز، نه find در حلقه */
+  I.inv.forEach(v=>{ if(v.status==='cancelled')return; const key=v.customer_id||('n:'+(v.buyer_name||'بدون نام')); const rev=Number(v.total_amount||0); const nm=v.customer_id?(_cn[v.customer_id]||v.buyer_name||'مشتری'):(v.buyer_name||'بدون نام'); (g[key]=g[key]||{name:nm,rev:0,cnt:0}); g[key].rev+=rev; g[key].cnt++; });
+  (I.rets||[]).forEach(r=>{ if(r.invoice_id)return; const key=r.customer_id; if(!key||!g[key])return; g[key].rev-=Number(r.total_value||0); });
+  const rows=Object.values(g).sort((a,b)=>b.rev-a.rev).slice(0,25);
   let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:2px">🏆 پرخریدترین مشتریا</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">ردیف‌شده بر اساسِ مبلغِ خرید</div>`;
   if(rows.length===0) h+='<div class="card" style="padding:16px;text-align:center;color:var(--muted)">هنوز فروشی ثبت نشده</div>';
-  else h+=rows.map((r,i)=>`<div class="list-item"><div><div class="li-main">${i<3?['🥇','🥈','🥉'][i]+' ':''}${esc(r.name)}</div><div class="li-sub">${faNum(r.cnt)} فاکتور · فروش ${faNum(r.rev)} ت</div></div><div class="li-end" style="text-align:left"><div style="font-size:11px;color:var(--muted)">جمعِ خرید</div><b class="num" style="color:var(--accent)">${faNum(r.prof)}</b></div></div>`).join('');
+  else h+=rows.map((r,i)=>`<div class="list-item"><div><div class="li-main">${i<3?['🥇','🥈','🥉'][i]+' ':''}${esc(r.name)}</div><div class="li-sub">${faNum(r.cnt)} فاکتور</div></div><div class="li-end" style="text-align:left"><div style="font-size:11px;color:var(--muted)">جمعِ خرید</div><b class="num" style="color:var(--accent)">${faNum(r.rev)} ت</b></div></div>`).join('');
   document.getElementById('insBody').innerHTML=`<div class="ov-sheet">${h}</div>`;
 }
 
@@ -2497,7 +2550,11 @@ function insPL(days){ if(days)window.PL_DAYS=days; const D=window.PL_DAYS; const
 
 
 /* --- رادارِ ریزشِ مشتری --- */
-function insChurn(){ const I=window.INS; const g={};
+function insChurn(){ const I=window.INS;
+  // بدونِ این، اگر فاکتورها یا مشتری‌ها بارگذاری نشده باشند «ریزشی نداری 👌» می‌گفت —
+  // یعنی خبرِ خوشِ دروغ. همان قاعده‌ی بقیه‌ی صفحه‌ها: ندانستن بهتر از عددِ غلط است.
+  if(insFailed(['inv','custs']).length){ insBlocked(['inv','custs'],'🚶 رادارِ ریزشِ مشتری'); return; }
+  const g={};
   I.inv.forEach(v=>{ if(v.status==='cancelled'||!v.customer_id)return; (g[v.customer_id]=g[v.customer_id]||[]).push(new Date(v.created_at).getTime()); });
   const rows=[];
   Object.keys(g).forEach(cid=>{ const ds=g[cid].sort((a,b)=>a-b); if(ds.length<2)return; let gap=0; for(let i=1;i<ds.length;i++)gap+=ds[i]-ds[i-1]; gap=gap/(ds.length-1); const last=ds[ds.length-1]; const sinceLast=I.now-last; if(sinceLast>gap*2 && sinceLast>14*86400000){ const c=I.custs.find(x=>x.id===cid)||{}; rows.push({name:c.name||'مشتری',phone:c.phone||'',gapD:Math.round(gap/86400000),sinceD:Math.floor(sinceLast/86400000),cnt:ds.length}); } });
@@ -2510,7 +2567,9 @@ function insChurn(){ const I=window.INS; const g={};
 }
 
 /* --- با هم می‌فروشن --- */
-function insAffinity(){ const I=window.INS; const byInv={};
+function insAffinity(){ const I=window.INS;
+  if(insFailed(['items']).length){ insBlocked(['items'],'🔗 با هم می‌فروشن'); return; }
+  const byInv={};
   I.items.forEach(it=>{ if(I.cancelled.has(it.invoice_id))return; const nm=it.product_name||'؟'; (byInv[it.invoice_id]=byInv[it.invoice_id]||new Set()).add(nm); });
   const pair={};
   Object.values(byInv).forEach(set=>{ const arr=[...set]; for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){ const key=[arr[i],arr[j]].sort().join(' + '); pair[key]=(pair[key]||0)+1; } });
@@ -2537,14 +2596,17 @@ function insReturns(){ const I=window.INS; if(insFailed(['rets','items']).length
 
 /* --- مرکزِ هشدارِ روزانه --- */
 function insAlerts(){ const I=window.INS; const now=I.now;
-  if(insFailed(['prods','items','bals']).length){ insBlocked(['prods','items','bals'],'🚨 هشدارها'); return; }
+  if(insFailed(['prods','items','bals','custs','inv']).length){ insBlocked(['prods','items','bals','custs','inv'],'🔔 مرکزِ هشدارِ روزانه'); return; }
   // debtors
   const bm={}; I.bals.forEach(b=>bm[b.id]=Number(b.balance||0)); const debt=I.custs.map(c=>bm[c.id]||0).filter(v=>v>0); const debtTot=debt.reduce((s,v)=>s+v,0);
   // churn count
   const g={}; I.inv.forEach(v=>{ if(v.status==='cancelled'||!v.customer_id)return; (g[v.customer_id]=g[v.customer_id]||[]).push(new Date(v.created_at).getTime()); });
   let churn=0; Object.values(g).forEach(ds=>{ if(ds.length<2)return; ds.sort((a,b)=>a-b); let gap=0; for(let i=1;i<ds.length;i++)gap+=ds[i]-ds[i-1]; gap/=ds.length-1; const sl=now-ds[ds.length-1]; if(sl>gap*2&&sl>14*86400000)churn++; });
   // sleeping
-  const sBefore=now-30*86400000, nBefore=now-14*86400000; let sleep=0; I.prods.forEach(p=>{ if(new Date(p.created_at).getTime()>nBefore)return; let last=0; I.items.forEach(it=>{ if(it.product_id!==p.id||I.cancelled.has(it.invoice_id))return; const m=new Date(it.created_at).getTime(); if(m>last)last=m; }); if(last===0||last<sBefore)sleep++; });
+  const sBefore=now-30*86400000, nBefore=now-14*86400000; let sleep=0;
+  const lastSold={};   /* یک بار روی اقلام بگرد، نه یک بار به‌ازای هر کالا */
+  I.items.forEach(it=>{ if(I.cancelled.has(it.invoice_id))return; const m=new Date(it.created_at).getTime(); if(!(lastSold[it.product_id]>m))lastSold[it.product_id]=m; });
+  I.prods.forEach(p=>{ if(new Date(p.created_at).getTime()>nBefore)return; const last=lastSold[p.id]||0; if(last===0||last<sBefore)sleep++; });
   const card=(emoji,t,n,unit,fn,danger)=>`<button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px;${danger&&n>0?'border-color:rgba(193,57,43,.35)':''}" onclick="${fn}()"><div style="display:flex;justify-content:space-between;align-items:center"><span>${emoji} ${t}</span><b style="color:${n>0?(danger?'var(--danger)':'var(--accent)'):'var(--muted)'};font-size:15px">${faNum(n)}${unit||''} ›</b></div></button>`;
   let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:4px">🔔 مرکزِ هشدارِ روزانه</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">خلاصه‌ی هرچی امروز باید بهش برسی. بزن تا بازش کنی.</div>`;
   h+=`<div class="card" style="padding:13px;margin-bottom:9px;cursor:pointer;border-right:3px solid ${debtTot>0?'var(--danger)':'var(--line)'}" onclick="insDebt()"><div style="display:flex;justify-content:space-between;align-items:center"><span>✋ طلب از مشتریا</span><b style="color:${debtTot>0?'var(--danger)':'var(--muted)'}">${faNum(debtTot)} ت ›</b></div><div style="font-size:11.5px;color:var(--muted);margin-top:3px">${faNum(debt.length)} مشتری بدهکار</div></div>`;
@@ -2657,7 +2719,9 @@ async function exportBackup(){
 /* ===== DISCOUNT CODES (app-managed, used by bot) ===== */
 async function openDiscounts(){ document.getElementById('discountView').classList.remove('hidden'); document.getElementById('discBody').innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>'; await renderDiscounts(); }
 async function renderDiscounts(){
-  let list=[]; try{ list=await sbGetAll("discount_codes?select=*&order=created_at.desc"); }catch(e){}
+  let list=[];
+  try{ list=await sbGetAll("discount_codes?select=*&order=created_at.desc"); }
+  catch(e){ document.getElementById('discBody').innerHTML='<div class="ov-sheet"><div class="card" style="padding:14px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ کدهای تخفیف بارگذاری نشد</b><div style="font-size:12.5px;color:var(--muted);margin-top:4px">«هنوز کدی نساختی» نشونت نمی‌دم چون معلوم نیست — اینترنت رو چک کن و دوباره باز کن.<br>خطا: '+esc(e.message||'')+'</div></div></div>'; return; }
   window.DISC_LIST=list;
   const rows = list.length? list.map((d,i)=>`<div class="card" style="padding:12px;margin-bottom:8px;${d.active?'':'opacity:.55'}"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:800;font-size:15px" dir="ltr">${esc(d.code)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faPct(d.percent)}٪ تخفیف${d.active?'':' · <b style="color:var(--danger)">خاموش</b>'}</div></div><div style="display:flex;gap:6px"><button class="btn sm sec" onclick="toggleDiscount(${i})">${d.active?'خاموش کن':'روشن کن'}</button><button class="btn sm red" onclick="deleteDiscount(${i})">🗑</button></div></div></div>`).join('') : '<div class="empty" style="padding:14px">هنوز کدی نساختی</div>';
   document.getElementById('discBody').innerHTML=`<div class="ov-sheet">
@@ -2744,10 +2808,9 @@ async function shareReport(){
   if(!(await ensureH2C())){ toast('ابزارِ عکس بارگذاری نشد — اینترنتت رو چک کن 🙏'); return; }
   toast('در حال ساختِ عکس…');
   card.classList.add('force-light');
-  try{ const canvas=await html2canvas(card,{scale:2,backgroundColor:'#ffffff'}).finally(()=>card.classList.remove('force-light'));
-    canvas.toBlob(async(blob)=>{ if(!blob){ toast('خطا'); return; } const file=new File([blob],'modland-report.png',{type:'image/png'});
-      if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:'گزارش ماهانه'}); }catch(e){} }
-      else{ const url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url; a.download='modland-report.png'; a.click(); URL.revokeObjectURL(url); toast('عکس دانلود شد ✅'); } },'image/png');
+  try{ const canvas=await renderToCanvas(card).finally(()=>card.classList.remove('force-light'));
+    canvas.toBlob(async(blob)=>{ if(!blob){ toast('خطا'); return; }
+      await shareOrDownload(blob,'modland-report.png',{title:'گزارش ماهانه'},'عکس دانلود شد ✅'); },'image/png');
   }catch(e){ toast('خطا در ساختِ عکس'); }
 }
 
@@ -2782,10 +2845,9 @@ async function shareStatement(id){
   </div>`;
   const holder=document.createElement('div'); holder.style.position='fixed'; holder.style.right='-9999px'; holder.style.top='0'; holder.innerHTML=html; document.body.appendChild(holder);
   holder.firstElementChild.classList.add('force-light');
-  try{ const canvas=await html2canvas(holder.firstElementChild,{scale:2,backgroundColor:'#ffffff'});
-    canvas.toBlob(async(blob)=>{ if(holder.parentNode)document.body.removeChild(holder); if(!blob){ toast('خطا'); return; } const file=new File([blob],'modland-statement.png',{type:'image/png'});
-      if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:'صورت‌حساب'}); }catch(e){} }
-      else{ const url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url; a.download='modland-statement.png'; a.click(); URL.revokeObjectURL(url); toast('صورت‌حساب دانلود شد ✅'); } },'image/png');
+  try{ const canvas=await renderToCanvas(holder.firstElementChild);
+    canvas.toBlob(async(blob)=>{ if(holder.parentNode)document.body.removeChild(holder); if(!blob){ toast('خطا'); return; }
+      await shareOrDownload(blob,'modland-statement.png',{title:'صورت‌حساب'},'صورت‌حساب دانلود شد ✅'); },'image/png');
   }catch(e){ if(holder.parentNode)document.body.removeChild(holder); toast('خطا در ساختِ صورت‌حساب'); }
 }
 
@@ -2811,7 +2873,11 @@ async function saveQuote(){
 async function openQuotes(){ document.getElementById('quotesView').classList.remove('hidden'); await renderQuotes(); }
 async function renderQuotes(){
   const body=document.getElementById('quotesBody'); body.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>';
-  let qs=[]; try{ qs=await sbGetAll("quotes?select=*&order=created_at.desc"); }catch(e){}
+  // خطا را نبلع: «پیش‌فاکتوری ثبت نشده» وقتی اینترنت قطع است یعنی خبرِ دروغ،
+  // و کاربر فکر می‌کند سفارشش پاک شده.
+  let qs=[];
+  try{ qs=await sbGetAll("quotes?select=*&order=created_at.desc"); }
+  catch(e){ body.innerHTML='<div class="ov-sheet"><div class="card" style="padding:14px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ پیش‌فاکتورها بارگذاری نشد</b><div style="font-size:12.5px;color:var(--muted);margin-top:4px">یعنی نمی‌دونم چندتا داری — نه اینکه نداری. اینترنت رو چک کن و دوباره باز کن.<br>خطا: '+esc(e.message||'')+'</div></div></div>'; return; }
   let html=`<div class="ov-sheet"><div style="font-size:18px;font-weight:700;margin-bottom:4px">🧾 پیش‌فاکتورها / سفارش‌ها</div><div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">سفارش‌هایی که هنوز نهایی نشده‌اند. هر وقت تأیید شد «تبدیل به فاکتور» بزن.</div>`;
   if(qs.length===0) html+='<div class="empty" style="padding:16px">پیش‌فاکتوری ثبت نشده</div>';
   else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc(jDate(q.created_at))}${q.note?' · '+esc(q.note):''}</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm" style="flex:2" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button></div></div>`; }).join('');
@@ -2819,7 +2885,14 @@ async function renderQuotes(){
 }
 async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+encodeURIComponent(id)))[0]; }catch(e){ return null; } }
 function _fillFormFromQuote(q){
-  document.getElementById('nName').value=q.buyer_name||''; document.getElementById('nPhone').value=q.buyer_phone||''; document.getElementById('nCity').value=q.buyer_city||''; document.getElementById('nNote').value=q.note||''; document.getElementById('nDiscount').value=q.discount||0; document.getElementById('nPaid').value=0;
+  document.getElementById('nName').value=q.buyer_name||''; document.getElementById('nPhone').value=q.buyer_phone||''; document.getElementById('nCity').value=q.buyer_city||''; document.getElementById('nNote').value=q.note||'';
+  // تخفیفِ پیش‌فاکتور همیشه «تومان» ذخیره شده (saveQuote خودش درصد را تبدیل می‌کند).
+  // اگر حالتِ انتخابگر روی «درصد» مانده باشد، ۵۰٬۰۰۰ تومان به ۵۰٬۰۰۰٪ خوانده می‌شود،
+  // به ۱۰۰٪ چفت می‌شود و کلِ فاکتور مجانی می‌شود. پس حتماً برش گردان روی تومان.
+  { const dm=document.getElementById('nDiscMode'); if(dm)dm.value='t'; }
+  const _dEl=document.getElementById('nDiscount');
+  _dEl.value=String(Math.max(0,Math.round(Number(q.discount)||0))); try{ grpInput(_dEl); }catch(_){}
+  document.getElementById('nPaid').value=0;
   const wrap=document.getElementById('itemsWrap'); wrap.innerHTML='';
   asArray(q.items).forEach(it=>{ addItemRow(); const rows=document.querySelectorAll('.itemrow'); const r=rows[rows.length-1]; const sel=r.querySelector('.ir-prod'); sel.value=it.product_id; r.querySelector('.ir-qty').value=it.quantity;
     const up=Math.round(Number(it.unit_price)||0); if(up>0)r.dataset.lock=String(up); });
@@ -2872,6 +2945,18 @@ async function openQuoteView(id){
 }
 async function deleteQuote(id){ if(!await ask('این پیش‌فاکتور حذف شود؟'))return; try{ await sbDelete('quotes',id); toast('حذف شد'); await renderQuotes(); }catch(e){ toast(e.message); } }
 
+/* عکسِ خیلی بلند روی مرورگر شکست می‌خورد و — بدتر از خطا — گاهی بومِ سفید می‌دهد.
+   سافاریِ آیفون سقفِ ارتفاعِ بوم دارد؛ لیستِ ۳۰۰ کالا در مقیاسِ ۲ از آن رد می‌شود.
+   پس مقیاس را از روی ارتفاعِ واقعیِ عنصر حساب می‌کنیم و خروجی را هم وارسی می‌کنیم. */
+function safeScale(el){
+  const h=Math.max(1,(el&&el.scrollHeight)||1);
+  return Math.min(2, Math.max(0.6, 11000/h));
+}
+async function renderToCanvas(el, opts){
+  const c=await html2canvas(el, Object.assign({scale:safeScale(el),backgroundColor:'#ffffff'},opts||{}));
+  if(!c||!c.width||!c.height) throw new Error('بومِ خالی');
+  return c;
+}
 async function shareCatalog(){
   if(!(await ensureH2C())){ toast('ابزارِ عکس بارگذاری نشد — اینترنتت رو چک کن 🙏'); return; }
   const list=(PRODUCTS||[]).filter(p=>Number(p.price)>0);
@@ -2890,13 +2975,11 @@ async function shareCatalog(){
   const holder=document.createElement('div'); holder.style.position='fixed'; holder.style.right='-9999px'; holder.style.top='0'; holder.innerHTML=html; document.body.appendChild(holder);
   try{
     holder.firstElementChild.classList.add('force-light');
-    const canvas=await html2canvas(holder.firstElementChild,{scale:2,backgroundColor:'#ffffff'});
+    const canvas=await renderToCanvas(holder.firstElementChild);
     canvas.toBlob(async(blob)=>{
       if(holder.parentNode)document.body.removeChild(holder);
       if(!blob){ toast('خطا در ساختِ کاتالوگ'); return; }
-      const file=new File([blob],'modland-pricelist.png',{type:'image/png'});
-      if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:'لیست قیمت'}); }catch(e){} }
-      else{ const url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url; a.download='modland-pricelist.png'; a.click(); URL.revokeObjectURL(url); toast('کاتالوگ دانلود شد ✅'); }
+      await shareOrDownload(blob,'modland-pricelist.png',{title:'لیست قیمت'},'کاتالوگ دانلود شد ✅');
     },'image/png');
   }catch(e){ if(holder.parentNode)document.body.removeChild(holder); toast('خطا در ساختِ کاتالوگ'); }
 }
@@ -2936,8 +3019,7 @@ async function exportBackupCSV(){
     lines.push(''); lines.push('=== مشتری‌ها ==='); lines.push(['نام','تماس','شهر','مانده حساب (تومان)','وضعیت'].join(','));
     custs.forEach(cu=>{ const bal=bm[cu.id]||0; const st=bal>0?'بدهکار به ما':bal<0?'بستانکار (طلب از ما)':'تسویه'; lines.push([cu.name,csvText(cu.phone),cu.city,Math.abs(bal),st].map(cell).join(',')); });
     const csv='\uFEFF'+lines.join('\n');
-    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download='modland-backup.csv'; a.click(); URL.revokeObjectURL(url);
+    dlBlob(new Blob([csv],{type:'text/csv;charset=utf-8;'}), 'modland-backup.csv');
     toast('پشتیبان دانلود شد ('+faNum(invs.length)+' فاکتور · '+faNum(itemRows)+' قلم · '+faNum(custs.length)+' مشتری) ✅');
   }catch(e){ toast(e.message); }
 }

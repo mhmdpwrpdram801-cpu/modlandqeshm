@@ -383,6 +383,36 @@
       "name": "شماره‌گذاریِ جعبه‌ها واقعاً جلو می‌رود",
       "js": "()=>{const a=seqStart('__t');const b=seqStart('__t');return String(b===a+1)+'|'+String(seqStale('__t',a))+'|'+String(seqStale('__t',b));}",
       "expect": "true|true|false"
+    },
+    {
+      "name": "هیچ متغیرِ رنگی تعریف‌نشده نمانده (وگرنه هشدارِ قرمز، قرمز نیست)",
+      "js": "()=>{const cs=getComputedStyle(document.documentElement);const need=['--danger','--accent','--profit','--credit','--paid','--muted','--ink'];const bad=need.filter(v=>!cs.getPropertyValue(v).trim());return bad.length?('تعریف نشده: '+bad.join(',')):'همه تعریف شده';}",
+      "expect": "همه تعریف شده"
+    },
+    {
+      "name": "تخفیفِ پیش‌فاکتور همیشه تومان خوانده می‌شود نه درصد",
+      "js": "()=>{nav('new');document.getElementById('nDiscMode').value='p';document.getElementById('nDiscount').value='10';recalc();_fillFormFromQuote({buyer_name:'ت',buyer_phone:'',buyer_city:'',note:'',discount:50000,items:[{product_id:'p1',quantity:3,unit_price:850000}]});return document.getElementById('nDiscMode').value+'|'+document.getElementById('tItems').textContent+'|'+document.getElementById('tFinal').textContent;}",
+      "expect": "t|۲٬۵۵۰٬۰۰۰|۲٬۵۰۰٬۰۰۰"
+    },
+    {
+      "name": "دو پرسشِ هم‌زمان صف می‌شوند و به confirmِ بومی نمی‌افتند",
+      "js": "()=>{const o=window.confirm;let native=0;window.confirm=()=>{native++;return false;};const a=ask('اولی؟'),b=ask('دومی؟');return new Promise(r=>setTimeout(r,120)).then(()=>{const t1=document.getElementById('askTxt').textContent;document.getElementById('askNo').click();return new Promise(r=>setTimeout(r,120)).then(()=>{const t2=document.getElementById('askTxt').textContent;document.getElementById('askNo').click();return Promise.all([a,b]).then(v=>{window.confirm=o;return native+'|'+t1+'|'+t2+'|'+v.join(',');});});});}",
+      "expect": "0|اولی؟|دومی؟|false,false"
+    },
+    {
+      "name": "صفحه‌های بینش با دادهٔ ناقص «همه‌چی مرتبه» نمی‌گویند",
+      "js": "()=>{const bak=window.INS.failed;try{window.INS.failed=['custs'];insChurn();const a=document.getElementById('insBody').textContent;insAlerts();const b=document.getElementById('insBody').textContent;window.INS.failed=['items'];insAffinity();const c=document.getElementById('insBody').textContent;const ok=(x)=>/عدد نشون نمی‌دم/.test(x);return (ok(a)?'1':'0')+(ok(b)?'1':'0')+(ok(c)?'1':'0');}finally{window.INS.failed=bak;insMenu();}}",
+      "expect": "111"
+    },
+    {
+      "name": "پاسخِ کهنه‌ی مشتری روی مشتریِ تازه نمی‌نشیند (دکمهٔ پرداخت مالِ درستی است)",
+      "js": "()=>{const f=window.fetch;window.fetch=function(u){const s=String(u);const slow=s.indexOf('customers?select=*&id=eq.c1')>=0;const p=f.apply(this,arguments);return slow?new Promise(r=>setTimeout(()=>r(p),600)):p;};const w=(ms)=>new Promise(r=>setTimeout(r,ms));openCustomer('c1');return w(60).then(()=>{openCustomer('c2');return w(1200);}).then(()=>{window.fetch=f;const h=document.getElementById('custRender').innerHTML;document.getElementById('custView').classList.add('hidden');return (h.indexOf(\"addPayment('c2')\")>=0?'c2':(h.indexOf(\"addPayment('c1')\")>=0?'c1':'?'));});}",
+      "expect": "c2"
+    },
+    {
+      "name": "پیامِ شناور با تایمرِ پیامِ قبلی زودتر محو نمی‌شود",
+      "js": "()=>{const t=document.getElementById('toast');toast('اول');return new Promise(r=>setTimeout(r,2100)).then(()=>{toast('دوم');return new Promise(r=>setTimeout(r,600));}).then(()=>t.classList.contains('show')?'هنوز دیده می‌شود':'زود محو شد');}",
+      "expect": "هنوز دیده می‌شود"
     }
   ],
   "click_test": {
