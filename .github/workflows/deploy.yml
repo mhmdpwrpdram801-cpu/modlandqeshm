@@ -89,6 +89,7 @@ jobs:
       - name: وارسیِ بعد از انتشار
         run: |
           set -eu
+          BASE="https://modlandqeshm4374.mhmdpwrpdram801.workers.dev"
           WANT=$(grep -o "mlq-[0-9A-Za-z-]*" panel/sw.js | head -1)
           for i in 1 2 3 4 5 6; do
             sleep 10
@@ -102,4 +103,22 @@ jobs:
             fi
           done
           echo "❌ بعد از یک دقیقه هنوز نسخه‌ی تازه سرو نمی‌شود."
+          exit 1
+
+      - name: خودِ index.html هم واقعاً عوض شده؟
+        run: |
+          set -eu
+          # sw.js کش نمی‌شود ولی «/» ممکن است چند لحظه از کشِ لبه‌ی کلادفلر بیاید.
+          # پس با پارامترِ تصادفی می‌گیریم و با فایلِ مخزن مقایسه می‌کنیم — وگرنه
+          # می‌شود انتشاری که فقط نصفش رفته و ما سبز گزارش کنیم.
+          BASE="https://modlandqeshm4374.mhmdpwrpdram801.workers.dev"
+          MINE=$(sha256sum panel/index.html | cut -d' ' -f1)
+          for i in 1 2 3 4 5 6; do
+            curl -fsS --max-time 30 "$BASE/?cachebust=$RANDOM$RANDOM$i" -o /tmp/live.html || true
+            LIVE=$(sha256sum /tmp/live.html 2>/dev/null | cut -d' ' -f1 || echo "")
+            echo "تلاشِ $i — زنده: ${LIVE:0:16} / مخزن: ${MINE:0:16}"
+            if [ "$LIVE" = "$MINE" ]; then echo "✅ index.html زنده بایت‌به‌بایت همان مخزن است."; exit 0; fi
+            sleep 10
+          done
+          echo "❌ index.html زنده با مخزن یکی نشد — انتشار ناقص است."
           exit 1
