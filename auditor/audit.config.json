@@ -202,11 +202,11 @@
       "expect": "undefined"
     },
     {
-      "name": "فرمِ کالا از هر صفحه‌ای دیده می‌شود",
+      "name": "فرمِ کالا از هر صفحه‌ای باز و دیده می‌شود",
       "before": "nav('dashboard'); openProductForm('p1')",
       "wait": 500,
-      "js": "()=>{const w=document.getElementById('prodFormWrap'),r=w.getBoundingClientRect();return (!w.classList.contains('hidden')&&r.width>0&&r.height>0)?'دیده می‌شود':'نامرئی'}",
-      "expect": "دیده می‌شود"
+      "js": "()=>{nav('dashboard');openProductForm('p1');const w=document.getElementById('prodFormWrap'),r=w.getBoundingClientRect();const scr=(document.querySelector('.navbtn.active')||{dataset:{}}).dataset.scr;return ((!w.classList.contains('hidden')&&r.width>0&&r.height>0)?'دیده می‌شود':'نامرئی')+'|'+scr;}",
+      "expect": "دیده می‌شود|products"
     },
     {
       "name": "فروشِ ماه: ۲٬۹۳۰٬۰۰۰ فاکتور منهای ۸۵۰٬۰۰۰ مرجوعیِ مستقل",
