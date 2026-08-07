@@ -212,6 +212,11 @@
       "wait": 900,
       "js": "()=>{const b=document.querySelector('#insBody .netrow b');return b?b.textContent:'پیدا نشد'}",
       "expect": "۲٬۰۸۰٬۰۰۰"
+    },
+    {
+      "name": "فشرده‌سازیِ فیلم (با صدا) روی فیلمی که طولش در سرصفحه نیست",
+      "js": "()=>{const mk=async(secs)=>{const c=document.createElement('canvas');c.width=320;c.height=180;const ctx=c.getContext('2d');const vs=c.captureStream(24);const AC=window.AudioContext||window.webkitAudioContext;const ac=new AC();const osc=ac.createOscillator();const dest=ac.createMediaStreamDestination();osc.connect(dest);osc.start();vs.addTrack(dest.stream.getAudioTracks()[0]);const mime=['video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));const rec=new MediaRecorder(vs,{mimeType:mime});const ch=[];rec.ondataavailable=e=>{if(e.data.size)ch.push(e.data)};const done=new Promise(r=>rec.onstop=r);rec.start(200);let t=0;const iv=setInterval(()=>{t++;ctx.fillStyle=t%2?'#c0901c':'#111';ctx.fillRect(0,0,320,180)},42);await new Promise(r=>setTimeout(r,secs*1000));clearInterval(iv);rec.stop();await done;osc.stop();ac.close();return new File([new Blob(ch,{type:'video/webm'})],'t.webm',{type:'video/webm'})};return mk(2).then(f=>medShrinkVideo(f,()=>{},480,8*1024*1024)).then(o=>(o&&o.size>0?'فشرده شد':'خالی')+(o&&o.__audio?' با صدا':' بی‌صدا')).catch(e=>'خطا: '+(e&&e.message||e));}",
+      "expect": "فشرده شد با صدا"
     }
   ],
   "click_test": {

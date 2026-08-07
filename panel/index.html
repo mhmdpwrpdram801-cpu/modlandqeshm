@@ -1301,7 +1301,17 @@ async function medShrinkVideo(file, onProgress, maxDim, targetBytes){
   let ac=null;
   try{
     await new Promise((res,rej)=>{ v.onloadedmetadata=()=>res(); v.onerror=()=>rej(new Error('این فیلم باز نشد — شاید فرمتش برای مرورگر ناشناسه 🙏')); setTimeout(()=>rej(new Error('خوندنِ فیلم طول کشید 🙏')),25000); });
-    const dur=Number(v.duration)||0;
+    let dur=Number(v.duration)||0;
+    if(!dur||!isFinite(dur)){
+      // بعضی فیلم‌ها طولشان در سرصفحه نیست و مرورگر Infinity می‌دهد (ضبطِ خودِ گوشی و
+      // فایل‌های فوروارد‌شده). با یک پرش به انتها، مرورگر مجبور می‌شود واقعی حسابش کند.
+      dur = await new Promise((res)=>{
+        let done=false; const fin=(x)=>{ if(done)return; done=true; try{ v.ontimeupdate=null; }catch(_){} res(Number(x)||0); };
+        v.ontimeupdate=()=>{ const d=Number(v.duration); try{ v.currentTime=0; }catch(_){} fin(isFinite(d)?d:0); };
+        try{ v.currentTime=1e101; }catch(_){ fin(0); }
+        setTimeout(()=>fin(0), 8000);
+      });
+    }
     if(!dur||!isFinite(dur)) throw new Error('طولِ فیلم خونده نشد 🙏');
     let w=v.videoWidth||720, h=v.videoHeight||1280;
     if(Math.max(w,h)>maxDim){ const s=maxDim/Math.max(w,h); w=Math.max(2,Math.round(w*s/2)*2); h=Math.max(2,Math.round(h*s/2)*2); }

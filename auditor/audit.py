@@ -291,7 +291,8 @@ def runtime_checks(url, cfg, html_path):
         except Exception: pass
 
     with sync_playwright() as pw:
-        br = pw.chromium.launch()
+        # پرچمِ پخشِ خودکار لازم است وگرنه مسیرِ فشرده‌سازیِ فیلم اصلاً اجرا نمی‌شود
+        br = pw.chromium.launch(args=['--autoplay-policy=no-user-gesture-required','--mute-audio'])
         pg = br.new_page(viewport={'width': 412, 'height': 900})
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.on('response', lambda r: netfail.append(f"{r.status} {r.url[:80]}") if r.status >= 400 else None)
