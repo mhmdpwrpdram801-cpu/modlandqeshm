@@ -279,7 +279,7 @@ def serve(html_path, extra):
     return srv, f'http://127.0.0.1:{port}/index.html'
 
 # ───────────────────────────── زنده (مرورگر)
-def runtime_checks(url, cfg, html_path, engine='chromium'):
+def runtime_checks(url, cfg, html_path, engine='chromium', repeat=1):
     from playwright.sync_api import sync_playwright
     fixture = ''
     if cfg['fixture']:
@@ -644,6 +644,22 @@ def runtime_checks(url, cfg, html_path, engine='chromium'):
 
         if cfg['checks']:
             head("۱۰) بررسی‌های ویژه‌ی پروژه")
+
+            def run_one(c):
+                """یک بررسی را از وضعیتِ تمیز اجرا کن و نتیجه‌ی خام را برگردان.
+
+                reset قبل از *هر* بررسی اجرا می‌شود، نه فقط آن‌هایی که before دارند.
+                قبلاً هر بررسی هرچه از بررسیِ قبلی مانده بود به ارث می‌برد، و چون
+                ترتیبِ مرحله‌های قبلی روی هر موتور فرق می‌کند، نتیجه شانسی می‌شد —
+                یک بررسی همین‌طور یک روز قرمز و روز بعد سبز بود و ساعت‌ها وقت برد.
+                """
+                if cfg['reset']: pg.evaluate(cfg['reset'])
+                if c.get('before'):
+                    pg.evaluate(c['before']); pg.wait_for_timeout(c.get('wait', 400))
+                return pg.evaluate(c['js'])
+
+            reps = max(1, int(repeat or 1))
+            wobbly = {}                      # نامِ بررسی → مجموعه‌ی نتیجه‌های دیده‌شده
             for c in cfg['checks']:
                 try:
                     # بررسی‌ای که به APIی وابسته است که این موتور ندارد را رد کن.
@@ -651,26 +667,34 @@ def runtime_checks(url, cfg, html_path, engine='chromium'):
                     if c.get('needs') and not pg.evaluate("()=>!!(" + c['needs'] + ")"):
                         warn(f"{c['name']}: این موتور پشتیبانی نمی‌کند — رد شد")
                         continue
-                    if c.get('before'):
-                        if cfg['reset']: pg.evaluate(cfg['reset'])
-                        pg.evaluate(c['before']); pg.wait_for_timeout(c.get('wait', 400))
-                    got = pg.evaluate(c['js'])
                     exp = c['expect']
-                    if str(got) == str(exp):
+                    seen = []
+                    for _ in range(reps):
+                        seen.append(str(run_one(c)))
+                    got = seen[0]
+                    if len(set(seen)) > 1:
+                        wobbly[c['name']] = seen
+                    if got == str(exp) and len(set(seen)) == 1:
                         ok(f"{c['name']}: {got}")
+                    elif len(set(seen)) > 1:
+                        bad(f"{c['name']}: بی‌ثبات — در {reps} دور این نتیجه‌ها را داد: {' / '.join(dict.fromkeys(seen))}")
                     else:
-                        # یک بار دیگر بزن. اگر بارِ دوم درست شد، یعنی ناپایدار است نه خراب —
-                        # وقتِ زیادی صرفِ تعقیبِ همین جور «باگ»های جعلی شده.
+                        # یک بار دیگر از وضعیتِ تمیز بزن. اگر بارِ دوم درست شد، یعنی
+                        # ناپایدار است نه خراب — وقتِ زیادی صرفِ همین «باگ»های جعلی شده.
                         pg.wait_for_timeout(400)
-                        if c.get('before'):
-                            if cfg['reset']: pg.evaluate(cfg['reset'])
-                            pg.evaluate(c['before']); pg.wait_for_timeout(c.get('wait', 400))
-                        again = pg.evaluate(c['js'])
-                        if str(again) == str(exp):
+                        again = str(run_one(c))
+                        if again == str(exp):
                             warn(f"{c['name']}: بارِ اول «{got}» داد، بارِ دوم درست شد — ناپایدار، نه خراب")
                         else:
                             bad(f"{c['name']}: {got} ≠ انتظار {exp}")
                 except Exception as ex: bad(f"{c['name']}: 💥 {str(ex)[:80]}")
+
+            if reps > 1:
+                if wobbly:
+                    print(f"\n  ⚠️  {len(wobbly)} بررسی در {reps} دور نتیجه‌ی یکسان نداد:")
+                    for n, v in wobbly.items(): print(f"       · {n}: {' / '.join(dict.fromkeys(v))}")
+                else:
+                    ok(f"هر {len(cfg['checks'])} بررسی در {reps} دورِ پشتِ‌سرِهم نتیجه‌ی یکسان داد")
 
         head("۱۱) عکس‌برداری")
         shot_n = 0
@@ -687,6 +711,8 @@ def runtime_checks(url, cfg, html_path, engine='chromium'):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('html'); ap.add_argument('-c', '--config', default=None)
+    ap.add_argument('-r', '--repeat', type=int, default=1,
+                    help='هر بررسی را چند بار پشتِ سرِ هم بزن و نتیجه‌های ناهمسان را لو بده')
     ap.add_argument('-e', '--engine', default='chromium', choices=['chromium', 'webkit'],
                     help='webkit = موتورِ سافاری، روی اندازه‌ی آیفون')
     a = ap.parse_args()
@@ -696,7 +722,7 @@ def main():
     print("═" * 52)
     static_checks(a.html, cfg)
     srv, url = serve(a.html, cfg['assets'])
-    try: runtime_checks(url, cfg, a.html, a.engine)
+    try: runtime_checks(url, cfg, a.html, a.engine, a.repeat)
     finally: srv.shutdown()
     print("\n" + "═" * 52)
     print(f"  {len(PASSES)} بررسی پاس شد")

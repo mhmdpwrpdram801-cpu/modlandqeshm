@@ -1017,7 +1017,14 @@ function afterDataReady(){
     if(vis('scr-settings'))  renderSettings();
   }catch(_){}
 }
+/* صفحه‌ای که «خواسته‌ایم» — نه صفحه‌ای که همین حالا در DOM دیده می‌شود.
+   nav() همگام نیست: داخلِ startViewTransition می‌پیچد و جابه‌جایی یک فریم بعد
+   انجام می‌شود. هر کدی که بلافاصله بعد از nav وضعیتِ DOM را بخواند، وضعیتِ کهنه
+   می‌بیند. این متغیر همان‌جا و همگام تنظیم می‌شود، پس همیشه راست می‌گوید.
+   (با گزینه‌ی --repeat بازرس پیدا شد: یک بررسی در سه دور دو نتیجه‌ی متفاوت داد.) */
+let CUR_SCR='dashboard';
 function nav(scr){
+  CUR_SCR=scr;
   // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند
   if(document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     try{
@@ -2138,7 +2145,7 @@ function closeProductForm(){ const w=document.getElementById('prodFormWrap'); if
 function closeCustomerForm(){ const w=document.getElementById('custFormWrap'); if(w)w.classList.add('hidden'); window.scrollTo(0,0); }
 function openProductForm(id){
   // فرم داخلِ صفحه‌ی کالاهاست؛ اگه از جست‌وجوی سراسری صدا زده بشه باید اول بریم همون صفحه، وگرنه هیچی دیده نمی‌شه
-  if(document.getElementById('scr-products').classList.contains('hidden'))nav('products');
+  if(CUR_SCR!=='products')nav('products');   /* به خواسته نگاه کن، نه به DOMِ یک‌فریم‌عقب */
   const p=id?PRODUCTS.find(x=>x.id===id):null, w=document.getElementById('prodFormWrap');
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${p?'ویرایشِ کالا':'کالای جدید'}</div>${p?`<div class="form-title">${esc(p.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeProductForm()">‹ برگشت به لیست</button></div>
