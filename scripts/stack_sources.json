@@ -1,0 +1,60 @@
+{
+  "_": [
+    "منابعِ نسخه‌ها برای scripts/update_stack.py.",
+    "هر ردیف یک سطر از جدولِ «پشته» در CLAUDE.md می‌شود.",
+    "kind: npm | eol | gh   —   key باید یکتا و ثابت بماند (کلیدِ نگه‌داشتنِ مقدارِ قبلی است).",
+    "برای اضافه‌کردنِ ابزار، فقط همین فایل را ویرایش کن؛ اسکریپت را دست نزن."
+  ],
+
+  "groups": [
+    {
+      "title": "زمانِ اجرا و پایه",
+      "items": [
+        { "key": "node",    "kind": "eol", "id": "nodejs",     "label": "Node.js",     "prefer": "lts",  "note": "خطِ LTS؛ نسخه‌های فرد پایدار نیستند" },
+        { "key": "deno",    "kind": "eol", "id": "deno",       "label": "Deno",        "note": "زمانِ اجرای Supabase Edge Functions" },
+        { "key": "python",  "kind": "eol", "id": "python",     "label": "Python",      "note": "بازرسِ auditor/audit.py" },
+        { "key": "pg",      "kind": "eol", "id": "postgresql", "label": "PostgreSQL",  "note": "پایه‌ی Supabase" }
+      ]
+    },
+    {
+      "title": "لبه و میزبانی",
+      "items": [
+        { "key": "wrangler", "kind": "npm", "id": "wrangler", "label": "Wrangler",  "note": "در deploy.yml پین شده" },
+        { "key": "workerd",  "kind": "npm", "id": "workerd",  "label": "workerd",   "note": "compatibility_date از همین درمی‌آید" },
+        { "key": "wrangler-action", "kind": "gh", "id": "cloudflare/wrangler-action", "label": "wrangler-action", "note": "اکشنِ انتشار" }
+      ]
+    },
+    {
+      "title": "داده و کلاینت",
+      "items": [
+        { "key": "supabase-cli", "kind": "npm", "id": "supabase",             "label": "Supabase CLI", "note": "مهاجرت و استقرارِ Edge Function" },
+        { "key": "supabase-js",  "kind": "npm", "id": "@supabase/supabase-js", "label": "supabase-js",  "note": "این پنل مستقیم REST می‌زند و از آن استفاده نمی‌کند" }
+      ]
+    },
+    {
+      "title": "فرانت (برای پروژه‌های بعدی — این پنل بدونِ build است)",
+      "items": [
+        { "key": "typescript",  "kind": "npm", "id": "typescript",  "label": "TypeScript" },
+        { "key": "vite",        "kind": "npm", "id": "vite",        "label": "Vite",        "note": "پیش‌فرضِ باندلر" },
+        { "key": "react",       "kind": "npm", "id": "react",       "label": "React" },
+        { "key": "next",        "kind": "npm", "id": "next",        "label": "Next.js" },
+        { "key": "tailwindcss", "kind": "npm", "id": "tailwindcss", "label": "Tailwind CSS" }
+      ]
+    },
+    {
+      "title": "تست و CI",
+      "items": [
+        { "key": "playwright", "kind": "npm", "id": "playwright", "label": "Playwright", "note": "موتورِ بازرس" },
+        { "key": "vitest",     "kind": "npm", "id": "vitest",     "label": "Vitest" },
+        { "key": "checkout",   "kind": "gh",  "id": "actions/checkout", "label": "actions/checkout", "note": "در deploy.yml روی v4" }
+      ]
+    }
+  ],
+
+  "drift": {
+    "wrangler_toml": "wrangler.toml",
+    "deploy_workflow": ".github/workflows/deploy.yml",
+    "service_worker": "panel/sw.js",
+    "compat_date_max_age_days": 180
+  }
+}
