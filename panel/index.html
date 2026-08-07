@@ -638,6 +638,10 @@ function showUpdateBar(onGo){
 }
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
+    // نسخه‌ی برنامه را از خودِ sw.js بردار تا گزارشِ خطا بگوید مالِ کدام نسخه است
+    try{ fetch('./sw.js',{cache:'no-store'}).then(function(r){ return r.text(); })
+         .then(function(t){ var m=t.match(/mlq-[0-9A-Za-z-]+/); if(m)window.__APPVER=m[0]; })
+         .catch(function(){}); }catch(e){}
     navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){
       try{ reg.update(); }catch(e){}
       document.addEventListener('visibilitychange', function(){ if(!document.hidden){ try{ reg.update(); }catch(e){} } });
@@ -684,6 +688,58 @@ let INV_REQ_ID=null;
 function newReqId(){ return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():('x'+Date.now()+Math.random().toString(16).slice(2)); }
 let CURRENT_INV=null;
 const SESSION_KEY='modland_session_v1';
+
+/* ===== چشمِ ناظر: خطاهای واقعیِ گوشی =====
+   مالک تنها کاربر است و روی گوشی کار می‌کند. بدونِ این، هر خرابیِ خاموش فقط وقتی
+   معلوم می‌شود که خودش ببیند و بتواند توصیفش کند — یعنی عملاً هیچ‌وقت.
+
+   قاعده‌های سختِ این تکه (چیزی که خودش باگ بسازد بدتر از نداشتنش است):
+   ۱. هرگز چیزی throw نکند — همه‌چیز داخلِ try است.
+   ۲. هرگز حلقه نسازد: خطای خودِ گزارش‌دهنده گزارش نمی‌شود (`_errIn`).
+   ۳. سقف دارد: حداکثر ۸ گزارش در هر نشست، و پیامِ تکراری دوباره نمی‌رود.
+   ۴. برنامه را کند نکند: می‌فرستد و منتظر نمی‌مانَد.
+   ۵. **هیچ داده‌ی مشتری نفرستد** — شماره و رشته‌های بلندِ رقم پاک می‌شوند و
+      پارامترِ آدرس‌ها بریده می‌شود. متنِ خطا گاهی خودِ پرس‌وجو را در خود دارد.
+   ۶. قبل از ورود کاری نکند و اگر نشست تمام شده باشد بی‌صدا رد شود — با fetchِ خام
+      می‌رود، نه sbFetch، تا تازه‌کردنِ توکن و پرت‌شدن به صفحه‌ی ورود را راه نیندازد. */
+let _errIn=false, _errSent=0; const _errSeen=new Set();
+function _errScrub(s){
+  s=String(s==null?'':s);
+  try{
+    s=s.replace(/([?&])[^\s]*/g, '$1…');          // پارامترِ آدرس‌ها می‌تواند شماره داشته باشد
+    s=s.replace(/[0-9۰-۹]{7,}/g, '…');   // شماره‌ی تماس و مبلغِ بلند
+  }catch(_){}
+  return s;
+}
+function reportError(kind, message, stack){
+  if(_errIn)return; _errIn=true;
+  try{
+    if(!TOKEN)return;                       // هنوز وارد نشده — چیزی برای فرستادن نیست
+    if(_errSent>=8)return;                  // سقفِ نشست
+    const msg=_errScrub(message).slice(0,400);
+    if(!msg||_errSeen.has(msg))return;      // تکراری را دوباره نفرست
+    _errSeen.add(msg); _errSent++;
+    const scr=(document.querySelector('.overlay:not(.hidden)')||{}).id
+              || (typeof CUR_SCR!=='undefined'?CUR_SCR:'?');
+    fetch(SUPABASE_URL+'/rest/v1/client_errors',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+TOKEN,
+               'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({ kind:String(kind).slice(0,20), message:msg,
+        stack:_errScrub(stack).slice(0,1500), screen:String(scr).slice(0,40),
+        app_version:(window.__APPVER||''), ua:String(navigator.userAgent||'').slice(0,200) })
+    }).catch(()=>{});                       // شکستش هم بی‌صداست
+  }catch(_){}
+  finally{ _errIn=false; }
+}
+window.addEventListener('error', function(e){
+  try{ reportError('error', (e&&e.message)||'خطای ناشناخته',
+                   (e&&e.error&&e.error.stack)||((e&&e.filename||'')+':'+(e&&e.lineno||''))); }catch(_){}
+});
+window.addEventListener('unhandledrejection', function(e){
+  try{ const r=e&&e.reason;
+       reportError('rejection', (r&&r.message)||String(r||'رد شدنِ بی‌صاحب'), r&&r.stack); }catch(_){}
+});
 
 /* helpers */
 function faNum(n){ const s=Math.round(Number(n)||0).toLocaleString('en-US'); return s.replace(/[0-9]/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]).replace(/,/g,"٬"); }
