@@ -224,11 +224,11 @@
       "expect": "فایلِ خراب رد شد"
     },
     {
-      "name": "قیمتِ واحد از خودِ کالا می‌آید، نه دستی",
+      "name": "قیمتِ واحد هیچ فیلدی ندارد و از خودِ کالا می‌آید",
       "before": "nav('new'); document.getElementById('itemsWrap').innerHTML=''; addItemRow(); (()=>{const s=document.querySelector('.itemrow .ir-prod'); s.value='p1'; onPickProduct(s);})()",
       "wait": 400,
-      "js": "()=>document.querySelectorAll('.itemrow input.ir-price:not([type=hidden])').length+'|'+document.querySelector('.ir-priceview').textContent+'|'+document.querySelector('.ir-price').value",
-      "expect": "0|۸۵۰٬۰۰۰|850000"
+      "js": "()=>{const n=document.querySelectorAll('.itemrow [class*=ir-price]').length;const lbl=(document.getElementById('scr-new')||{innerText:''}).innerText.includes('قیمت واحد');const calc=(document.querySelector('.ir-linecalc')||{}).textContent||'';const jam=(document.querySelector('.ir-linev')||{}).textContent||'';return n+'|'+lbl+'|'+calc+'|'+jam;}",
+      "expect": "0|false|۱ عدد × ۸۵۰٬۰۰۰ تومان|۸۵۰٬۰۰۰"
     }
   ],
   "click_test": {
