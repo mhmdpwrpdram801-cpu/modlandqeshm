@@ -1250,8 +1250,8 @@ async function renderDashboard(){
     try{
       if(!_rRes.ok)throw _rRes.e;
       const drets=_rRes.v;
-      let rT=0,rM=0,cT=0,cM=0;
-      drets.forEach(r=>{ const dt=new Date(r.created_at); const k=iranJalaliKey(dt); const gk=tehranGregKey(dt); const v=Number(r.total_value||0); retByDay[gk]=(retByDay[gk]||0)+v; let cst=0; asArray(r.items).forEach(it=>{ const p=PRODUCTS.find(x=>x.id===it.product_id); cst+=Number(it.quantity||0)*0; const nm=it.name||(p&&p.name); if(nm)retByName[nm]=(retByName[nm]||0)+Number(it.quantity||0); }); if(k===jToday){ rT+=v; cT+=cst; } if(k.slice(0,7)===ym){ rM+=v; cM+=cst; } });
+      let rT=0,rM=0;
+      drets.forEach(r=>{ const dt=new Date(r.created_at); const k=iranJalaliKey(dt); const gk=tehranGregKey(dt); const v=Number(r.total_value||0); retByDay[gk]=(retByDay[gk]||0)+v; asArray(r.items).forEach(it=>{ const p=PRODUCTS.find(x=>x.id===it.product_id); const nm=it.name||(p&&p.name); if(nm)retByName[nm]=(retByName[nm]||0)+Number(it.quantity||0); }); if(k===jToday){ rT+=v; } if(k.slice(0,7)===ym){ rM+=v; } });
       salesToday=salesToday-rT; salesMonth=salesMonth-rM;
     }catch(e){}
     const debtors=(S.debtors||[]);
@@ -1983,6 +1983,18 @@ async function submitInvoiceReturn(){
   }catch(e){ msg.className='msg err'; msg.textContent=e.message; delete btn.dataset.busy; btn.disabled=false; btn.textContent='ثبتِ مرجوعی'; }
 }
 
+/* ===== پاسخِ کهنه نباید روی پاسخِ تازه بنشیند =====
+   چند تابع سرِ یک جعبه با هم مسابقه می‌دهند (لیستِ فاکتور با جست‌وجویش، جست‌وجوی
+   سراسری با «آخرین فاکتورها»، لیستِ مشتری با فیلترِ کالا). هرکدام درخواستِ خودش را
+   می‌فرستد و هرکه دیرتر برسد آخر می‌نویسد — نه هرکه کاربر آخر خواسته. روی اینترنتِ
+   کند این یعنی کاربر کادرِ جست‌وجو را پاک می‌کند ولی هنوز نتیجه‌ی جست‌وجو را می‌بیند،
+   یا سریع تایپ می‌کند و نتیجه‌ی حرفِ قبلی رویش می‌نشیند.
+   قاعده: هر جعبه یک شماره دارد؛ قبل از رفتن شماره بگیر، بعد از برگشتن اگر شماره
+   عوض شده بود یعنی کسی بعد از تو راه افتاده — تو دیگر ننویس. */
+const _boxSeq={};
+function seqStart(box){ return (_boxSeq[box]=(_boxSeq[box]||0)+1); }
+function seqStale(box,mine){ return _boxSeq[box]!==mine; }
+
 /* INVOICES LIST */
 function invoiceRowsHTML(invs){
   return invs.map(v=>`<div class="list-item${SEL.mode==='inv'&&SEL.ids.has(v.id)?' selected':''}" data-id="${v.id}" onclick="rowTap('inv','${v.id}',event)" style="${v.status==='cancelled'?'opacity:.6':''}">${selCbx('inv',v.id)}<div><div class="li-main">#${faNum(v.invoice_number)} — ${esc(v.buyer_name||'مهمان')}</div><div class="li-sub">${esc(v.date||'')}</div></div><div class="li-end"><div class="num" style="font-weight:700">${faNum(v.total_amount)}</div><div class="pill ${safeStatus(v.status)}" style="margin-top:4px">${STATUS_FA[safeStatus(v.status)]}</div></div></div>`).join('');
@@ -1990,13 +2002,15 @@ function invoiceRowsHTML(invs){
 async function renderInvoices(){
   const box=document.getElementById('invList'); box.innerHTML=skelList(6);
   const s=document.getElementById('invSearch'); if(s)s.value='';
+  const _q=seqStart('invList');
   try{
     const invs=await sbGet("invoices?select=id,invoice_number,date,buyer_name,total_amount,status&order=invoice_number.desc&limit=200");
+    if(seqStale('invList',_q))return;
     if(invs.length===0){ box.innerHTML='<div class="empty">هنوز فاکتوری ثبت نشده.</div>'; return; }
     let html=invoiceRowsHTML(invs);
     if(invs.length>=200) html+='<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:10px">۲۰۰ فاکتورِ آخر نشان داده شد — برای قدیمی‌ترها از کادرِ جستجوی بالا استفاده کن.</div>';
     box.innerHTML=html;
-  }catch(e){ box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
+  }catch(e){ if(seqStale('invList',_q))return; box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
 }
 let _invSearchTimer=null;
 function searchInvoicesDebounced(){ clearTimeout(_invSearchTimer); _invSearchTimer=setTimeout(searchInvoices,350); }
@@ -2018,11 +2032,13 @@ async function searchInvoices(){
     const nameOr="buyer_name.ilike.*"+encodeURIComponent(termS)+"*";
     query="invoices?select=id,invoice_number,date,buyer_name,total_amount,status&or=("+nameOr+(phoneTerm?","+ph:"")+")&order=invoice_number.desc&limit=100";
   }
+  const _q=seqStart('invList');
   try{
     const invs=await sbGet(query);
+    if(seqStale('invList',_q))return;
     if(invs.length===0){ box.innerHTML='<div class="empty" style="padding:16px">فاکتوری با این مشخصات پیدا نشد</div>'; return; }
     box.innerHTML='<div style="color:var(--muted);font-size:12px;margin-bottom:8px">'+faNum(invs.length)+' نتیجه</div>'+invoiceRowsHTML(invs);
-  }catch(e){ box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
+  }catch(e){ if(seqStale('invList',_q))return; box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
 }
 async function openInvoiceById(id){
   toast('در حال باز کردن…');
@@ -2129,13 +2145,15 @@ async function renderCustomers(){
   if(filterPid){ return renderCustomersByProduct(filterPid, box); }
   box.innerHTML=skelList(5);
   let balMap={}, balOk=true;
+  const _q=seqStart('custList');
   const [_bals,_custs]=await Promise.all([                         // با هم، نه پشتِ سرِ هم
     sbGetAll("customer_balances?select=id,balance").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]})),
     sbGetAll("customers?select=*&order=name.asc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:null}))
   ]);
   if(_bals.ok){ _bals.v.forEach(b=>balMap[b.id]=Number(b.balance||0)); } else { balOk=false; }
   if(_custs.ok&&_custs.v) CUSTOMERS=_custs.v;
-  fillCustomerSelect();
+  fillCustomerSelect();                       /* این به‌روزرسانیِ سراسری هرحال مفید است */
+  if(seqStale('custList',_q))return;          /* ولی نوشتن در جعبه فقط مالِ تازه‌ترین */
   if(CUSTOMERS.length===0){ box.innerHTML='<div class="empty">هنوز مشتری‌ای ثبت نشده.</div>'; return; }
   box.innerHTML=(balOk?'':'<div class="card" style="padding:11px 13px;margin-bottom:10px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06);font-size:12.5px"><b style="color:var(--danger)">⚠️ ماندهٔ حساب‌ها بارگذاری نشد</b><div style="color:var(--muted);margin-top:3px">تا وقتی درست نخونم، «تسویه» یا «طلب» نشون نمی‌دم که اشتباهی نکنی. اینترنت رو چک کن و دوباره باز کن.</div></div>')+'<input id="custSearch" class="inp" placeholder="🔎 جستجوی مشتری (نام، شماره، شهر)" oninput="filterList(\'custSearch\',\'custList\')" style="margin-bottom:10px">'+CUSTOMERS.map(c=>{
     const b=balMap[c.id]||0;
@@ -2150,8 +2168,10 @@ async function renderCustomers(){
 async function renderCustomersByProduct(productId, box){
   box.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال محاسبه…</div>';
   const prod=PRODUCTS.find(p=>p.id===productId);
+  const _q=seqStart('custList');
   try{
     const rows=await sbGetAll("invoice_items?select=quantity,line_total,invoices!inner(customer_id,status)&product_id=eq."+encodeURIComponent(productId)+"&invoices.status=neq.cancelled&order=created_at.asc");
+    if(seqStale('custList',_q))return;
     const agg={};
     rows.forEach(it=>{ const cid=it.invoices&&it.invoices.customer_id; if(!cid)return; if(!agg[cid])agg[cid]={qty:0,total:0}; agg[cid].qty+=Number(it.quantity||0); agg[cid].total+=Number(it.line_total||0); });
     const ranked=Object.keys(agg).map(cid=>({cid,qty:agg[cid].qty,total:agg[cid].total})).sort((a,b)=>b.qty-a.qty);
@@ -2159,7 +2179,7 @@ async function renderCustomersByProduct(productId, box){
     if(ranked.length===0){ html+='<div class="empty">هنوز هیچ مشتریِ ثبت‌شده‌ای این کالا را نخریده.<br><span style="font-size:12px">(فقط فاکتورهایی که به یک مشتری وصل شده‌اند شمرده می‌شوند)</span></div>'; box.innerHTML=html; return; }
     html+=ranked.map((r,i)=>{ const c=CUSTOMERS.find(x=>x.id===r.cid)||{}; return `<div class="list-item" onclick="openCustomer('${r.cid}')"><div><div class="li-main"><span class="rank">${faNum(i+1)}</span>${esc(c.name||'؟')}</div><div class="li-sub">${c.phone?esc(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end"><div class="num" style="font-weight:700;color:var(--gold-lt);font-size:15px">${faNum(r.qty)} عدد</div><div class="li-sub num">${faNum(r.total)} تومان</div></div></div>`; }).join('');
     box.innerHTML=html;
-  }catch(e){ box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
+  }catch(e){ if(seqStale('custList',_q))return; box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
 }
 function openCustomerForm(id){
   const c=id?CUSTOMERS.find(x=>x.id===id):null, w=document.getElementById('custFormWrap');
@@ -2421,7 +2441,7 @@ function insTop(){
   if(insFailed(['inv','rets','prods','custs']).length){ insBlocked(['inv','rets','prods','custs'],'🏆 پرخریدترین مشتریا'); return; }
   const I=window.INS; const g={};
   I.inv.forEach(v=>{ if(v.status==='cancelled')return; const key=v.customer_id||('n:'+(v.buyer_name||'بدون نام')); const rev=Number(v.total_amount||0); const prof=rev; const nm=v.customer_id?((I.custs.find(c=>c.id===v.customer_id)||{}).name||v.buyer_name||'مشتری'):(v.buyer_name||'بدون نام'); (g[key]=g[key]||{name:nm,rev:0,prof:0,cnt:0}); g[key].rev+=rev; g[key].prof+=prof; g[key].cnt++; });
-  (I.rets||[]).forEach(r=>{ if(r.invoice_id)return; const key=r.customer_id; if(!key||!g[key])return; const rv=Number(r.total_value||0); let rc=0; asArray(r.items).forEach(it=>{ rc+=Number(it.quantity||0)*0; }); g[key].rev-=rv; g[key].prof-=(rv-rc); });
+  (I.rets||[]).forEach(r=>{ if(r.invoice_id)return; const key=r.customer_id; if(!key||!g[key])return; const rv=Number(r.total_value||0); g[key].rev-=rv; g[key].prof-=rv; });
   const rows=Object.values(g).sort((a,b)=>b.prof-a.prof).slice(0,25);
   let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:2px">🏆 پرخریدترین مشتریا</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">ردیف‌شده بر اساسِ مبلغِ خرید</div>`;
   if(rows.length===0) h+='<div class="card" style="padding:16px;text-align:center;color:var(--muted)">هنوز فروشی ثبت نشده</div>';
@@ -2547,8 +2567,10 @@ async function openSearch(){
 async function gsRecent(){
   const body=document.getElementById('searchBody'); if(!body)return;
   let rows=[];
+  const _q=seqStart('searchBody');
   try{ rows=await sbGetAll("invoices?select=id,invoice_number,buyer_name,total_amount,date,status&order=created_at.desc&limit=8"); }
-  catch(e){ body.innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; return; }
+  catch(e){ if(seqStale('searchBody',_q))return; body.innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; return; }
+  if(seqStale('searchBody',_q))return;
   if(!rows.length){ body.innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; return; }
   body.innerHTML='<div class="block-title">آخرین فاکتورها <span style="font-weight:400;color:var(--muted);font-size:11.5px">تا وقتی چیزی ننوشتی</span></div>'
     +rows.map(v=>`<div class="list-item" onclick="closeSearch();openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)} · ${esc(v.buyer_name||'')}</div><div class="li-sub">${esc(v.date||'')} · ${STATUS_FA[safeStatus(v.status)]}</div></div><div class="li-end num">${faNum(v.total_amount||0)}</div></div>`).join('');
@@ -2567,11 +2589,13 @@ async function gsRun(){ const q=(document.getElementById('gsInput').value||'').t
   const encQn=encodeURIComponent('*'+qn+'*');
   const phCanon=canonicalPhone(q);
   const encPh=encodeURIComponent('*'+(phCanon||qn)+'*');
+  const _q=seqStart('searchBody');
   const [prods,custs,invs]=await Promise.all([
     P(`products?select=id,name,price&name=ilike.${enc}&limit=15`),
     P(`customers?select=id,name,phone,city&or=(name.ilike.${enc},phone.ilike.${encPh},phone.ilike.${encQn})&limit=15`),
     P(numQ?`invoices?select=id,invoice_number,buyer_name,total_amount,date,status&or=(buyer_name.ilike.${enc},invoice_number.eq.${numQ})&limit=15`:`invoices?select=id,invoice_number,buyer_name,total_amount,date,status&buyer_name.ilike.${enc}&limit=15`)
   ]);
+  if(seqStale('searchBody',_q))return;   /* کاربر در این فاصله چیزِ دیگری تایپ کرده */
   let h='';
   const _cap=(n)=>n>=15?' <span style="font-weight:400;color:var(--muted);font-size:11px">(۱۵ تای اول)</span>':'';
   if(prods.length){ h+='<div class="block-title">کالاها ('+faNum(prods.length)+')'+_cap(prods.length)+'</div>'+prods.map(p=>`<div class="list-item" onclick="closeSearch();openProductForm('${p.id}')"><div><div class="li-main">${esc(p.name)}</div></div><div class="li-end num">${faNum(p.price||0)}</div></div>`).join(''); }
@@ -2692,8 +2716,8 @@ function renderReport(ym){
   D.items.forEach(it=>{ if(iranJalaliKey(new Date(it.created_at)).slice(0,7)!==ym)return; const k=it.product_id||it.product_name||'?'; if(!prodAgg[k])prodAgg[k]={name:it.product_name||'؟',qty:0}; prodAgg[k].qty+=Number(it.quantity||0); });
   D.pays.forEach(p=>{ if(iranJalaliKey(new Date(p.created_at)).slice(0,7)!==ym)return; if(p.method==='اعتبارِ مرجوعی')return; received+=Number(p.amount||0); });
   D.exps.forEach(e=>{ if(salaryMonthKey(e)!==ym)return; exp+=Number(e.amount||0); });
-  let retVal=0, retCost=0;
-  (D.rets||[]).forEach(r=>{ if(iranJalaliKey(new Date(r.created_at)).slice(0,7)!==ym)return; retVal+=Number(r.total_value||0); if(r.settlement==='cash')received-=Number(r.total_value||0); if(r.customer_id)custAgg[r.customer_id]=(custAgg[r.customer_id]||0)-Number(r.total_value||0); asArray(r.items).forEach(it=>{ retCost+=Number(it.quantity||0)*0; const pk=it.product_id||it.name; if(pk&&prodAgg[pk])prodAgg[pk].qty=Math.max(0,prodAgg[pk].qty-Number(it.quantity||0)); }); });
+  let retVal=0;
+  (D.rets||[]).forEach(r=>{ if(iranJalaliKey(new Date(r.created_at)).slice(0,7)!==ym)return; retVal+=Number(r.total_value||0); if(r.settlement==='cash')received-=Number(r.total_value||0); if(r.customer_id)custAgg[r.customer_id]=(custAgg[r.customer_id]||0)-Number(r.total_value||0); asArray(r.items).forEach(it=>{ const pk=it.product_id||it.name; if(pk&&prodAgg[pk])prodAgg[pk].qty=Math.max(0,prodAgg[pk].qty-Number(it.quantity||0)); }); });
   const netSales=sales-retVal;
   const net=netSales-exp; const topP=Object.values(prodAgg).filter(p=>p.qty>0).sort((a,b)=>b.qty-a.qty).slice(0,5); const topC=Object.entries(custAgg).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const S=SETTINGS||{}; const row=(l,v,c)=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--rep-line);font-size:14px"><span style="color:var(--rep-mut)">${l}</span><div style="text-align:left"><b style="${c?'color:'+c:''}">${v}</b></div></div>`;
