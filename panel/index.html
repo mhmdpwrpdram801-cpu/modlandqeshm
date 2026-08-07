@@ -161,7 +161,9 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 
 .card{background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:15px;margin-bottom:12px;box-shadow:0 6px 18px rgba(80,60,10,.05)}
 .rowline{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.list-item{background:var(--card);border:1px solid var(--line-soft);border-radius:13px;padding:13px 15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+.list-item{background:var(--card);border:1px solid var(--line-soft);border-radius:13px;padding:13px 15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;
+  /* ردیفِ بیرون از دید رسم نمی‌شود. contain-intrinsic-size لازم است وگرنه نوارِ اسکرول می‌پرد. */
+  content-visibility:auto;contain-intrinsic-size:auto 64px}
 .list-item:active{background:var(--panel)}
 .li-main{font-weight:700;font-size:14.5px}
 .li-sub{font-size:12px;color:var(--muted);margin-top:3px}
@@ -274,6 +276,20 @@ html:has(.overlay:not(.hidden)){overflow:hidden}
 html[data-theme="dark"] .sheet-b.danger{background:rgba(193,57,43,.14);border-color:rgba(193,57,43,.42)}
 .sheet-b.cancel{background:transparent;border-color:var(--line-soft);color:var(--muted);font-weight:600;text-align:center}
 .sheet-sep{height:1px;background:var(--line-soft);margin:12px 6px}
+
+/* پنجره‌ی پرسش — جایگزینِ await ask()ِ بومی.
+   <dialog> در «لایه‌ی رویی» مرورگر می‌نشیند: نه با z-index دعوا دارد، نه Tab پشتش می‌رود،
+   و Esc خودکار می‌بندد. await ask()ِ بومی هیچ‌کدام را نداشت و متنِ چندخطیِ فارسی را هم
+   به یک تودهٔ فشرده تبدیل می‌کرد. */
+#askDlg{border:0;padding:0;background:transparent;max-width:min(92vw,420px);width:100%;margin:auto}
+#askDlg::backdrop{background:rgba(20,16,10,.55)}
+.ask-card{background:var(--card);border-radius:18px;padding:20px 18px 16px;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:right}
+.ask-ttl{font-weight:800;font-size:16px;margin-bottom:8px;color:var(--ink)}
+.ask-txt{font-size:14px;line-height:1.85;color:var(--ink);white-space:pre-wrap;overflow-wrap:break-word;max-height:52vh;overflow-y:auto}
+.ask-warn{background:rgba(224,176,62,.12);border:1px solid rgba(224,176,62,.4);border-radius:12px;padding:11px 12px;margin-bottom:12px;font-size:13px;line-height:1.8}
+html[data-theme="dark"] .ask-warn{background:rgba(224,176,62,.10);border-color:rgba(224,176,62,.34)}
+.ask-btns{display:flex;gap:9px;margin-top:16px}
+.ask-btns .btn{margin:0}
 
 /* spinner / toast */
 .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(42,32,8,.3);border-top-color:#2a2008;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px}
@@ -512,6 +528,18 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
   </div>
 </div>
 
+<dialog id="askDlg">
+  <div class="ask-card">
+    <div class="ask-ttl" id="askTtl"></div>
+    <div class="ask-warn hidden" id="askWarn"></div>
+    <div class="ask-txt" id="askTxt"></div>
+    <div class="ask-btns">
+      <button class="btn" id="askYes" style="flex:1"></button>
+      <button class="btn sec" id="askNo" style="flex:1">بی‌خیال</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- CUSTOMER DETAIL OVERLAY -->
 <div id="custView" class="overlay hidden">
   <div class="ov-bar"><button class="btn sm sec" onclick="closeCustomer()">بستن</button></div>
@@ -633,7 +661,7 @@ if('serviceWorker' in navigator){
 }
 // دکمه‌ی اضطراری: اگه یه وقت گیر کرد
 async function pwaReset(){
-  if(!confirm('کشِ برنامه پاک شه و نسخه‌ی تازه از سرور گرفته شه؟\n(اطلاعاتت دست نمی‌خوره — فقط فایلِ برنامه)'))return;
+  if(!await ask('کشِ برنامه پاک شه و نسخه‌ی تازه از سرور گرفته شه؟\n(اطلاعاتت دست نمی‌خوره — فقط فایلِ برنامه)'))return;
   try{ if('serviceWorker' in navigator){ var rs=await navigator.serviceWorker.getRegistrations(); for(var i=0;i<rs.length;i++) await rs[i].unregister(); } }catch(e){}
   try{ var ks=await caches.keys(); for(var j=0;j<ks.length;j++) await caches.delete(ks[j]); }catch(e){}
   location.reload();
@@ -662,6 +690,13 @@ function canonicalPhone(v){ let d=normalizeDigits(v||'').replace(/\D/g,''); if(!
 function faPct(n){ const v=Number(n||0); const s=(Math.round(v*100)/100).toString(); return faDigits(s); }
 function faFloat(v){ let c=normalizeDigits(String(v==null?'':v)).replace(/[٬,\s]/g,'').replace(/٫/g,'.').replace(/[^\d.\-]/g,''); if((c.match(/\./g)||[]).length>1) c=c.replace(/\./g,''); const n=parseFloat(c); return isNaN(n)?NaN:n; }
 function parseNum(v){ let c=normalizeDigits(v).replace(/[٬,\s]/g,'').replace(/٫/g,'.').replace(/[^\d.\-]/g,''); if(/^-?\d{1,3}(\.\d{3})+$/.test(c)) c=c.replace(/\./g,''); else if((c.match(/\./g)||[]).length>1) c=c.replace(/\./g,''); const n=Number(c); return Math.max(0, Math.round(isNaN(n)?0:n)); }
+/* تاریخِ سرور ISO میلادی است؛ بدونِ این، کنارِ «ماهِ ۱۴۰۵/۰۵» یک «2026-08-06» می‌نشیند */
+function jDate(iso){
+  if(!iso)return '';
+  const d=new Date(iso); if(isNaN(d.getTime()))return String(iso).slice(0,10);
+  try{ return new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }
+  catch(e){ return String(iso).slice(0,10); }
+}
 function todayJalali(){ try{ return new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }catch(e){ try{ const d=new Date(); return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0'); }catch(_){ return ''; } } }
 function iranDateKey(d){ try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }catch(e){ return d.toISOString().slice(0,10); } }
 function iranJalaliKey(d){ try{ return new Intl.DateTimeFormat('fa-IR-u-nu-latn',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(d).replace(/\//g,'-'); }catch(e){ return iranDateKey(d); } }
@@ -691,12 +726,47 @@ document.addEventListener('keydown',function(e){
 (function(){
   try{
     a11yFix(document);
-    const mo=new MutationObserver(()=>{ a11yFix(document); });
+    // بدونِ debounce، رندرِ یک لیستِ بلند ده‌ها اسکنِ کاملِ سند پشتِ سرِ هم می‌سازد
+    let _a11yT=null;
+    const _a11ySoon=()=>{ if(_a11yT)return; _a11yT=setTimeout(()=>{ _a11yT=null; a11yFix(document); },120); };
+    const mo=new MutationObserver(_a11ySoon);
     document.addEventListener('DOMContentLoaded',()=>{ a11yFix(document);
       mo.observe(document.body,{childList:true,subtree:true}); });
     if(document.readyState!=='loading'){ a11yFix(document); mo.observe(document.body,{childList:true,subtree:true}); }
   }catch(_){}
 })();
+/* ask() جایگزینِ await ask() است و همان قرارداد را دارد: true یعنی ادامه بده.
+   خطِ اولِ متن اگر با ⚠️ شروع شود، جدا و برجسته نشان داده می‌شود — همان خطی که
+   در await ask()ِ بومی قاطیِ بقیه می‌شد و کسی نمی‌خواندش. */
+function ask(message, opts){
+  const o=opts||{};
+  const dlg=document.getElementById('askDlg');
+  if(!dlg||typeof dlg.showModal!=='function') return Promise.resolve(confirm(message));
+  const raw=String(message==null?'':message);
+  const parts=raw.split(/\n{2,}/);
+  let warn='', body=raw;
+  if(parts.length>1 && /^[⚠️!]/.test(parts[0].trim())){ warn=parts[0].trim(); body=parts.slice(1).join('\n\n'); }
+  const w=document.getElementById('askWarn');
+  w.textContent=warn; w.classList.toggle('hidden', !warn);
+  document.getElementById('askTtl').textContent=o.title||((o.danger||warn)?'مطمئنی؟':'تأیید می‌کنی؟');
+  document.getElementById('askTxt').textContent=body;
+  const yes=document.getElementById('askYes');
+  yes.textContent=o.yes||'آره، انجام بده';
+  yes.className='btn'+(o.danger||warn?' red':'');
+  document.getElementById('askNo').textContent=o.no||'بی‌خیال';
+  return new Promise(res=>{
+    let done=false;
+    const finish=(v)=>{ if(done)return; done=true;
+      yes.onclick=null; document.getElementById('askNo').onclick=null; dlg.onclose=null; dlg.oncancel=null;
+      try{ if(dlg.open)dlg.close(); }catch(_){}
+      res(v); };
+    yes.onclick=()=>finish(true);
+    document.getElementById('askNo').onclick=()=>finish(false);
+    dlg.oncancel=()=>finish(false);   // Esc یا دکمه‌ی برگشتِ گوشی
+    dlg.onclose=()=>finish(false);
+    try{ dlg.showModal(); }catch(_){ finish(confirm(raw)); }
+  });
+}
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2300); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function copyText(t){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t); toast('کپی شد ✅'); return; } }catch(e){} try{ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('کپی شد ✅'); }catch(e){ toast('کپی نشد — دستی انتخاب کن'); } }
@@ -783,12 +853,19 @@ async function sbFetch(path, opts={}){
   if(!TOKEN && !SESSION){ throw new Error('نشست منقضی شد، دوباره وارد شو'); }
   const build=()=>({ method:opts.method||"GET", body:opts.body, headers:{"apikey":SUPABASE_KEY, ...(TOKEN?{"Authorization":"Bearer "+TOKEN}:{}), "Content-Type":"application/json", ...(opts.headers||{})} });
   const go=async()=>{
-    const ac=(typeof AbortController!=='undefined')?new AbortController():null;
     const ms=Number(opts.timeout||NET_TIMEOUT);
-    const t=ac?setTimeout(()=>{ try{ac.abort();}catch(_){} }, ms):null;
-    try{ return await fetch(SUPABASE_URL+"/rest/v1/"+path, Object.assign(build(), ac?{signal:ac.signal}:{})); }
+    // AbortSignal.timeout جای AbortController + setTimeout + clearTimeout دستی را می‌گیرد.
+    // اگر مرورگر نداشته باشد باید به روشِ قدیمی برگردیم، وگرنه درخواست تا ابد آویزان می‌مانَد.
+    let signal=null, t=null, ac=null;
+    if(typeof AbortSignal!=='undefined' && typeof AbortSignal.timeout==='function'){
+      signal=AbortSignal.timeout(ms);
+    }else if(typeof AbortController!=='undefined'){
+      ac=new AbortController(); signal=ac.signal;
+      t=setTimeout(()=>{ try{ ac.abort(); }catch(_){} }, ms);
+    }
+    try{ return await fetch(SUPABASE_URL+"/rest/v1/"+path, Object.assign(build(), signal?{signal}:{})); }
     catch(e){
-      if(e && (e.name==='AbortError'||/abort/i.test(e.message||'')))
+      if(e && (e.name==='TimeoutError'||e.name==='AbortError'||/abort|timeout/i.test(e.message||'')))
         throw new Error('اینترنت جواب نداد ('+Math.round(ms/1000)+' ثانیه صبر کردم) — دوباره بزن 🙏');
       throw new Error('اینترنت وصل نشد — اتصالت رو چک کن 🙏');
     }
@@ -878,6 +955,13 @@ function afterDataReady(){
   }catch(_){}
 }
 function nav(scr){
+  // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند
+  if(document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    try{ document.startViewTransition(()=>_nav(scr)); return; }catch(_){}
+  }
+  _nav(scr);
+}
+function _nav(scr){
   try{endSel();}catch(_){}
   ['dashboard','new','invoices','products','customers','settings'].forEach(s=>document.getElementById('scr-'+s).classList.toggle('hidden',s!==scr));
   document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.scr===scr));
@@ -891,7 +975,13 @@ function nav(scr){
 }
 
 /* پشتِ پنجره‌های بازشو نباید بلغزه */
-function syncOvLock(){ try{ document.body.classList.toggle('ovlock', !!document.querySelector('.overlay:not(.hidden)')); }catch(_){} }
+function syncOvLock(){ try{
+  const open=!!document.querySelector('.overlay:not(.hidden)');
+  document.body.classList.toggle('ovlock', open);
+  // بدونِ inert، وقتی پنجره باز است Tab و صفحه‌خوان می‌روند سراغِ محتوای پشتش
+  const shell=document.getElementById('app');
+  if(shell && 'inert' in HTMLElement.prototype) shell.inert=open;
+}catch(_){} }
 function _initOvLock(){ try{ const mo=new MutationObserver(syncOvLock); document.querySelectorAll('.overlay').forEach(o=>mo.observe(o,{attributes:true,attributeFilter:['class']})); syncOvLock(); }catch(_){} }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_initOvLock); else _initOvLock();
 
@@ -960,7 +1050,7 @@ async function bulkInvCancel(){
   const paid=active.filter(v=>Number(v.paid_amount||0)>0);
   let m=faNum(active.length)+' فاکتور باطل شود؟';
   if(paid.length)m='⚠️ '+faNum(paid.length)+' تا از این‌ها پرداختی دارند؛ با ابطال، پرداختی‌شان هم از حسابِ مشتری حذف می‌شود.\n\n'+m;
-  if(!confirm(m))return;
+  if(!await ask(m))return;
   await bulkProgress(active.map(v=>v.id), id=>sbRpc('cancel_invoice',{p_invoice_id:id}), '{n} فاکتور باطل شد ✅');
   try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
   renderInvoices();
@@ -970,7 +1060,7 @@ async function bulkInvSettle(){
   let invs; try{ invs=await sbGet("invoices?select=id,status&id=in.("+_inList(ids)+")"); }catch(e){ toast(e.message); return; }
   const active=invs.filter(v=>v.status!=='cancelled');
   if(!active.length){ toast('فاکتورِ فعالی انتخاب نشده'); return; }
-  if(!confirm(faNum(active.length)+' فاکتور «تسویه‌شده» علامت بخورد؟\nیعنی مبلغِ کاملشان پرداخت‌شده حساب می‌شود و از طلبِ مشتری کم می‌شود.'))return;
+  if(!await ask(faNum(active.length)+' فاکتور «تسویه‌شده» علامت بخورد؟\nیعنی مبلغِ کاملشان پرداخت‌شده حساب می‌شود و از طلبِ مشتری کم می‌شود.'))return;
   await bulkProgress(active, v=>sbRpc('settle_invoice',{p_invoice_id:v.id}), '{n} فاکتور تسویه شد ✅');
   renderInvoices();
 }
@@ -979,7 +1069,7 @@ async function bulkInvReturn(){
   let invs; try{ invs=await sbGet("invoices?select=id,status&id=in.("+_inList(ids)+")"); }catch(e){ toast(e.message); return; }
   const active=invs.filter(v=>v.status!=='cancelled').map(v=>v.id);
   if(!active.length){ toast('فاکتورِ فعالی انتخاب نشده'); return; }
-  if(!confirm('همه‌ی اقلامِ '+faNum(active.length)+' فاکتور مرجوع شود؟\nمبلغش به حسابِ مشتری برمی‌گردد.'))return;
+  if(!await ask('همه‌ی اقلامِ '+faNum(active.length)+' فاکتور مرجوع شود؟\nمبلغش به حسابِ مشتری برمی‌گردد.'))return;
   let allIts=[]; try{ allIts=await sbGetAll("invoice_items?select=id,product_id,quantity,invoice_id&invoice_id=in.("+_inList(active)+")"); }catch(e){ toast('اقلام خوانده نشد: '+e.message); return; }
   const byInv={}; for(const it of allIts){ (byInv[it.invoice_id]=byInv[it.invoice_id]||[]).push(it); }
   await bulkProgress(active, async id=>{
@@ -992,7 +1082,7 @@ async function bulkInvReturn(){
 }
 async function bulkProdDelete(){
   const ids=[...SEL.ids]; if(!ids.length)return;
-  if(!confirm('⚠️ '+faNum(ids.length)+' کالا برای همیشه حذف شود؟ قابلِ بازگشت نیست.\n(فاکتورهای قبلی که این کالاها را دارند دست‌نخورده می‌مانند)'))return;
+  if(!await ask('⚠️ '+faNum(ids.length)+' کالا برای همیشه حذف شود؟ قابلِ بازگشت نیست.\n(فاکتورهای قبلی که این کالاها را دارند دست‌نخورده می‌مانند)'))return;
   await _bulkOneShot(document.getElementById('bulkBar'),'در حال حذفِ '+faNum(ids.length)+' کالا (یکجا)…',
     ()=>Promise.all(_chunks(ids,60).map(ch=>sbFetch("products?id=in.("+_inList(ch)+")",{method:"DELETE",headers:{"Prefer":"return=minimal"}}).then(r=>{ if(!r.ok)throw new Error('خطا در حذف'); }))),
     faNum(ids.length)+' کالا حذف شد');
@@ -1006,7 +1096,7 @@ async function bulkCustSettle(){
   if(!owe.length){ toast('هیچ‌کدام از این مشتری‌ها بدهی ندارند'); return; }
   let m=faNum(owe.length)+' مشتری تسویه شود؟\nبرای هرکدام یک پرداخت به‌اندازه‌ی بدهی‌اش ثبت می‌شود و مانده‌شان صفر می‌شود.';
   if(owe.length<ids.length)m+='\n('+faNum(ids.length-owe.length)+' تا بدهی نداشتند و رد می‌شوند)';
-  if(!confirm(m))return;
+  if(!await ask(m))return;
   await _bulkOneShot(document.getElementById('bulkBar'),'در حال تسویه (یکجا)…',
     ()=>sbInsert('payments',owe.map(b=>({customer_id:b.id,amount:Number(b.balance),date:todayJalali(),method:'نقدی',client_request_id:newReqId()}))),
     faNum(owe.length)+' مشتری تسویه شد ✅');
@@ -1019,7 +1109,7 @@ async function bulkCustDelete(){
   let m='⚠️ '+faNum(ids.length)+' مشتری حذف شود؟ فاکتورهایشان می‌ماند ولی خودشان و طلب‌هایشان پاک می‌شود و قابلِ بازگشت نیست.';
   if(!balOk)m='⚠️ ماندهٔ حسابِ این مشتری‌ها را نتوانستم چک کنم (خطای شبکه). اگر بدهکار باشند طلبشان گم می‌شود.\n\n'+m;
   else if(owing)m='⚠️ '+faNum(owing)+' تا از این مشتری‌ها به تو بدهکارند! با حذف، طلبشان پاک می‌شود.\n\n'+m;
-  if(!confirm(m))return;
+  if(!await ask(m))return;
   await _bulkOneShot(document.getElementById('bulkBar'),'در حال حذفِ '+faNum(ids.length)+' مشتری (یکجا)…',
     ()=>Promise.all(_chunks(ids,60).map(ch=>sbFetch("customers?id=in.("+_inList(ch)+")",{method:"DELETE",headers:{"Prefer":"return=minimal"}}).then(r=>{ if(!r.ok)throw new Error('خطا در حذف'); }))),
     faNum(ids.length)+' مشتری حذف شد');
@@ -1146,7 +1236,7 @@ async function addShipment(){
   window.__busyShip=false; toast('ارسالی ثبت شد ✅'); await renderShipments();
 }
 async function deleteShipment(id){
-  if(!confirm('این ردیفِ ارسالی حذف شود؟'))return;
+  if(!await ask('این ردیفِ ارسالی حذف شود؟'))return;
   try{ await sbDelete('shipments',id); }
   catch(e){ toast('حذف نشد: '+e.message); return; }
   toast('حذف شد'); await renderShipments();
@@ -1194,7 +1284,7 @@ async function convertTgOrder(id){
   let finalTotal=Number(order.total); if(!(finalTotal>0)||finalTotal>grossTotal)finalTotal=grossTotal;
   const orderDiscount=Math.max(0,grossTotal-finalTotal);
   const paidAmt=order.paid_confirmed_at?finalTotal:0;
-  if(!confirm(paidAmt>0?('پرداختِ این سفارش ('+faNum(finalTotal)+' تومان) قبلاً تأیید شده؛ به فاکتورِ تسویه‌شده تبدیل شود؟'):'این سفارش به فاکتورِ نسیه تبدیل شود؟ بعداً می‌تونی پرداختش را ثبت کنی.'))return;
+  if(!await ask(paidAmt>0?('پرداختِ این سفارش ('+faNum(finalTotal)+' تومان) قبلاً تأیید شده؛ به فاکتورِ تسویه‌شده تبدیل شود؟'):'این سفارش به فاکتورِ نسیه تبدیل شود؟ بعداً می‌تونی پرداختش را ثبت کنی.'))return;
   if(window.__busyConv)return; window.__busyConv=true;
   // ONE transaction server-side: locks the order, builds the invoice, marks it done.
   // No more claim-then-create, so a lost response can't strand the order or double-bill.
@@ -1210,7 +1300,7 @@ async function convertTgOrder(id){
   if(res&&res.id){ try{ document.getElementById('tgOrdersView').classList.add('hidden'); }catch(_){} try{ await openInvoiceById(res.id); }catch(_){} }
 }
 async function rejectTgOrder(id){
-  if(!confirm('این سفارش رد/حذف شود؟'))return;
+  if(!await ask('این سفارش رد/حذف شود؟'))return;
   try{
     const cr=await sbFetch("telegram_orders?id=eq."+encodeURIComponent(id)+"&status=eq.new",{method:"PATCH",headers:{"Prefer":"return=representation"},body:JSON.stringify({status:'rejected'})});
     const d=await cr.json().catch(()=>[]); if(!cr.ok)throw new Error((d&&d.message)||'خطا');
@@ -1501,7 +1591,7 @@ async function medPrime(id){
   finally{ if(st)st.textContent=''; }
 }
 async function medRemove(kind, idx){
-  if(!confirm('این فایل پاک بشه؟'))return;
+  if(!await ask('این فایل پاک بشه؟'))return;
   try{
     if(kind==='photo'){ const ph=(window.__MED.photos||[])[idx]; if(!ph)return; await medDeleteUrl(ph.url); window.__MED.photos.splice(idx,1); }
     else if(kind==='jin'){ await medDeleteUrl(window.__MED.jin_url); window.__MED.jin_url=null; window.__MED.jin_fid=null; }
@@ -1720,7 +1810,7 @@ async function voidCurrentInvoice(){
   if(!CURRENT_INV||!CURRENT_INV.id)return;
   if(CURRENT_INV.status==='cancelled'){ toast('این فاکتور قبلاً باطل شده'); return; }
   const vPaid=Number(CURRENT_INV.paid_amount||0);
-  if(!confirm(vPaid>0?('⚠️ این فاکتور '+faNum(vPaid)+' تومان پرداختی دارد!\nبا ابطال، این پرداخت هم از حسابِ مشتری حذف می‌شود. اگر پول واقعاً گرفته شده، به‌جای ابطال از «مرجوعی» استفاده کن یا اول تکلیفِ پول را روشن کن.\n\nمطمئنی باطل شود؟'):'این فاکتور باطل شود؟'))return;
+  if(!await ask(vPaid>0?('⚠️ این فاکتور '+faNum(vPaid)+' تومان پرداختی دارد!\nبا ابطال، این پرداخت هم از حسابِ مشتری حذف می‌شود. اگر پول واقعاً گرفته شده، به‌جای ابطال از «مرجوعی» استفاده کن یا اول تکلیفِ پول را روشن کن.\n\nمطمئنی باطل شود؟'):'این فاکتور باطل شود؟'))return;
   if(window.__busyVoid)return; window.__busyVoid=true;
   try{ await sbRpc('cancel_invoice',{p_invoice_id:CURRENT_INV.id}); }
   catch(e){ window.__busyVoid=false; toast(e.message); return; }
@@ -1734,7 +1824,7 @@ async function voidCurrentInvoice(){
 async function restoreCurrentInvoice(){
   if(!CURRENT_INV||!CURRENT_INV.id)return;
   if(CURRENT_INV.status!=='cancelled'){ toast('این فاکتور باطل نیست'); return; }
-  if(!confirm('این فاکتورِ باطل‌شده دوباره برگردد؟'))return;
+  if(!await ask('این فاکتورِ باطل‌شده دوباره برگردد؟'))return;
   if(window.__busyRestoreInv)return; window.__busyRestoreInv=true;
   let res;
   try{ res=await sbRpc('restore_invoice',{p_invoice_id:CURRENT_INV.id}); }
@@ -1775,6 +1865,7 @@ async function openInvoiceReturn(){
     <button class="btn" id="invRetSubmit" onclick="submitInvoiceReturn()" style="margin-top:6px">ثبتِ مرجوعی</button>
   </div>`;
   document.getElementById('invRetBody').innerHTML=html;
+  invReturnRecalc();   // وگرنه دکمه تا اولین ضربه‌ی انگشت فعال به‌نظر می‌رسد
   document.getElementById('invReturnView').classList.remove('hidden');
 }
 function invReturnRecalc(){
@@ -1783,6 +1874,9 @@ function invReturnRecalc(){
   const _cap=(!CURRENT_INV||CURRENT_INV.total_amount==null)?Infinity:Number(CURRENT_INV.total_amount);
   if(t>_cap)t=_cap;
   const el=document.getElementById('invRetTotal'); if(el)el.textContent=faNum(t)+' تومان'; const ew=document.getElementById('invRetWords'); if(ew)ew.textContent=t>0?numToFaWords(t)+' تومان':'';
+  const anyQty=[...document.querySelectorAll('.invret-qty')].some(inp=>parseNum(inp.value)>0);
+  const btn=document.getElementById('invRetSubmit');
+  if(btn && !btn.dataset.busy){ btn.disabled=!anyQty; btn.textContent=anyQty?'ثبتِ مرجوعی':'تعدادِ مرجوعی را وارد کن'; }
 }
 async function submitInvoiceReturn(){
   const msg=document.getElementById('invRetMsg'); msg.className='msg'; msg.textContent='';
@@ -1790,14 +1884,14 @@ async function submitInvoiceReturn(){
   document.querySelectorAll('.invret-qty').forEach(inp=>{ const q=parseNum(inp.value); if(q>0)returns.push({invoice_item_id:(inp.dataset.iid||null),product_id:inp.dataset.pid,quantity:q}); });
   if(returns.length===0){ msg.className='msg err'; msg.textContent='حداقل برای یک کالا تعدادِ مرجوعی وارد کن'; return; }
   const id=CURRENT_INV.id;
-  const btn=document.getElementById('invRetSubmit'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> در حال ثبت…';
+  const btn=document.getElementById('invRetSubmit'); btn.dataset.busy='1'; btn.disabled=true; btn.innerHTML='<span class="spin"></span> در حال ثبت…';
   try{
     const res=await sbRpc('return_invoice_items',{p_invoice_id:id,p_returns:returns});
     document.getElementById('invReturnView').classList.add('hidden');
     toast('مرجوعی ثبت شد ✅ مبلغِ '+faNum(res.refund)+' ت به حسابِ مشتری برگشت');
     try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
     try{ await openInvoiceById(id); }catch(_){}
-  }catch(e){ msg.className='msg err'; msg.textContent=e.message; btn.disabled=false; btn.textContent='ثبتِ مرجوعی'; }
+  }catch(e){ msg.className='msg err'; msg.textContent=e.message; delete btn.dataset.busy; btn.disabled=false; btn.textContent='ثبتِ مرجوعی'; }
 }
 
 /* INVOICES LIST */
@@ -1930,7 +2024,7 @@ async function saveProduct(id, next){
   catch(_){ toast('ذخیره شد ولی لیست تازه نشد — صفحه رو رفرش کن'); }
 }
 async function deleteProduct(id){
-  if(!confirm('این کالا حذف شود؟ این کار قابل بازگشت نیست.'))return;
+  if(!await ask('این کالا حذف شود؟ این کار قابل بازگشت نیست.'))return;
   const _pm=(PRODUCTS||[]).find(x=>String(x.id)===String(id));
   try{ await sbDelete('products',id);
     if(_pm){ const _u=[_pm.video_jin_url,_pm.video_carton_url].concat((Array.isArray(_pm.photos)?_pm.photos:[]).map(x=>x&&x.url)).filter(Boolean);
@@ -1994,7 +2088,7 @@ async function saveCustomer(id){
   const name=document.getElementById('cName').value.trim();
   if(!name){ msg.className='msg err'; msg.textContent='نام مشتری الزامی است'; return; }
   const row={ name, phone:canonicalPhone(document.getElementById('cPhone').value), city:document.getElementById('cCity').value.trim(), address:document.getElementById('cAddr').value.trim() };
-  if(row.phone){ const dup=CUSTOMERS.find(x=>canonicalPhone(x.phone||'')===row.phone && x.id!==id); if(dup && !confirm('یه مشتری با این شماره از قبل هست: «'+dup.name+'».\nبازم با همین شماره ذخیره کنم؟'))return; }
+  if(row.phone){ const dup=CUSTOMERS.find(x=>canonicalPhone(x.phone||'')===row.phone && x.id!==id); if(dup && !await ask('یه مشتری با این شماره از قبل هست: «'+dup.name+'».\nبازم با همین شماره ذخیره کنم؟'))return; }
   if(window.__busyCust)return; window.__busyCust=true;
   try{ if(id)await sbUpdate('customers',id,row); else await sbInsert('customers',row); }
   catch(e){ msg.className='msg err'; msg.textContent=e.message; window.__busyCust=false; return; }
@@ -2059,7 +2153,7 @@ async function deleteCustomer(id){
   if(bal>0) warn='⚠️ این مشتری '+faNum(bal)+' تومان به تو بدهکار است.\n\nاگر حذفش کنی این طلب از لیست پاک می‌شود. مطمئنی؟';
   else if(bal<0) warn='⚠️ تو '+faNum(-bal)+' تومان به این مشتری بدهکاری.\n\nاگر حذفش کنی این سابقه پاک می‌شود. مطمئنی؟';
   if(!balOk) warn='⚠️ نتونستم ماندهٔ حسابِ این مشتری رو بررسی کنم (احتمالاً خطای شبکه).\n\nاگه بهت بدهکاره، با حذف اون طلب از لیست گم می‌شه. بازم حذف بشه؟';
-  if(!confirm(warn))return;
+  if(!await ask(warn))return;
   try{ await sbDelete('customers',id); toast('مشتری حذف شد'); closeCustomer(); renderCustomers(); }catch(e){ toast(e.message); }
 }
 async function addPayment(customerId){
@@ -2067,8 +2161,8 @@ async function addPayment(customerId){
   if(amount<=0){ toast('مبلغ معتبر وارد کن'); return; }
   let _bal=0,_balOk=true;
   try{ const br=await sbGetAll("customer_balances?select=balance&id=eq."+encodeURIComponent(customerId)); _bal=Number((br[0]||{}).balance||0); }catch(e){ _balOk=false; }
-  if(!_balOk){ if(!confirm('نتونستم ماندهٔ حسابِ این مشتری رو چک کنم (خطای شبکه).\nیعنی نمی‌دونم این مبلغ از بدهیش بیشتره یا نه.\n\nبازم ثبت بشه؟'))return; }
-  else if(_bal>0&&amount>_bal){ if(!confirm('مبلغِ واردشده ('+faNum(amount)+' ت) از بدهیِ این مشتری ('+faNum(_bal)+' ت) بیشتره.\nمابه‌التفاوت به‌عنوان طلبِ مشتری ثبت می‌شه. ادامه بدم؟'))return; }
+  if(!_balOk){ if(!await ask('نتونستم ماندهٔ حسابِ این مشتری رو چک کنم (خطای شبکه).\nیعنی نمی‌دونم این مبلغ از بدهیش بیشتره یا نه.\n\nبازم ثبت بشه؟'))return; }
+  else if(_bal>0&&amount>_bal){ if(!await ask('مبلغِ واردشده ('+faNum(amount)+' ت) از بدهیِ این مشتری ('+faNum(_bal)+' ت) بیشتره.\nمابه‌التفاوت به‌عنوان طلبِ مشتری ثبت می‌شه. ادامه بدم؟'))return; }
   const btn=document.getElementById('payBtn'); if(btn){ if(btn.disabled)return; btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
   try{ const _fi=PAY_FOR_INV;
     await sbInsert('payments',Object.assign({customer_id:customerId,amount,date:todayJalali(),method:'نقدی',client_request_id:PAY_REQ_ID}, _fi?{invoice_id:_fi}:{}));
@@ -2160,13 +2254,13 @@ async function addSalary(){
   if(window.__busySal)return; window.__busySal=true;
   try{ await sbInsert('salaries',row); toast('حقوق ثبت شد ✅'); await renderSalaries(); }catch(e){ msg.className='msg err'; msg.textContent=e.message; }finally{ window.__busySal=false; }
 }
-async function deleteSalary(id){ if(!confirm('این ردیفِ حقوق حذف شود؟'))return; try{ await sbDelete('salaries',id); toast('حذف شد'); await renderSalaries(); }catch(e){ toast(e.message); } }
+async function deleteSalary(id){ if(!await ask('این ردیفِ حقوق حذف شود؟'))return; try{ await sbDelete('salaries',id); toast('حذف شد'); await renderSalaries(); }catch(e){ toast(e.message); } }
 function openEmployee(i){
   const e=(window.EMP_LIST||[])[i]; if(!e)return;
   const ordered=e.rows.slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  const first=ordered[0]; const since=first?(first.date||(first.created_at||'').slice(0,10)||'—'):'—';
+  const first=ordered[0]; const since=first?(first.date||jDate(first.created_at)||'—'):'—';
   const firstMonth=ordered.map(r=>r.month).filter(Boolean)[0]||'';
-  const pays=e.rows.slice(0,100).map(s=>`<div class="list-item"><div><div class="li-main">${s.month?'ماهِ '+esc(s.month):esc(s.date||'')}</div><div class="li-sub">${esc((s.created_at||'').slice(0,10))}${s.note?' · '+esc(s.note):''}</div></div><div class="li-end" style="display:flex;align-items:center;gap:10px"><b class="num" style="color:var(--credit)">${faNum(s.amount)}</b><button onclick="deleteSalary('${s.id}')" style="background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer">🗑</button></div></div>`).join('');
+  const pays=e.rows.slice(0,100).map(s=>`<div class="list-item"><div><div class="li-main">${s.month?'ماهِ '+esc(s.month):esc(s.date||'')}</div><div class="li-sub">${esc(jDate(s.created_at))}${s.note?' · '+esc(s.note):''}</div></div><div class="li-end" style="display:flex;align-items:center;gap:10px"><b class="num" style="color:var(--credit)">${faNum(s.amount)}</b><button onclick="deleteSalary('${s.id}')" style="background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer">🗑</button></div></div>`).join('');
   document.getElementById('salBody').innerHTML=`<div class="ov-sheet">
     <button class="btn sm sec" style="margin-bottom:12px" onclick="renderSalaries()">‹ برگشت</button>
     <div style="font-size:18px;font-weight:700;margin-bottom:2px">👤 ${esc(e.name)}</div>
@@ -2183,7 +2277,7 @@ function openEmployee(i){
 }
 async function deleteEmployee(i){
   const e=(window.EMP_LIST||[])[i]; if(!e)return;
-  if(!confirm('کارمند «'+e.name+'» و هر '+e.rows.length+' ردیفِ حقوقش برای همیشه حذف شود؟ این کار برگشت ندارد.'))return;
+  if(!await ask('کارمند «'+e.name+'» و هر '+e.rows.length+' ردیفِ حقوقش برای همیشه حذف شود؟ این کار برگشت ندارد.'))return;
   try{ await Promise.all(_chunks(e.rows.map(s=>s.id),60).map(ch=>sbFetch("salaries?id=in.("+_inList(ch)+")",{method:"DELETE",headers:{"Prefer":"return=minimal"}}).then(r=>{ if(!r.ok)throw new Error('خطا در حذف'); }))); toast('کارمند حذف شد'); await renderSalaries(); }catch(err){ toast(err.message); }
 }
 
@@ -2352,10 +2446,29 @@ function insAlerts(){ const I=window.INS; const now=I.now;
 }
 
 /* ===== GLOBAL SEARCH ===== */
-async function openSearch(){ document.getElementById('searchView').classList.remove('hidden'); document.getElementById('searchBody').innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; const _gi=document.getElementById('gsInput'); if(_gi)_gi.value=''; setTimeout(()=>{ const i=document.getElementById('gsInput'); if(i)i.focus(); },60); }
+async function openSearch(){
+  document.getElementById('searchView').classList.remove('hidden');
+  const body=document.getElementById('searchBody');
+  body.innerHTML='<div class="loadwrap"><span class="spin"></span></div>';
+  const _gi=document.getElementById('gsInput'); if(_gi)_gi.value='';
+  setTimeout(()=>{ const i=document.getElementById('gsInput'); if(i)i.focus(); },60);
+  // صفحه‌ی خالی هدررفتِ یک صفحه‌ی کامل است — تا تایپ کنی، آخرین فاکتورها را نشان بده
+  await gsRecent();
+}
+async function gsRecent(){
+  const body=document.getElementById('searchBody'); if(!body)return;
+  let rows=[];
+  try{ rows=await sbGetAll("invoices?select=id,invoice_number,buyer_name,total_amount,date,status&order=created_at.desc&limit=8"); }
+  catch(e){ body.innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; return; }
+  if(!rows.length){ body.innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; return; }
+  body.innerHTML='<div class="block-title">آخرین فاکتورها <span style="font-weight:400;color:var(--muted);font-size:11.5px">تا وقتی چیزی ننوشتی</span></div>'
+    +rows.map(v=>`<div class="list-item" onclick="closeSearch();openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)} · ${esc(v.buyer_name||'')}</div><div class="li-sub">${esc(v.date||'')} · ${STATUS_FA[safeStatus(v.status)]}</div></div><div class="li-end num">${faNum(v.total_amount||0)}</div></div>`).join('');
+}
 let GS_T=null;
 function gsGo(){ clearTimeout(GS_T); GS_T=setTimeout(gsRun,220); }
-async function gsRun(){ const q=(document.getElementById('gsInput').value||'').trim(); const body=document.getElementById('searchBody'); if(q.length<2){ body.innerHTML='<div class="empty" style="padding:18px">حداقل ۲ حرف بنویس…</div>'; return; }
+async function gsRun(){ const q=(document.getElementById('gsInput').value||'').trim(); const body=document.getElementById('searchBody');
+  if(!q){ await gsRecent(); return; }
+  if(q.length<2){ body.innerHTML='<div class="empty" style="padding:18px">حداقل ۲ حرف بنویس…</div>'; return; }
   body.innerHTML='<div class="loadwrap"><span class="spin"></span></div>';
   const qs=q.replace(/[,()"'\\*%&#?]/g,' ').replace(/\s+/g,' ').trim(); const enc=encodeURIComponent('*'+qs+'*'); const encN=encodeURIComponent(qs);
   const P=(pth)=>sbGetAll(pth).catch(()=>[]);
@@ -2456,7 +2569,7 @@ async function addDiscount(){
   catch(e){ msg.className='msg err'; msg.textContent=/duplicate|unique/i.test(e.message||'')?'این کد قبلاً هست':(e.message||'خطا'); }
 }
 async function toggleDiscount(i){ const d=(window.DISC_LIST||[])[i]; if(!d)return; try{ await sbUpdate('discount_codes',d.id,{active:!d.active}); await renderDiscounts(); }catch(e){ toast(e.message); } }
-async function deleteDiscount(i){ const d=(window.DISC_LIST||[])[i]; if(!d)return; if(!confirm('کدِ «'+d.code+'» حذف بشه؟'))return; try{ await sbDelete('discount_codes',d.id); toast('حذف شد'); await renderDiscounts(); }catch(e){ toast(e.message); } }
+async function deleteDiscount(i){ const d=(window.DISC_LIST||[])[i]; if(!d)return; if(!await ask('کدِ «'+d.code+'» حذف بشه؟'))return; try{ await sbDelete('discount_codes',d.id); toast('حذف شد'); await renderDiscounts(); }catch(e){ toast(e.message); } }
 
 /* ===== MONTHLY REPORT ===== */
 let REPORT_DATA=null;
@@ -2588,7 +2701,7 @@ async function renderQuotes(){
   let qs=[]; try{ qs=await sbGetAll("quotes?select=*&order=created_at.desc"); }catch(e){}
   let html=`<div class="ov-sheet"><div style="font-size:18px;font-weight:700;margin-bottom:4px">🧾 پیش‌فاکتورها / سفارش‌ها</div><div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">سفارش‌هایی که هنوز نهایی نشده‌اند. هر وقت تأیید شد «تبدیل به فاکتور» بزن.</div>`;
   if(qs.length===0) html+='<div class="empty" style="padding:16px">پیش‌فاکتوری ثبت نشده</div>';
-  else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc((q.created_at||'').slice(0,10))}${q.note?' · '+esc(q.note):''}</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button><button class="btn sm" style="flex:1" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm red" onclick="deleteQuote('${q.id}')">حذف</button></div></div>`; }).join('');
+  else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc(jDate(q.created_at))}${q.note?' · '+esc(q.note):''}</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm" style="flex:2" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button></div></div>`; }).join('');
   html+='</div>'; body.innerHTML=html;
 }
 async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+encodeURIComponent(id)))[0]; }catch(e){ return null; } }
@@ -2619,11 +2732,12 @@ async function openQuoteView(id){
   const body=document.getElementById('quotesBody'); const q=await _getQuote(id);
   if(!q){ toast('یافت نشد'); return; }
   const items=asArray(q.items); const tot=Number(q.items_total||items.reduce((s,it)=>s+Number(it.quantity||0)*Number(it.unit_price||0),0)); const disc=Number(q.discount||0); const net=Math.max(0,tot-disc);
-  const rows=items.map(it=>`<div class="netrow"><span>${esc(it.product_name||it.name||'کالا')} <span style="color:var(--muted)">× ${faNum(it.quantity||0)}</span></span><b class="num">${faNum(Number(it.quantity||0)*Number(it.unit_price||0))}</b></div>`).join('');
+  const pn=(it)=>it.product_name||it.name||((PRODUCTS.find(x=>String(x.id)===String(it.product_id))||{}).name)||'کالا';
+  const rows=items.map(it=>`<div class="netrow"><span>${esc(pn(it))} <span style="color:var(--muted)">× ${faNum(it.quantity||0)}</span></span><b class="num">${faNum(Number(it.quantity||0)*Number(it.unit_price||0))}</b></div>`).join('');
   body.innerHTML=`<div class="ov-sheet">
     <button class="btn sm sec" style="margin-bottom:12px" onclick="renderQuotes()">‹ برگشت به لیست</button>
     <div style="font-size:18px;font-weight:700;margin-bottom:2px">🧾 پیش‌فاکتور</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${esc((q.created_at||'').slice(0,10))}</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${esc(jDate(q.created_at))}</div>
     <div class="card" style="padding:14px;margin-bottom:12px">
       <div style="font-weight:700;font-size:16px">${esc(q.buyer_name||'بدون نام')}</div>
       ${q.buyer_phone?`<div style="font-size:13px;color:var(--muted);margin-top:3px" dir="ltr">${esc(q.buyer_phone)}</div>`:''}
@@ -2643,7 +2757,7 @@ async function openQuoteView(id){
     </div>
   </div>`;
 }
-async function deleteQuote(id){ if(!confirm('این پیش‌فاکتور حذف شود؟'))return; try{ await sbDelete('quotes',id); toast('حذف شد'); await renderQuotes(); }catch(e){ toast(e.message); } }
+async function deleteQuote(id){ if(!await ask('این پیش‌فاکتور حذف شود؟'))return; try{ await sbDelete('quotes',id); toast('حذف شد'); await renderQuotes(); }catch(e){ toast(e.message); } }
 
 async function shareCatalog(){
   if(!(await ensureH2C())){ toast('ابزارِ عکس بارگذاری نشد — اینترنتت رو چک کن 🙏'); return; }

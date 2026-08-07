@@ -31,7 +31,7 @@
     }
   ],
   "login_done": "()=>{try{return !document.getElementById('app').classList.contains('hidden') && PRODUCTS.length>0 && document.querySelectorAll('#scr-dashboard .dash-btn').length>0}catch(e){return false}}",
-  "reset": "document.querySelectorAll('.overlay,.sheetwrap').forEach(o=>o.classList.add('hidden'))",
+  "reset": "document.querySelectorAll('.overlay,.sheetwrap').forEach(o=>o.classList.add('hidden'));document.querySelectorAll('dialog[open]').forEach(d=>{try{d.close()}catch(_){}})",
   "forbidden": [
     "stock",
     "cost_price",
@@ -158,6 +158,10 @@
     [
       "با هم می‌فروشن",
       "openInsights().then(()=>insAffinity())"
+    ],
+    [
+      "پنجره‌ی پرسش",
+      "(()=>{ask('⚠️ این فاکتور ۲٬۰۰۰٬۰۰۰ تومان پرداختی دارد!\\nبا ابطال، این پرداخت هم از حسابِ مشتری حذف می‌شود.\\n\\nمطمئنی باطل شود؟');return 0})()"
     ]
   ],
   "checks": [
@@ -269,6 +273,46 @@
       "wait": 500,
       "js": "()=>{const w=document.getElementById('prodFormWrap');const t=(w.querySelector('.form-title')||{}).textContent||'';const b=[...w.querySelectorAll('button')].some(x=>/برگشت به لیست/.test(x.textContent));closeProductForm();const closed=w.classList.contains('hidden');return (t.indexOf('شلوار جین آبی')===0)+'|'+b+'|'+closed;}",
       "expect": "true|true|true"
+    },
+    {
+      "name": "تاریخِ سرور همه‌جا جلالی نشان داده می‌شود",
+      "before": "openQuotes().then(()=>openQuoteView('q1'))",
+      "wait": 900,
+      "js": "()=>{const t=document.getElementById('quotesBody').innerText||'';const greg=/\\d{4}-\\d{2}-\\d{2}/.test(t);const jal=/۱۴۰۵\\/\\d|۱۴۰۵\\/۰/.test(t)||/[۰-۹]{4}\\/[۰-۹]{2}\\/[۰-۹]{2}/.test(t);return (greg?'میلادی دارد':'میلادی ندارد')+'|'+(jal?'جلالی دارد':'جلالی ندارد')+'|'+jDate('2026-08-06T09:00:00Z');}",
+      "expect": "میلادی ندارد|جلالی دارد|۱۴۰۵/۰۵/۱۵"
+    },
+    {
+      "name": "نامِ کالای پیش‌فاکتور از product_id هم پیدا می‌شود",
+      "before": "openQuotes().then(()=>openQuoteView('q1'))",
+      "wait": 900,
+      "js": "()=>{const t=document.getElementById('quotesBody').innerText||'';return (t.indexOf('شلوار جین آبی')>=0)+'|'+(/(^|\\s)کالا(\\s|$)/.test(t));}",
+      "expect": "true|false"
+    },
+    {
+      "name": "جست‌وجو با صفحه‌ی خالی باز نمی‌شود",
+      "before": "openSearch()",
+      "wait": 1200,
+      "js": "()=>{const t=document.getElementById('searchBody').innerText||'';return (t.indexOf('آخرین فاکتورها')>=0)+'|'+(document.querySelectorAll('#searchBody .list-item').length>0);}",
+      "expect": "true|true"
+    },
+    {
+      "name": "دکمه‌ی مرجوعی تا تعداد وارد نشود خاموش است",
+      "before": "openInvoiceById('i1').then(()=>openInvoiceReturn())",
+      "wait": 900,
+      "js": "()=>{const b=document.getElementById('invRetSubmit');const off=b.disabled;const inp=document.querySelector('.invret-qty');inp.value='2';invReturnRecalc();const on=!b.disabled;inp.value='0';invReturnRecalc();return off+'|'+on+'|'+b.disabled;}",
+      "expect": "true|true|true"
+    },
+    {
+      "name": "پرسش‌ها به‌جای confirm بومی از <dialog> استفاده می‌کنند",
+      "js": "()=>{const d=document.getElementById('askDlg');const p=ask('⚠️ هشدارِ آزمایشی\\n\\nادامه بدهم؟');const open=d.open;const warnShown=!document.getElementById('askWarn').classList.contains('hidden');const warnTxt=document.getElementById('askWarn').textContent;const bodyTxt=document.getElementById('askTxt').textContent;document.getElementById('askNo').click();return p.then(v=>open+'|'+warnShown+'|'+(warnTxt==='⚠️ هشدارِ آزمایشی')+'|'+(bodyTxt==='ادامه بدهم؟')+'|'+v);}",
+      "expect": "true|true|true|true|false"
+    },
+    {
+      "name": "وقتی پنجره باز است پشتش با Tab قابلِ دسترس نیست",
+      "before": "openInvoiceById('i1')",
+      "wait": 900,
+      "js": "()=>{const app=document.getElementById('app');const on=app.inert===true;closeInvoice();return new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(on+'|'+(app.inert===true)))));}",
+      "expect": "true|false"
     }
   ],
   "click_test": {

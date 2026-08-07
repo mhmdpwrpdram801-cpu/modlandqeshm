@@ -335,13 +335,28 @@ def runtime_checks(url, cfg, html_path):
             screens = [(c[:-2], c) for c in cand[:25]]
             if screens: warn(f"فهرستِ صفحه‌ها در تنظیمات نبود — {len(screens)} تا خودکار پیدا شد")
 
+        # اگر عبارتِ یک صفحه Promiseای برگرداند که هیچ‌وقت resolve نمی‌شود (مثلاً پنجره‌ی
+        # پرسشی که منتظرِ کلیک است)، pg.evaluate تا ابد منتظر می‌مانَد و کلِ اجرا می‌خوابد.
+        SCREEN_MS = 8000
+        def screen_eval(js):
+            try:
+                return pg.evaluate("()=>Promise.race(["
+                                   "Promise.resolve().then(()=>(" + js + ")),"
+                                   "new Promise(r=>setTimeout(()=>r('__TIMEOUT__')," + str(SCREEN_MS) + "))])")
+            except Exception as ex:
+                if 'SyntaxError' in str(ex): return pg.evaluate(js)   # عبارتِ چندجمله‌ای
+                raise
+
         head("۴) باز شدنِ همه‌ی صفحه‌ها")
         broke = []
         for nm, js in screens:
             n0 = len(errs)
             try:
                 if cfg['reset']: pg.evaluate(cfg['reset'])
-                pg.evaluate(js); pg.wait_for_timeout(190)
+                if screen_eval(js) == '__TIMEOUT__':
+                    broke.append(f"{nm}: تا {SCREEN_MS//1000} ثانیه جواب نداد (Promiseی که resolve نمی‌شود؟)")
+                    continue
+                pg.wait_for_timeout(190)
                 if len(errs) > n0: broke.append(f"{nm}: {errs[n0][:80]}")
             except Exception as ex: broke.append(f"{nm}: {str(ex)[:80]}")
         if not broke: ok(f"هر {len(screens)} صفحه بدونِ خطا باز شد")
@@ -489,9 +504,19 @@ def runtime_checks(url, cfg, html_path):
                     pg.evaluate(js); pg.wait_for_timeout(320)
                     r = pg.evaluate("""()=>{ const o=[...document.querySelectorAll('.overlay,[data-overlay],dialog,.modal')]
                         .find(x=>!x.classList.contains('hidden') && x.offsetWidth>200);
-                      if(!o) return null; const bg=getComputedStyle(o).backgroundColor;
-                      const p=(bg.match(/[\\d.]+/g)||[]).map(Number);
-                      return {id:o.id||o.className, bg, a:p.length>3?p[3]:1}; }""")
+                      if(!o) return null;
+                      const alpha=(el)=>{ const bg=getComputedStyle(el).backgroundColor;
+                        const p=(bg.match(/[\\d.]+/g)||[]).map(Number);
+                        return {bg, a:p.length>3?p[3]:1}; };
+                      let v=alpha(o);
+                      // الگوی امروزی: خودِ <dialog> شفاف است و کارتِ داخلش پس‌زمینه دارد.
+                      // آن هم پوشاننده است، پس بچه‌ی اولش را می‌سنجیم نه خودش را.
+                      if(v.a<0.95 && o.firstElementChild){
+                        const c=alpha(o.firstElementChild);
+                        const r=o.getBoundingClientRect(), cr=o.firstElementChild.getBoundingClientRect();
+                        if(c.a>=0.95 && cr.width>=r.width*0.9 && cr.height>=r.height*0.9) v=c;
+                      }
+                      return {id:o.id||o.className, bg:v.bg, a:v.a}; }""")
                     if r and r['a'] < 0.95: seethrough.append(f"{nm} ({r['bg']})")
                 except Exception: pass
             seethrough = list(dict.fromkeys(seethrough))
