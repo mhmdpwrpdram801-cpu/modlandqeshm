@@ -52,6 +52,9 @@ html[data-theme="dark"] .netcard.neg .netrow.net{ border-top-color:rgba(240,107,
 html[data-theme="dark"] .pill.paid{ background:rgba(78,192,137,.16); }
 html[data-theme="dark"] .pill.partial{ background:rgba(224,176,62,.16); }
 html[data-theme="dark"] .pill.credit{ background:rgba(240,107,86,.16); }
+/* کارتِ هشدار/جمعِ صفحه‌ی مرجوعی — قبلاً زمینه‌ی روشنِ ثابت داشت و در تمِ تیره ناخوانا بود */
+.warnbox{background:#fff7e6;border-color:#e7c980}
+html[data-theme="dark"] .warnbox{ background:rgba(224,176,62,.10); border-color:rgba(224,176,62,.34); }
 /* کارتِ «سفارشِ جدید از تلگرام» هم زمینه‌ی روشنِ ثابت داشت */
 .tgnew{background:linear-gradient(180deg,#eef6ff,#f6fbff);border:1px solid #cfe2f5}
 html[data-theme="dark"] .tgnew{ background:linear-gradient(180deg,#1b2430,#18202b); border-color:rgba(91,155,232,.30); }
@@ -272,8 +275,10 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
 .inv-tbl th{background:linear-gradient(180deg,var(--inv-hd-a),var(--inv-hd-b));color:var(--gold-lt);font-size:11.5px;font-weight:700;padding:11px 8px;text-align:center}
 .inv-tbl th.d{text-align:right}
 .inv-tbl td{padding:11px 8px;font-size:12.5px;text-align:center;border-top:1px solid var(--line-soft)}
-.inv-tbl td.d{text-align:right;font-weight:700}
+.inv-tbl td.d{text-align:right;font-weight:700;overflow-wrap:break-word}
 .inv-tbl td.n{font-variant-numeric:tabular-nums;color:var(--gold-lt)}
+/* گوشیِ باریک: بدونِ این، ستونِ «قیمت کل» از کادرِ فاکتور بیرون می‌زد و چون overflow:hidden است بریده می‌شد */
+@media (max-width:360px){ .inv-tbl th,.inv-tbl td{padding:8px 4px;font-size:11px} .inv-tbl td.d{font-size:11.5px} }
 .inv-tot{display:flex;justify-content:flex-start;margin-top:16px}
 .inv-tot .box{width:300px;max-width:100%}
 .inv-tot .tr{display:flex;justify-content:space-between;font-size:13px;padding:6px 2px;color:var(--muted)}
@@ -1663,13 +1668,13 @@ async function openInvoiceReturn(){
   let html=`<div class="ov-sheet">
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">↩️ ثبتِ مرجوعی از فاکتور</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">تعدادی که هر کالا مرجوع شده را وارد کن. از فاکتور کم می‌شود و مبلغش به حسابِ مشتری برمی‌گردد.</div>`;
-  if(Number(CURRENT_INV.discount||0)>0)html+=`<div class="card" style="padding:10px 12px;margin-bottom:10px;font-size:12px;background:#fff7e6;border-color:#e7c980">این فاکتور تخفیف داشته؛ مبلغِ دقیقِ برگشتی موقعِ ثبت با احتسابِ تخفیف حساب می‌شود.</div>`;
+  if(Number(CURRENT_INV.discount||0)>0)html+=`<div class="card warnbox" style="padding:10px 12px;margin-bottom:10px;font-size:12px">این فاکتور تخفیف داشته؛ مبلغِ دقیقِ برگشتی موقعِ ثبت با احتسابِ تخفیف حساب می‌شود.</div>`;
   html+=items.map(it=>`<div class="card" style="padding:12px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(it.name||'کالا')}</b><span style="font-size:12px;color:var(--muted)">${faNum(it.quantity)} عدد × ${faNum(it.unit_price)} ت</span></div>
     <div class="f"><label>تعدادِ مرجوعی (حداکثر ${faNum(it.quantity)})</label>
       <input class="inp invret-qty" data-iid="${esc(it.iid||'')}" data-pid="${esc(it.product_id)}" data-max="${it.quantity}" data-price="${it.unit_price}" dir="ltr" inputmode="numeric" value="0" oninput="invReturnRecalc()"></div>
   </div>`).join('');
-  html+=`<div class="card" style="padding:14px;display:flex;justify-content:space-between;align-items:center;background:#fff7e6;border-color:#e7c980"><b>مبلغی که به مشتری برمی‌گردد</b><div style="text-align:left"><b class="num" id="invRetTotal" style="font-size:18px;color:var(--gold)">۰ تومان</b><div class="sw" id="invRetWords"></div></div></div>
+  html+=`<div class="card warnbox" style="padding:14px;display:flex;justify-content:space-between;align-items:center"><b>مبلغی که به مشتری برمی‌گردد</b><div style="text-align:left"><b class="num" id="invRetTotal" style="font-size:18px;color:var(--gold)">۰ تومان</b><div class="sw" id="invRetWords"></div></div></div>
     <div id="invRetMsg" class="msg"></div>
     <button class="btn" id="invRetSubmit" onclick="submitInvoiceReturn()" style="margin-top:6px">ثبتِ مرجوعی</button>
   </div>`;

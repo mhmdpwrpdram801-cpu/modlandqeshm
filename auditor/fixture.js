@@ -2,7 +2,7 @@ const now=Date.now(), iso=t=>new Date(t).toISOString();
 window.__UPLOADS=[]; window.__DELETES=[]; window.__PRIMES=[]; window.__WRITES=[]; window.__OPEN=[];
 window.open=(u)=>{ window.__OPEN.push(String(u)); return null; };
 const P=[
- {id:'p1',name:'شلوار جین آبی',price:850000,size_info:'قد ۱۰۰',created_at:iso(now-9e8),
+ {id:'p1',name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",price:850000,size_info:'قد ۱۰۰',created_at:iso(now-9e8),
   video_jin_url:null,video_jin_fid:'BAAC_jin_1',video_carton_url:null,video_carton_fid:null,
   photos:[{url:'/icon-192.png',fid:'AgAC1'}]},
  {id:'p2',name:'مانتو مجلسی',price:1250000,size_info:'',created_at:iso(now-3*864e5),
@@ -21,7 +21,7 @@ const INV=[
  {id:'i2',invoice_number:1002,buyer_name:"مغازه‌ی 'گل'",customer_id:'c2',date:'۱۴۰۵/۰۵/۰۲',items_total:430000,
   discount:0,total_amount:430000,paid_amount:430000,status:'paid',note:'',created_at:iso(now-864e5)}];
 const DATA={products:P,customers:C,invoices:INV,
- invoice_items:[{id:'ii1',invoice_id:'i1',product_id:'p1',product_name:'شلوار جین آبی',quantity:3,unit_price:850000,line_total:2550000,created_at:iso(now-2*864e5)},
+ invoice_items:[{id:'ii1',invoice_id:'i1',product_id:'p1',product_name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",quantity:3,unit_price:850000,line_total:2550000,created_at:iso(now-2*864e5)},
                 {id:'ii2',invoice_id:'i2',product_id:'p3',product_name:'شومیز',quantity:1,unit_price:430000,line_total:430000,created_at:iso(now-864e5)}],
  payments:[{id:'pay1',customer_id:'c1',amount:1000000,date:'۱۴۰۵/۰۵/۰۱',method:'نقدی',invoice_id:null,note:'',created_at:iso(now-2*864e5)},
            {id:'pay2',customer_id:'c1',amount:400000,date:'۱۴۰۵/۰۵/۰۳',method:'نقدی',invoice_id:'i1',note:'',created_at:iso(now-864e5)}],
@@ -35,12 +35,12 @@ const DATA={products:P,customers:C,invoices:INV,
  // r2 روی فاکتورِ i2 است (return_invoice_items) — آن تابع خودش جمعِ فاکتور و اقلامش را کم کرده،
  //    یعنی i2 و ii2 که اینجا می‌بینی «بعد از مرجوعی»اند و نباید دوباره کم شوند.
  returns:[{id:'r1',customer_id:'c1',buyer_name:'حاج رضا',date:'۱۴۰۵/۰۵/۰۲',invoice_id:null,
-   items:[{product_id:'p1',name:'شلوار جین آبی',quantity:1,unit_price:850000}],total_value:850000,settlement:'credit',note:'',created_at:iso(now-864e5)},
+   items:[{product_id:'p1',name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",quantity:1,unit_price:850000}],total_value:850000,settlement:'credit',note:'',created_at:iso(now-864e5)},
   {id:'r2',customer_id:'c2',buyer_name:"مغازه‌ی 'گل'",date:'۱۴۰۵/۰۵/۰۲',invoice_id:'i2',
    items:[{product_id:'p3',name:'شومیز',quantity:1,unit_price:430000}],total_value:430000,settlement:'invoice',note:'مرجوعی از فاکتور',created_at:iso(now-864e5)}],
  quotes:[{id:'q1',buyer_name:'حاج رضا',customer_id:'c1',items:[{product_id:'p1',quantity:1,unit_price:850000}],items_total:850000,discount:0,note:'',created_at:iso(now-864e5)}],
  telegram_orders:[{id:'t1',status:'new',customer_name:'زهرا',customer_phone:'09120001122',customer_city:'قشم',customer_address:'خیابان',
-   items:[{product_id:'p1',name:'شلوار جین آبی',quantity:2,unit_price:850000}],total:1700000,note:null,created_at:iso(now-36e5),
+   items:[{product_id:'p1',name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",quantity:2,unit_price:850000}],total:1700000,note:null,created_at:iso(now-36e5),
    tg_user_id:5,tg_username:'z',paid_confirmed_at:null,card_sent_at:null,receipt_sent_at:null,invoice_id:null}],
  discount_codes:[{id:'d1',code:'EID',percent:10,active:true,note:'',created_at:iso(now-864e5)}],
  settings:[{id:1,shop_name:'مدلند قشم',subtitle:'پخش پوشاک',phone:'09171234567',phone2:'',address:'درگهان',
@@ -48,7 +48,7 @@ const DATA={products:P,customers:C,invoices:INV,
 const RPC={dashboard_stats:{sales_today:430000,sales_month:2930000,profit_today:0,profit_month:0,count_today:1,
   receivables:1100000,exp_month:300000,debtors:[{cid:'c1',name:'حاج رضا',phone:'09171112233',amount:1100000}],
   inactive:[{cid:'c2',name:"مغازه‌ی 'گل'",phone:'09359998877',last:iso(now-40*864e5)}],
-  top:[{name:'شلوار جین آبی',qty:3}],chart:[{d:'2026-07-28',value:430000},{d:'2026-07-29',value:2500000}]},
+  top:[{name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",qty:3}],chart:[{d:'2026-07-28',value:430000},{d:'2026-07-29',value:2500000}]},
  create_invoice:{id:'i9',invoice_number:1003,customer_created:false,replayed:false,items_total:2550000,discount:50000,total_amount:2500000,paid_amount:0,status:'credit'},
  cancel_invoice:{ok:true},restore_invoice:{status:'credit'},
  return_invoice_items:{id:'r9',refund:850000,items_total:1700000,total_amount:1650000,status:'partial'},

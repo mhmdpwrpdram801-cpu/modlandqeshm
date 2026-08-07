@@ -125,6 +125,34 @@
     [
       "مرجوعی",
       "openInsights().then(()=>insReturns())"
+    ],
+    [
+      "فرمِ مرجوعی",
+      "openInvoiceById('i1').then(()=>openInvoiceReturn())"
+    ],
+    [
+      "نمای پیش‌فاکتور",
+      "openQuotes().then(()=>openQuoteView('q1'))"
+    ],
+    [
+      "پرونده‌ی کارمند",
+      "openSalaries().then(()=>openEmployee(0))"
+    ],
+    [
+      "پشتیبان",
+      "document.getElementById('backupView').classList.remove('hidden')"
+    ],
+    [
+      "ریزشِ مشتری",
+      "openInsights().then(()=>insChurn())"
+    ],
+    [
+      "پرخریدترین",
+      "openInsights().then(()=>insTop())"
+    ],
+    [
+      "با هم می‌فروشن",
+      "openInsights().then(()=>insAffinity())"
     ]
   ],
   "checks": [
