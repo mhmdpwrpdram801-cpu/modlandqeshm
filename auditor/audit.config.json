@@ -31,7 +31,7 @@
     }
   ],
   "login_done": "()=>{try{return !document.getElementById('app').classList.contains('hidden') && PRODUCTS.length>0 && document.querySelectorAll('#scr-dashboard .dash-btn').length>0}catch(e){return false}}",
-  "reset": "document.querySelectorAll('.overlay,.sheetwrap').forEach(o=>o.classList.add('hidden'))",
+  "reset": "document.querySelectorAll('.overlay,.sheetwrap').forEach(o=>o.classList.add('hidden'));document.querySelectorAll('dialog[open]').forEach(d=>{try{d.close()}catch(_){}})",
   "forbidden": [
     "stock",
     "cost_price",
@@ -158,6 +158,10 @@
     [
       "با هم می‌فروشن",
       "openInsights().then(()=>insAffinity())"
+    ],
+    [
+      "پنجره‌ی پرسش",
+      "(()=>{ask('⚠️ این فاکتور ۲٬۰۰۰٬۰۰۰ تومان پرداختی دارد!\\nبا ابطال، این پرداخت هم از حسابِ مشتری حذف می‌شود.\\n\\nمطمئنی باطل شود؟');return 0})()"
     ]
   ],
   "checks": [
@@ -297,6 +301,18 @@
       "wait": 900,
       "js": "()=>{const b=document.getElementById('invRetSubmit');const off=b.disabled;const inp=document.querySelector('.invret-qty');inp.value='2';invReturnRecalc();const on=!b.disabled;inp.value='0';invReturnRecalc();return off+'|'+on+'|'+b.disabled;}",
       "expect": "true|true|true"
+    },
+    {
+      "name": "پرسش‌ها به‌جای confirm بومی از <dialog> استفاده می‌کنند",
+      "js": "()=>{const d=document.getElementById('askDlg');const p=ask('⚠️ هشدارِ آزمایشی\\n\\nادامه بدهم؟');const open=d.open;const warnShown=!document.getElementById('askWarn').classList.contains('hidden');const warnTxt=document.getElementById('askWarn').textContent;const bodyTxt=document.getElementById('askTxt').textContent;document.getElementById('askNo').click();return p.then(v=>open+'|'+warnShown+'|'+(warnTxt==='⚠️ هشدارِ آزمایشی')+'|'+(bodyTxt==='ادامه بدهم؟')+'|'+v);}",
+      "expect": "true|true|true|true|false"
+    },
+    {
+      "name": "وقتی پنجره باز است پشتش با Tab قابلِ دسترس نیست",
+      "before": "openInvoiceById('i1')",
+      "wait": 900,
+      "js": "()=>{const app=document.getElementById('app');const on=app.inert===true;closeInvoice();return new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(on+'|'+(app.inert===true)))));}",
+      "expect": "true|false"
     }
   ],
   "click_test": {
