@@ -2145,18 +2145,17 @@ async function openInsights(){
   const body=document.getElementById('insBody'); body.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>';
   const failed=[];
   const P=(key,pth)=>sbGetAll(pth).catch(()=>{ failed.push(key); return []; });
-  const [inv,items,prods,bals,custs,exps,sals,rets]=await Promise.all([
+  const [inv,items,prods,bals,custs,sals,rets]=await Promise.all([
     P('inv',"invoices?select=id,status,created_at,total_amount,discount,customer_id,buyer_name"),
     P('items',"invoice_items?select=product_id,product_name,quantity,invoice_id,created_at"),
     P('prods',"products?select=id,name,price,created_at"),
     P('bals',"customer_balances?select=id,balance"),
     P('custs',"customers?select=id,name,phone"),
-    P('exps',"expenses?select=amount,category,created_at"),
     P('sals',"salaries?select=amount,created_at"),
     P('rets',"returns?select=total_value,items,created_at,invoice_id,customer_id")
   ]);
   const cancelled=new Set(inv.filter(x=>x.status==='cancelled').map(x=>x.id));
-  window.INS={inv,items,prods,bals,custs,exps,sals,rets,cancelled,now:Date.now(),failed};
+  window.INS={inv,items,prods,bals,custs,sals,rets,cancelled,now:Date.now(),failed};
   insMenu();
 }
 function insMenu(){
@@ -2166,7 +2165,7 @@ function insMenu(){
     ${insFailBanner()}
     <button class="dash-btn" style="width:100%;text-align:right" onclick="insAlerts()">🔔 مرکزِ هشدارِ روزانه<div style="font-size:11.5px;color:var(--muted);font-weight:400">هرچی امروز باید حواست بهش باشه، یکجا</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">💰 پول</div>
-    <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insPL()">📊 گزارشِ فروش<div style="font-size:11.5px;color:var(--muted);font-weight:400">فروش منهای خرج، حقوق و مرجوعی</div></button>
+    <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insPL()">📊 گزارشِ فروش<div style="font-size:11.5px;color:var(--muted);font-weight:400">فروش منهای حقوق و مرجوعی</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">👥 مشتری</div>
     <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insChurn()">🚶 رادارِ ریزشِ مشتری<div style="font-size:11.5px;color:var(--muted);font-weight:400">کیا کم‌پیدا شدن و باید بکشونی‌شون</div></button>
     <button class="dash-btn" style="width:100%;text-align:right" onclick="insTop()">🏆 پرخریدترین مشتریا<div style="font-size:11.5px;color:var(--muted);font-weight:400">کی بیشتر ازت خرید کرده</div></button>
@@ -2177,7 +2176,7 @@ function insMenu(){
   </div>`;
 }
 function insBack(){ return `<button class="btn sm sec" style="margin-bottom:12px" onclick="insMenu()">‹ برگشت</button>`; }
-const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',exps:'خرج‌ها',sals:'حقوق',rets:'مرجوعی‌ها'};
+const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',sals:'حقوق',rets:'مرجوعی‌ها'};
 function insFailed(keys){ const f=(window.INS&&window.INS.failed)||[]; return keys?f.filter(k=>keys.indexOf(k)>=0):f; }
 function insFailBanner(keys){ const bad=insFailed(keys); if(!bad.length)return '';
   return `<div class="card" style="padding:12px;margin-bottom:12px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ این‌ها بارگذاری نشدند:</b> ${bad.map(k=>esc(INS_SRC_FA[k]||k)).join('، ')}<div style="font-size:11.5px;color:var(--muted);margin-top:4px">پس عددهای این صفحه ناقص‌اند. اینترنت رو چک کن و از اول باز کن.</div></div>`; }
@@ -2219,21 +2218,21 @@ function _sumBy(arr,f){ return arr.reduce((s,x)=>s+Number(f(x)||0),0); }
 /* --- گزارشِ فروش --- */
 window.PL_DAYS=30;
 function insPL(days){ if(days)window.PL_DAYS=days; const D=window.PL_DAYS; const I=window.INS; const since=D>0?_insPeriod(D):0;
-  if(insFailed(['inv','rets','exps','sals','prods']).length){ insBlocked(['inv','rets','exps','sals','prods'],'📊 گزارشِ فروش'); return; }
+  if(insFailed(['inv','rets','sals','prods']).length){ insBlocked(['inv','rets','sals','prods'],'📊 گزارشِ فروش'); return; }
   const inv=insValidInv(since);
   const inRange=(x)=>!since||new Date(x.created_at).getTime()>=since;
   const stRets=I.rets.filter(r=>!r.invoice_id&&inRange(r));
   const retVal=_sumBy(stRets,x=>x.total_value);
   const rev=_sumBy(inv,v=>v.total_amount)-retVal;
-  const exp=_sumBy(I.exps.filter(inRange),x=>x.amount); const sal=_sumBy(I.sals.filter(inRange),x=>x.amount); const ret=retVal;
-  const net=rev-exp-sal;
+  // خرج در پنل جایی برای ثبت ندارد، پس از گزارش هم برداشته شد تا عددِ گمراه‌کننده نسازد
+  const sal=_sumBy(I.sals.filter(inRange),x=>x.amount);
+  const net=rev-sal;
   const tab=(d,t)=>`<button class="btn sm ${D===d?'':'sec'}" style="flex:1" onclick="insPL(${d})">${t}</button>`;
   const row=(l,v,c,neg)=>`<div class="netrow"><span>${l}</span><b class="num" style="color:${c||'inherit'}">${neg&&v>0?'− ':''}${faNum(v)}</b></div>`;
   let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:10px">📊 گزارشِ فروش</div>
     <div style="display:flex;gap:6px;margin-bottom:14px">${tab(30,'۳۰ روز')}${tab(90,'۹۰ روز')}${tab(0,'کل')}</div>
     <div class="card" style="padding:14px">
       ${row('فروش (بعدِ تخفیف و مرجوعی)',rev,'var(--accent)')}
-      ${exp>0?row('خرج‌ها',exp,'var(--danger)',true):''}
       ${sal>0?row('حقوق',sal,'var(--danger)',true):''}
       ${retVal>0?`<div class="netrow" style="opacity:.72"><span>از این‌ها، مرجوعیِ مستقل (قبلاً در فروش کم شد)</span><b class="num">${faNum(retVal)}</b></div>`:''}
       <div class="netrow net" style="font-size:17px;margin-top:6px"><span>باقی‌مانده</span><div style="text-align:left"><b class="num" style="color:${net>=0?'var(--profit,#0a7)':'var(--danger)'}">${net<0?'− ':''}${faNum(Math.abs(net))} ت</b>${net<0?`<div class="sw">ضررِ ${numToFaWords(Math.abs(net))} تومان</div>`:moneyWords(net)}</div></div>

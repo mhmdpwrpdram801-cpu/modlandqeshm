@@ -30,6 +30,7 @@
       "wait": 1100
     }
   ],
+  "login_done": "()=>{try{return !document.getElementById('app').classList.contains('hidden') && PRODUCTS.length>0 && document.querySelectorAll('#scr-dashboard .dash-btn').length>0}catch(e){return false}}",
   "reset": "document.querySelectorAll('.overlay').forEach(o=>o.classList.add('hidden'))",
   "forbidden": [
     "stock",
@@ -236,6 +237,13 @@
       "wait": 1200,
       "js": "()=>{const r=document.querySelector('.itemrow'); const lock=r.dataset.lock||'';const koll=document.getElementById('tItems').textContent;const q=(document.querySelector('.ir-linecalc')||{}).innerText||'';const zakhire=(function(){let pr=0;document.querySelectorAll('.itemrow').forEach(x=>{pr=rowUnitPrice(x)});return pr})();return lock+'|'+koll+'|'+zakhire+'|'+(q.indexOf('پیش‌فاکتور')>=0?'برچسب دارد':'برچسب ندارد');}",
       "expect": "850000|۸۵۰٬۰۰۰|850000|برچسب دارد"
+    },
+    {
+      "name": "ردیفِ خرج از گزارشِ فروش برداشته شده",
+      "before": "openInsights().then(()=>insPL(30))",
+      "wait": 900,
+      "js": "()=>{insMenu();const m=document.getElementById('insBody').innerText;insPL(30);const p=document.getElementById('insBody').innerText;return ((m+p).indexOf('خرج')>=0?'هست':'نیست')+'|'+(typeof (window.INS||{}).exps)}",
+      "expect": "نیست|undefined"
     }
   ],
   "click_test": {
