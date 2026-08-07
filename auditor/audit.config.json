@@ -202,11 +202,11 @@
       "expect": "undefined"
     },
     {
-      "name": "فرمِ کالا از هر صفحه‌ای دیده می‌شود",
+      "name": "فرمِ کالا از هر صفحه‌ای باز و دیده می‌شود",
       "before": "nav('dashboard'); openProductForm('p1')",
       "wait": 500,
-      "js": "()=>{const w=document.getElementById('prodFormWrap'),r=w.getBoundingClientRect();return (!w.classList.contains('hidden')&&r.width>0&&r.height>0)?'دیده می‌شود':'نامرئی'}",
-      "expect": "دیده می‌شود"
+      "js": "()=>{nav('dashboard');openProductForm('p1');return new Promise(r=>setTimeout(r,350)).then(()=>{const w=document.getElementById('prodFormWrap'),b=w.getBoundingClientRect();const scr=(document.querySelector('.navbtn.active')||{dataset:{}}).dataset.scr;return ((!w.classList.contains('hidden')&&b.width>0&&b.height>0)?'دیده می‌شود':'نامرئی')+'|'+scr;});}",
+      "expect": "دیده می‌شود|products"
     },
     {
       "name": "فروشِ ماه: ۲٬۹۳۰٬۰۰۰ فاکتور منهای ۸۵۰٬۰۰۰ مرجوعیِ مستقل",
@@ -413,6 +413,16 @@
       "name": "پیامِ شناور با تایمرِ پیامِ قبلی زودتر محو نمی‌شود",
       "js": "()=>{const t=document.getElementById('toast');toast('اول');return new Promise(r=>setTimeout(r,2100)).then(()=>{toast('دوم');return new Promise(r=>setTimeout(r,600));}).then(()=>t.classList.contains('show')?'هنوز دیده می‌شود':'زود محو شد');}",
       "expect": "هنوز دیده می‌شود"
+    },
+    {
+      "name": "پاسخِ کهنه‌ی پیش‌فاکتور روی تازه نمی‌نشیند (دکمهٔ حذف مالِ درستی است)",
+      "js": "()=>{const f=window.fetch;window.fetch=function(u){const s=String(u);if(s.indexOf('quotes?select=*&id=eq.q2')>=0)return Promise.resolve(new Response(JSON.stringify([{id:'q2',buyer_name:'دومی',items:[{product_id:'p3',quantity:1,unit_price:430000}],items_total:430000,discount:0,note:'',created_at:new Date().toISOString()}]),{headers:{'Content-Type':'application/json'}}));const p=f.apply(this,arguments);return s.indexOf('quotes?select=*&id=eq.q1')>=0?new Promise(r=>setTimeout(()=>r(p),600)):p;};const w=(ms)=>new Promise(r=>setTimeout(r,ms));document.getElementById('quotesView').classList.remove('hidden');openQuoteView('q1');return w(60).then(()=>{openQuoteView('q2');return w(1400);}).then(()=>{window.fetch=f;const h=document.getElementById('quotesBody').innerHTML;document.getElementById('quotesView').classList.add('hidden');return h.indexOf(\"deleteQuote('q2')\")>=0?'q2':(h.indexOf(\"deleteQuote('q1')\")>=0?'q1':'?');});}",
+      "expect": "q2"
+    },
+    {
+      "name": "پاسخِ کهنه‌ی فاکتور روی فاکتورِ تازه نمی‌نشیند",
+      "js": "()=>{const f=window.fetch;window.fetch=function(u){const s=String(u);const p=f.apply(this,arguments);return s.indexOf('invoices?select=*&id=eq.i1')>=0?new Promise(r=>setTimeout(()=>r(p),600)):p;};const w=(ms)=>new Promise(r=>setTimeout(r,ms));openInvoiceById('i1');return w(60).then(()=>{openInvoiceById('i2');return w(1400);}).then(()=>{window.fetch=f;const t=document.getElementById('invoiceRender').textContent;document.getElementById('invoiceView').classList.add('hidden');return /۱٬۰۰۲/.test(t)?'تازه':(/۱٬۰۰۱/.test(t)?'کهنه':'?');});}",
+      "expect": "تازه"
     }
   ],
   "click_test": {

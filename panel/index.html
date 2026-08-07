@@ -1017,20 +1017,38 @@ function afterDataReady(){
     if(vis('scr-settings'))  renderSettings();
   }catch(_){}
 }
+/* صفحه‌ای که «خواسته‌ایم» — نه صفحه‌ای که همین حالا در DOM دیده می‌شود.
+   nav() همگام نیست: داخلِ startViewTransition می‌پیچد و جابه‌جایی یک فریم بعد
+   انجام می‌شود. هر کدی که بلافاصله بعد از nav وضعیتِ DOM را بخواند، وضعیتِ کهنه
+   می‌بیند. این متغیر همان‌جا و همگام تنظیم می‌شود، پس همیشه راست می‌گوید.
+   (با گزینه‌ی --repeat بازرس پیدا شد: یک بررسی در سه دور دو نتیجه‌ی متفاوت داد.) */
+let CUR_SCR='dashboard';
+let _vtBusy=false;   /* یک جابه‌جایی در جریان است؟ */
 function nav(scr){
-  // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند
-  if(document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  CUR_SCR=scr;
+  // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند.
+  // نکته‌ی کلیدی: تابعِ جابه‌جایی **آخرین خواسته** را اعمال می‌کند (CUR_SCR)، نه مقصدی
+  // که موقعِ ساختش ثبت شده. چون این تابع یک فریم بعد اجرا می‌شود، اگر در آن فاصله
+  // کاربر جای دیگری خواسته باشد، مقصدِ کهنه روی تازه می‌نشیند و صفحه برمی‌گردد عقب.
+  // (اولین اصلاحم همین ایراد را داشت و بازرس با --repeat گرفتش.)
+  // و اگر جابه‌جاییِ قبلی هنوز تمام نشده، این یکی فوری و بدونِ انیمیشن اعمال می‌شود:
+  // روی وب‌کیت اندازه گرفته شد که startViewTransitionِ تودرتو تابعش را اصلاً صدا
+  // نمی‌زند و برنامه روی صفحه‌ی قبلی گیر می‌کند (کرومیوم این مشکل را ندارد).
+  if(!_vtBusy && document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     try{
-      const vt=document.startViewTransition(()=>_nav(scr));
+      _vtBusy=true;
+      const vt=document.startViewTransition(()=>_nav(CUR_SCR));
+      const free=()=>{ _vtBusy=false; };
+      try{ vt.finished.then(free,free); }catch(_){ _vtBusy=false; }
       // اگر کاربر سریع دو دکمه بزند، مرورگر جابه‌جاییِ قبلی را لغو می‌کند و
       // Promiseهایش با AbortError رد می‌شوند. این خطا نیست، ولی اگر کسی نگیردشان
       // به‌صورتِ «رد شدنِ بی‌صاحب» بالا می‌آید. (روی WebKit دیده شد، نه کرومیوم.)
       if(vt){ const hush=(pr)=>{ try{ pr && pr.catch && pr.catch(()=>{}); }catch(_){} };
               hush(vt.ready); hush(vt.finished); hush(vt.updateCallbackDone); }
       return;
-    }catch(_){}
+    }catch(_){ _vtBusy=false; }
   }
-  _nav(scr);
+  _nav(CUR_SCR);
 }
 function _nav(scr){
   try{endSel();}catch(_){}
@@ -2138,7 +2156,7 @@ function closeProductForm(){ const w=document.getElementById('prodFormWrap'); if
 function closeCustomerForm(){ const w=document.getElementById('custFormWrap'); if(w)w.classList.add('hidden'); window.scrollTo(0,0); }
 function openProductForm(id){
   // فرم داخلِ صفحه‌ی کالاهاست؛ اگه از جست‌وجوی سراسری صدا زده بشه باید اول بریم همون صفحه، وگرنه هیچی دیده نمی‌شه
-  if(document.getElementById('scr-products').classList.contains('hidden'))nav('products');
+  if(CUR_SCR!=='products')nav('products');   /* به خواسته نگاه کن، نه به DOMِ یک‌فریم‌عقب */
   const p=id?PRODUCTS.find(x=>x.id===id):null, w=document.getElementById('prodFormWrap');
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${p?'ویرایشِ کالا':'کالای جدید'}</div>${p?`<div class="form-title">${esc(p.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeProductForm()">‹ برگشت به لیست</button></div>
@@ -2882,12 +2900,15 @@ async function renderQuotes(){
   // خطا را نبلع: «پیش‌فاکتوری ثبت نشده» وقتی اینترنت قطع است یعنی خبرِ دروغ،
   // و کاربر فکر می‌کند سفارشش پاک شده.
   let qs=[];
+  const _q=seqStart('quotesBody');
   try{ qs=await sbGetAll("quotes?select=*&order=created_at.desc"); }
-  catch(e){ body.innerHTML='<div class="ov-sheet"><div class="card" style="padding:14px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ پیش‌فاکتورها بارگذاری نشد</b><div style="font-size:12.5px;color:var(--muted);margin-top:4px">یعنی نمی‌دونم چندتا داری — نه اینکه نداری. اینترنت رو چک کن و دوباره باز کن.<br>خطا: '+esc(e.message||'')+'</div></div></div>'; return; }
+  catch(e){ if(seqStale('quotesBody',_q))return; body.innerHTML='<div class="ov-sheet"><div class="card" style="padding:14px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ پیش‌فاکتورها بارگذاری نشد</b><div style="font-size:12.5px;color:var(--muted);margin-top:4px">یعنی نمی‌دونم چندتا داری — نه اینکه نداری. اینترنت رو چک کن و دوباره باز کن.<br>خطا: '+esc(e.message||'')+'</div></div></div>'; return; }
   let html=`<div class="ov-sheet"><div style="font-size:18px;font-weight:700;margin-bottom:4px">🧾 پیش‌فاکتورها / سفارش‌ها</div><div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">سفارش‌هایی که هنوز نهایی نشده‌اند. هر وقت تأیید شد «تبدیل به فاکتور» بزن.</div>`;
   if(qs.length===0) html+='<div class="empty" style="padding:16px">پیش‌فاکتوری ثبت نشده</div>';
   else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc(jDate(q.created_at))}${q.note?' · '+esc(q.note):''}</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm" style="flex:2" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button></div></div>`; }).join('');
-  html+='</div>'; body.innerHTML=html;
+  html+='</div>';
+  if(seqStale('quotesBody',_q))return;
+  body.innerHTML=html;
 }
 async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+encodeURIComponent(id)))[0]; }catch(e){ return null; } }
 function _fillFormFromQuote(q){
@@ -2921,7 +2942,13 @@ async function editQuote(id){
   toast('پیش‌فاکتور در فرم باز شد — بعدِ تغییر، «💾 ذخیره…» رو بزن');
 }
 async function openQuoteView(id){
-  const body=document.getElementById('quotesBody'); const q=await _getQuote(id);
+  // دو پیش‌فاکتور را پشتِ سرِ هم باز کنی و پاسخِ اولی دیرتر برسد، اولی روی دومی
+  // می‌نشیند — و دکمه‌های «تبدیل به فاکتور» و «حذف» شناسه‌ی همان را در خود دارند.
+  // یعنی حذفِ پیش‌فاکتورِ اشتباه. (با جاروی سیستماتیکِ نماهای شناسه‌دار پیدا شد.)
+  const body=document.getElementById('quotesBody');
+  const _q=seqStart('quotesBody');
+  const q=await _getQuote(id);
+  if(seqStale('quotesBody',_q))return;
   if(!q){ toast('یافت نشد'); return; }
   const items=asArray(q.items); const tot=Number(q.items_total||items.reduce((s,it)=>s+Number(it.quantity||0)*Number(it.unit_price||0),0)); const disc=Number(q.discount||0); const net=Math.max(0,tot-disc);
   const pn=(it)=>it.product_name||it.name||((PRODUCTS.find(x=>String(x.id)===String(it.product_id))||{}).name)||'کالا';
