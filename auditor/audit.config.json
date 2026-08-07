@@ -222,6 +222,13 @@
       "name": "خروجیِ خرابِ رمزگذار آپلود نمی‌شود",
       "js": "()=>{const bad=new File([new Uint8Array(3000)],'x.mp4',{type:'video/mp4'});return Promise.all([medVideoUsable(bad), medVideoUsable(new File([],'e.mp4',{type:'video/mp4'}))]).then(r=>r.some(Boolean)?'فایلِ خراب را سالم دانست':'فایلِ خراب رد شد').catch(e=>'خطا: '+e);}",
       "expect": "فایلِ خراب رد شد"
+    },
+    {
+      "name": "قیمتِ واحد از خودِ کالا می‌آید، نه دستی",
+      "before": "nav('new'); document.getElementById('itemsWrap').innerHTML=''; addItemRow(); (()=>{const s=document.querySelector('.itemrow .ir-prod'); s.value='p1'; onPickProduct(s);})()",
+      "wait": 400,
+      "js": "()=>document.querySelectorAll('.itemrow input.ir-price:not([type=hidden])').length+'|'+document.querySelector('.ir-priceview').textContent+'|'+document.querySelector('.ir-price').value",
+      "expect": "0|۸۵۰٬۰۰۰|850000"
     }
   ],
   "click_test": {

@@ -206,6 +206,10 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 .ir-grid{display:flex;gap:8px}
 .ir-grid .f{flex:1}
 .ir-grid .f label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+/* قیمتِ واحد دیگر دستی وارد نمی‌شود: از خودِ کالا می‌آید و اینجا فقط نشان داده می‌شود */
+.ir-priceview{background:var(--panel);border:1.5px dashed var(--line);border-radius:12px;padding:12px 14px;
+  font-weight:700;color:var(--gold-lt);direction:ltr;text-align:left;font-variant-numeric:tabular-nums;min-height:47px;
+  display:flex;align-items:center;justify-content:flex-end}
 .ir-line{text-align:left;font-size:12.5px;color:var(--gold-lt);font-weight:700;margin-top:8px}
 .words-hint{font-size:11px;color:var(--gold-lt);font-weight:700;margin-top:5px;min-height:14px;line-height:1.6}
 .sw{font-size:10px;color:var(--gold-lt);font-weight:600;line-height:1.5;margin-top:2px}
@@ -1230,7 +1234,7 @@ async function fillFromLastInvoice(){
       if(!p){ missing.push(it.product_name||'یه کالا'); return; }
       addItemRow(); const row=wrap.lastElementChild;
       row.querySelector('.ir-prod').value=p.id;
-      const pe=row.querySelector('.ir-price'); pe.value=String(Math.round(p.price||0)); grpInput(pe);
+      row.querySelector('.ir-price').value=String(Math.round(p.price||0));
       row.querySelector('.ir-qty').value=String(it.quantity||1);
       added++;
     });
@@ -1244,7 +1248,7 @@ function addItemRow(){
   div.className='itemrow';
   div.innerHTML=`<div class="ir-top"><select class="inp ir-prod" onchange="onPickProduct(this)">${productOptions()}</select><button class="del" title="حذفِ این قلم" aria-label="حذفِ این قلم" onclick="this.closest('.itemrow').remove();recalc()">×</button></div>
     <div class="ir-grid"><div class="f"><label>تعداد</label><input class="inp ir-qty" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div>
-    <div class="f"><label>قیمت واحد (تومان)</label><input class="inp ir-price" dir="ltr" inputmode="numeric" value="0" oninput="grpInput(this);recalc()"><div class="ir-priceword words-hint"></div></div></div>
+    <div class="f"><label>قیمت واحد (تومان)</label><div class="ir-priceview">۰</div><input type="hidden" class="ir-price" value="0"><div class="ir-priceword words-hint"></div></div></div>
     <div class="ir-line">جمع: <span class="ir-linev">۰</span></div>`;
   wrap.appendChild(div); recalc();
 }
@@ -1498,13 +1502,16 @@ function discountAmount(total){
   if(m==='p'){ let pct=faFloat(el.value); if(isNaN(pct)||pct<0)pct=0; if(pct>100)pct=100; return Math.round(Number(total||0)*pct/100); }
   return parseNum(el.value);
 }
-function onPickProduct(sel){ const row=sel.closest('.itemrow'), p=PRODUCTS.find(x=>x.id===sel.value), pe=row.querySelector('.ir-price'); if(p){ pe.value=Math.round(p.price||0); grpInput(pe); } recalc(); }
+function onPickProduct(sel){ const row=sel.closest('.itemrow'), p=PRODUCTS.find(x=>x.id===sel.value), pe=row.querySelector('.ir-price');
+  // قیمت همیشه از خودِ کالا می‌آید؛ دستی وارد نمی‌شود
+  pe.value=String(p?Math.round(p.price||0):0); recalc(); }
 function recalc(){
   let total=0;
   document.querySelectorAll('.itemrow').forEach(row=>{
     const pid=row.querySelector('.ir-prod').value, q=parseNum(row.querySelector('.ir-qty').value), pr=parseNum(row.querySelector('.ir-price').value), line=(pid&&q>0&&pr>0)?q*pr:0;
     row.querySelector('.ir-linev').textContent=faNum(line);
-    const pw=row.querySelector('.ir-priceword'); if(pw)pw.textContent=pr>0?numToFaWords(pr)+' تومان':'';
+    const pv=row.querySelector('.ir-priceview'); if(pv)pv.textContent=pid?faNum(pr):'—';
+    const pw=row.querySelector('.ir-priceword'); if(pw)pw.textContent=(pid&&pr>0)?numToFaWords(pr)+' تومان':'';
     total+=line;
   });
   const disc=discountAmount(total);
