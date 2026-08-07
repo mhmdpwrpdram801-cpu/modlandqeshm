@@ -1027,14 +1027,17 @@ let _vtBusy=false;   /* یک جابه‌جایی در جریان است؟ */
 function nav(scr){
   CUR_SCR=scr;
   // مرورگری که پشتیبانی نکند (سافاریِ قبل از ۱۸) مستقیم _nav را می‌زند و هیچ فرقی نمی‌کند.
-  // اگر جابه‌جاییِ قبلی هنوز تمام نشده، این یکی را بدونِ انیمیشن و فوری اعمال کن:
-  // روی وب‌کیت اندازه گرفته شد که startViewTransitionِ تودرتو، تابعش را اصلاً صدا
+  // نکته‌ی کلیدی: تابعِ جابه‌جایی **آخرین خواسته** را اعمال می‌کند (CUR_SCR)، نه مقصدی
+  // که موقعِ ساختش ثبت شده. چون این تابع یک فریم بعد اجرا می‌شود، اگر در آن فاصله
+  // کاربر جای دیگری خواسته باشد، مقصدِ کهنه روی تازه می‌نشیند و صفحه برمی‌گردد عقب.
+  // (اولین اصلاحم همین ایراد را داشت و بازرس با --repeat گرفتش.)
+  // و اگر جابه‌جاییِ قبلی هنوز تمام نشده، این یکی فوری و بدونِ انیمیشن اعمال می‌شود:
+  // روی وب‌کیت اندازه گرفته شد که startViewTransitionِ تودرتو تابعش را اصلاً صدا
   // نمی‌زند و برنامه روی صفحه‌ی قبلی گیر می‌کند (کرومیوم این مشکل را ندارد).
-  // هیچ مسیرِ کاربری الان دو nav را در یک تیک نمی‌زند، ولی این‌طور دیگر نمی‌تواند.
   if(!_vtBusy && document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
     try{
       _vtBusy=true;
-      const vt=document.startViewTransition(()=>_nav(scr));
+      const vt=document.startViewTransition(()=>_nav(CUR_SCR));
       const free=()=>{ _vtBusy=false; };
       try{ vt.finished.then(free,free); }catch(_){ _vtBusy=false; }
       // اگر کاربر سریع دو دکمه بزند، مرورگر جابه‌جاییِ قبلی را لغو می‌کند و
@@ -1045,7 +1048,7 @@ function nav(scr){
       return;
     }catch(_){ _vtBusy=false; }
   }
-  _nav(scr);
+  _nav(CUR_SCR);
 }
 function _nav(scr){
   try{endSel();}catch(_){}
