@@ -1,0 +1,105 @@
+name: انتشارِ پنل روی Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'panel/**'
+      - 'wrangler.toml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# دو انتشارِ هم‌زمان نباید روی هم بیفتند
+concurrency:
+  group: deploy-panel
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # برای مقایسه‌ی panel/ با کامیتِ قبل لازم است
+
+      - name: کلیدها تنظیم شده‌اند؟
+        env:
+          TOK: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "${TOK:-}" ]; then
+            echo "❌ رمزِ CLOUDFLARE_API_TOKEN در تنظیماتِ ریپو ثبت نشده."
+            echo "   Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          fi
+          echo "✅ کلید هست."
+
+      - name: هر ۱۳ فایلِ لازم سرِ جایش هست؟
+        run: |
+          set -eu
+          missing=0
+          for f in index.html sw.js h2c.js manifest.json \
+                   font1.woff2 font2.woff2 \
+                   img1.png img2.png img3.png img4.png \
+                   icon-192.png icon-512.png icon-maskable.png; do
+            if [ ! -f "panel/$f" ]; then echo "❌ نبود: panel/$f"; missing=1; fi
+          done
+          [ "$missing" -eq 0 ] || { echo "انتشار متوقف شد."; exit 1; }
+          echo "✅ هر ۱۳ فایل هست."
+
+      - name: نسخه‌ی کش جلو رفته؟
+        run: |
+          set -eu
+          LOCAL=$(grep -o "mlq-[0-9A-Za-z-]*" panel/sw.js | head -1)
+          [ -n "$LOCAL" ] || { echo "❌ نسخه‌ی کش در panel/sw.js پیدا نشد"; exit 1; }
+          echo "نسخه‌ی این بسته: $LOCAL"
+
+          LIVE=$(curl -fsS --max-time 25 \
+            "https://modlandqeshm4374.mhmdpwrpdram801.workers.dev/sw.js" \
+            | grep -o "mlq-[0-9A-Za-z-]*" | head -1 || echo "")
+          if [ -z "$LIVE" ]; then
+            echo "⚠️  نسخه‌ی زنده خوانده نشد (سایت پایین است؟) — ادامه می‌دهم."
+            exit 0
+          fi
+          echo "نسخه‌ی زنده:     $LIVE"
+
+          if [ "$LOCAL" = "$LIVE" ]; then
+            if git diff --quiet "HEAD~1" "HEAD" -- panel/ 2>/dev/null; then
+              echo "✅ پنل عوض نشده، نسخه هم همان است."
+            else
+              echo "❌ پنل عوض شده ولی نسخه‌ی کش در panel/sw.js جلو نرفته."
+              echo "   بدونِ این، سرویس‌ورکر نسخه‌ی جدید را به گوشیِ کاربر نمی‌دهد."
+              exit 1
+            fi
+          else
+            echo "✅ نسخه جلو رفته."
+          fi
+
+      - name: انتشار
+        uses: cloudflare/wrangler-action@v3
+        with:
+          # نسخه پین شده تا انتشارِ بعدیِ wrangler یک روز بی‌خبر چیزی را نشکند
+          wranglerVersion: '4.120.0'
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # اگر توکن فقط به یک حساب دسترسی دارد، این رمز لازم نیست و خالی می‌ماند
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: وارسیِ بعد از انتشار
+        run: |
+          set -eu
+          WANT=$(grep -o "mlq-[0-9A-Za-z-]*" panel/sw.js | head -1)
+          for i in 1 2 3 4 5 6; do
+            sleep 10
+            GOT=$(curl -fsS --max-time 25 \
+              "https://modlandqeshm4374.mhmdpwrpdram801.workers.dev/sw.js" \
+              | grep -o "mlq-[0-9A-Za-z-]*" | head -1 || echo "")
+            echo "تلاشِ $i — زنده: ${GOT:-؟} / انتظار: $WANT"
+            if [ "$GOT" = "$WANT" ]; then
+              echo "✅ سایتِ زنده روی $WANT است."
+              exit 0
+            fi
+          done
+          echo "❌ بعد از یک دقیقه هنوز نسخه‌ی تازه سرو نمی‌شود."
+          exit 1
