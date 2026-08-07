@@ -747,13 +747,17 @@ document.addEventListener('keydown',function(e){
 /* یک <dialog> بیشتر نداریم، پس دو پرسشِ هم‌زمان همدیگر را خراب می‌کنند: دومی متن و
    دکمه‌های اولی را عوض می‌کند، showModal روی پنجره‌ی بازِ قبلی خطا می‌دهد و می‌افتد
    روی confirmِ بومی، و Promiseی اولی تا ابد معلق می‌مانَد. با دو بار زدنِ سریعِ یک
-   دکمه روی گوشی به‌راحتی پیش می‌آید. پس صفشان می‌کنیم: هرکه دیرتر آمد، منتظر می‌مانَد. */
-let _askChain=Promise.resolve();
+   دکمه روی گوشی به‌راحتی پیش می‌آید.
+   راهش صف نیست — یک بار صف گذاشتم و بدتر شد: پنجره یک لحظه دیرتر باز می‌شد و هر
+   کدی که بلافاصله بعد از ask سراغش می‌رفت پنجره‌ی بسته می‌دید، و اگر کسی پرسشی را
+   بی‌جواب رها می‌کرد کلِ صف تا ابد قفل می‌شد.
+   به‌جایش: پرسشِ تازه، پرسشِ قبلی را «بی‌خیال» می‌کند و خودش فوری باز می‌شود. با دو
+   بار زدن، اولی بی‌اثر رد می‌شود و کاربر فقط به دومی جواب می‌دهد — یعنی یک کار،
+   نه دوتا. و هیچ‌وقت قفل نمی‌شود. */
+let _askActive=null;
 function ask(message, opts){
-  const run=()=>_askOne(message,opts);
-  const p=_askChain.then(run,run);
-  _askChain=p.then(()=>{},()=>{});   /* زنجیره نباید با یک خطا قطع شود */
-  return p;
+  if(_askActive){ const f=_askActive; _askActive=null; try{ f(false); }catch(_){} }
+  return _askOne(message, opts);
 }
 function _askOne(message, opts){
   const o=opts||{};
@@ -774,9 +778,11 @@ function _askOne(message, opts){
   return new Promise(res=>{
     let done=false;
     const finish=(v)=>{ if(done)return; done=true;
+      if(_askActive===finish)_askActive=null;
       yes.onclick=null; document.getElementById('askNo').onclick=null; dlg.onclose=null; dlg.oncancel=null;
       try{ if(dlg.open)dlg.close(); }catch(_){}
       res(v); };
+    _askActive=finish;   /* تا پرسشِ بعدی بتواند این را لغو کند */
     yes.onclick=()=>finish(true);
     document.getElementById('askNo').onclick=()=>finish(false);
     dlg.oncancel=()=>finish(false);   // Esc یا دکمه‌ی برگشتِ گوشی

@@ -395,9 +395,9 @@
       "expect": "t|۲٬۵۵۰٬۰۰۰|۲٬۵۰۰٬۰۰۰"
     },
     {
-      "name": "دو پرسشِ هم‌زمان صف می‌شوند و به confirmِ بومی نمی‌افتند",
-      "js": "()=>{const o=window.confirm;let native=0;window.confirm=()=>{native++;return false;};const a=ask('اولی؟'),b=ask('دومی؟');return new Promise(r=>setTimeout(r,120)).then(()=>{const t1=document.getElementById('askTxt').textContent;document.getElementById('askNo').click();return new Promise(r=>setTimeout(r,120)).then(()=>{const t2=document.getElementById('askTxt').textContent;document.getElementById('askNo').click();return Promise.all([a,b]).then(v=>{window.confirm=o;return native+'|'+t1+'|'+t2+'|'+v.join(',');});});});}",
-      "expect": "0|اولی؟|دومی؟|false,false"
+      "name": "پرسشِ دوم، پرسشِ اول را لغو می‌کند و به confirmِ بومی نمی‌افتد",
+      "js": "()=>{const o=window.confirm;let native=0;window.confirm=()=>{native++;return false;};const d=document.getElementById('askDlg');const a=ask('اولی؟');const open1=d.open;const b=ask('دومی؟');const open2=d.open;const txt=document.getElementById('askTxt').textContent;document.getElementById('askYes').click();return Promise.all([a,b]).then(v=>{window.confirm=o;return native+'|'+open1+'|'+open2+'|'+txt+'|'+v.join(',');});}",
+      "expect": "0|true|true|دومی؟|false,true"
     },
     {
       "name": "صفحه‌های بینش با دادهٔ ناقص «همه‌چی مرتبه» نمی‌گویند",
