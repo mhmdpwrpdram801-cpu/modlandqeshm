@@ -662,6 +662,13 @@ function canonicalPhone(v){ let d=normalizeDigits(v||'').replace(/\D/g,''); if(!
 function faPct(n){ const v=Number(n||0); const s=(Math.round(v*100)/100).toString(); return faDigits(s); }
 function faFloat(v){ let c=normalizeDigits(String(v==null?'':v)).replace(/[٬,\s]/g,'').replace(/٫/g,'.').replace(/[^\d.\-]/g,''); if((c.match(/\./g)||[]).length>1) c=c.replace(/\./g,''); const n=parseFloat(c); return isNaN(n)?NaN:n; }
 function parseNum(v){ let c=normalizeDigits(v).replace(/[٬,\s]/g,'').replace(/٫/g,'.').replace(/[^\d.\-]/g,''); if(/^-?\d{1,3}(\.\d{3})+$/.test(c)) c=c.replace(/\./g,''); else if((c.match(/\./g)||[]).length>1) c=c.replace(/\./g,''); const n=Number(c); return Math.max(0, Math.round(isNaN(n)?0:n)); }
+/* تاریخِ سرور ISO میلادی است؛ بدونِ این، کنارِ «ماهِ ۱۴۰۵/۰۵» یک «2026-08-06» می‌نشیند */
+function jDate(iso){
+  if(!iso)return '';
+  const d=new Date(iso); if(isNaN(d.getTime()))return String(iso).slice(0,10);
+  try{ return new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }
+  catch(e){ return String(iso).slice(0,10); }
+}
 function todayJalali(){ try{ return new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }catch(e){ try{ const d=new Date(); return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0'); }catch(_){ return ''; } } }
 function iranDateKey(d){ try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }catch(e){ return d.toISOString().slice(0,10); } }
 function iranJalaliKey(d){ try{ return new Intl.DateTimeFormat('fa-IR-u-nu-latn',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).format(d).replace(/\//g,'-'); }catch(e){ return iranDateKey(d); } }
@@ -691,7 +698,10 @@ document.addEventListener('keydown',function(e){
 (function(){
   try{
     a11yFix(document);
-    const mo=new MutationObserver(()=>{ a11yFix(document); });
+    // بدونِ debounce، رندرِ یک لیستِ بلند ده‌ها اسکنِ کاملِ سند پشتِ سرِ هم می‌سازد
+    let _a11yT=null;
+    const _a11ySoon=()=>{ if(_a11yT)return; _a11yT=setTimeout(()=>{ _a11yT=null; a11yFix(document); },120); };
+    const mo=new MutationObserver(_a11ySoon);
     document.addEventListener('DOMContentLoaded',()=>{ a11yFix(document);
       mo.observe(document.body,{childList:true,subtree:true}); });
     if(document.readyState!=='loading'){ a11yFix(document); mo.observe(document.body,{childList:true,subtree:true}); }
@@ -1775,6 +1785,7 @@ async function openInvoiceReturn(){
     <button class="btn" id="invRetSubmit" onclick="submitInvoiceReturn()" style="margin-top:6px">ثبتِ مرجوعی</button>
   </div>`;
   document.getElementById('invRetBody').innerHTML=html;
+  invReturnRecalc();   // وگرنه دکمه تا اولین ضربه‌ی انگشت فعال به‌نظر می‌رسد
   document.getElementById('invReturnView').classList.remove('hidden');
 }
 function invReturnRecalc(){
@@ -1783,6 +1794,9 @@ function invReturnRecalc(){
   const _cap=(!CURRENT_INV||CURRENT_INV.total_amount==null)?Infinity:Number(CURRENT_INV.total_amount);
   if(t>_cap)t=_cap;
   const el=document.getElementById('invRetTotal'); if(el)el.textContent=faNum(t)+' تومان'; const ew=document.getElementById('invRetWords'); if(ew)ew.textContent=t>0?numToFaWords(t)+' تومان':'';
+  const anyQty=[...document.querySelectorAll('.invret-qty')].some(inp=>parseNum(inp.value)>0);
+  const btn=document.getElementById('invRetSubmit');
+  if(btn && !btn.dataset.busy){ btn.disabled=!anyQty; btn.textContent=anyQty?'ثبتِ مرجوعی':'تعدادِ مرجوعی را وارد کن'; }
 }
 async function submitInvoiceReturn(){
   const msg=document.getElementById('invRetMsg'); msg.className='msg'; msg.textContent='';
@@ -1790,14 +1804,14 @@ async function submitInvoiceReturn(){
   document.querySelectorAll('.invret-qty').forEach(inp=>{ const q=parseNum(inp.value); if(q>0)returns.push({invoice_item_id:(inp.dataset.iid||null),product_id:inp.dataset.pid,quantity:q}); });
   if(returns.length===0){ msg.className='msg err'; msg.textContent='حداقل برای یک کالا تعدادِ مرجوعی وارد کن'; return; }
   const id=CURRENT_INV.id;
-  const btn=document.getElementById('invRetSubmit'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> در حال ثبت…';
+  const btn=document.getElementById('invRetSubmit'); btn.dataset.busy='1'; btn.disabled=true; btn.innerHTML='<span class="spin"></span> در حال ثبت…';
   try{
     const res=await sbRpc('return_invoice_items',{p_invoice_id:id,p_returns:returns});
     document.getElementById('invReturnView').classList.add('hidden');
     toast('مرجوعی ثبت شد ✅ مبلغِ '+faNum(res.refund)+' ت به حسابِ مشتری برگشت');
     try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
     try{ await openInvoiceById(id); }catch(_){}
-  }catch(e){ msg.className='msg err'; msg.textContent=e.message; btn.disabled=false; btn.textContent='ثبتِ مرجوعی'; }
+  }catch(e){ msg.className='msg err'; msg.textContent=e.message; delete btn.dataset.busy; btn.disabled=false; btn.textContent='ثبتِ مرجوعی'; }
 }
 
 /* INVOICES LIST */
@@ -2164,9 +2178,9 @@ async function deleteSalary(id){ if(!confirm('این ردیفِ حقوق حذف 
 function openEmployee(i){
   const e=(window.EMP_LIST||[])[i]; if(!e)return;
   const ordered=e.rows.slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  const first=ordered[0]; const since=first?(first.date||(first.created_at||'').slice(0,10)||'—'):'—';
+  const first=ordered[0]; const since=first?(first.date||jDate(first.created_at)||'—'):'—';
   const firstMonth=ordered.map(r=>r.month).filter(Boolean)[0]||'';
-  const pays=e.rows.slice(0,100).map(s=>`<div class="list-item"><div><div class="li-main">${s.month?'ماهِ '+esc(s.month):esc(s.date||'')}</div><div class="li-sub">${esc((s.created_at||'').slice(0,10))}${s.note?' · '+esc(s.note):''}</div></div><div class="li-end" style="display:flex;align-items:center;gap:10px"><b class="num" style="color:var(--credit)">${faNum(s.amount)}</b><button onclick="deleteSalary('${s.id}')" style="background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer">🗑</button></div></div>`).join('');
+  const pays=e.rows.slice(0,100).map(s=>`<div class="list-item"><div><div class="li-main">${s.month?'ماهِ '+esc(s.month):esc(s.date||'')}</div><div class="li-sub">${esc(jDate(s.created_at))}${s.note?' · '+esc(s.note):''}</div></div><div class="li-end" style="display:flex;align-items:center;gap:10px"><b class="num" style="color:var(--credit)">${faNum(s.amount)}</b><button onclick="deleteSalary('${s.id}')" style="background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer">🗑</button></div></div>`).join('');
   document.getElementById('salBody').innerHTML=`<div class="ov-sheet">
     <button class="btn sm sec" style="margin-bottom:12px" onclick="renderSalaries()">‹ برگشت</button>
     <div style="font-size:18px;font-weight:700;margin-bottom:2px">👤 ${esc(e.name)}</div>
@@ -2352,10 +2366,29 @@ function insAlerts(){ const I=window.INS; const now=I.now;
 }
 
 /* ===== GLOBAL SEARCH ===== */
-async function openSearch(){ document.getElementById('searchView').classList.remove('hidden'); document.getElementById('searchBody').innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; const _gi=document.getElementById('gsInput'); if(_gi)_gi.value=''; setTimeout(()=>{ const i=document.getElementById('gsInput'); if(i)i.focus(); },60); }
+async function openSearch(){
+  document.getElementById('searchView').classList.remove('hidden');
+  const body=document.getElementById('searchBody');
+  body.innerHTML='<div class="loadwrap"><span class="spin"></span></div>';
+  const _gi=document.getElementById('gsInput'); if(_gi)_gi.value='';
+  setTimeout(()=>{ const i=document.getElementById('gsInput'); if(i)i.focus(); },60);
+  // صفحه‌ی خالی هدررفتِ یک صفحه‌ی کامل است — تا تایپ کنی، آخرین فاکتورها را نشان بده
+  await gsRecent();
+}
+async function gsRecent(){
+  const body=document.getElementById('searchBody'); if(!body)return;
+  let rows=[];
+  try{ rows=await sbGetAll("invoices?select=id,invoice_number,buyer_name,total_amount,date,status&order=created_at.desc&limit=8"); }
+  catch(e){ body.innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; return; }
+  if(!rows.length){ body.innerHTML='<div class="empty" style="padding:18px">اسمِ کالا، مشتری یا شماره‌ی فاکتور رو بنویس…</div>'; return; }
+  body.innerHTML='<div class="block-title">آخرین فاکتورها <span style="font-weight:400;color:var(--muted);font-size:11.5px">تا وقتی چیزی ننوشتی</span></div>'
+    +rows.map(v=>`<div class="list-item" onclick="closeSearch();openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)} · ${esc(v.buyer_name||'')}</div><div class="li-sub">${esc(v.date||'')} · ${STATUS_FA[safeStatus(v.status)]}</div></div><div class="li-end num">${faNum(v.total_amount||0)}</div></div>`).join('');
+}
 let GS_T=null;
 function gsGo(){ clearTimeout(GS_T); GS_T=setTimeout(gsRun,220); }
-async function gsRun(){ const q=(document.getElementById('gsInput').value||'').trim(); const body=document.getElementById('searchBody'); if(q.length<2){ body.innerHTML='<div class="empty" style="padding:18px">حداقل ۲ حرف بنویس…</div>'; return; }
+async function gsRun(){ const q=(document.getElementById('gsInput').value||'').trim(); const body=document.getElementById('searchBody');
+  if(!q){ await gsRecent(); return; }
+  if(q.length<2){ body.innerHTML='<div class="empty" style="padding:18px">حداقل ۲ حرف بنویس…</div>'; return; }
   body.innerHTML='<div class="loadwrap"><span class="spin"></span></div>';
   const qs=q.replace(/[,()"'\\*%&#?]/g,' ').replace(/\s+/g,' ').trim(); const enc=encodeURIComponent('*'+qs+'*'); const encN=encodeURIComponent(qs);
   const P=(pth)=>sbGetAll(pth).catch(()=>[]);
@@ -2588,7 +2621,7 @@ async function renderQuotes(){
   let qs=[]; try{ qs=await sbGetAll("quotes?select=*&order=created_at.desc"); }catch(e){}
   let html=`<div class="ov-sheet"><div style="font-size:18px;font-weight:700;margin-bottom:4px">🧾 پیش‌فاکتورها / سفارش‌ها</div><div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">سفارش‌هایی که هنوز نهایی نشده‌اند. هر وقت تأیید شد «تبدیل به فاکتور» بزن.</div>`;
   if(qs.length===0) html+='<div class="empty" style="padding:16px">پیش‌فاکتوری ثبت نشده</div>';
-  else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc((q.created_at||'').slice(0,10))}${q.note?' · '+esc(q.note):''}</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button><button class="btn sm" style="flex:1" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm red" onclick="deleteQuote('${q.id}')">حذف</button></div></div>`; }).join('');
+  else html+=qs.map(q=>{ const n=asArray(q.items).length; return `<div class="card" style="padding:13px;margin-bottom:10px"><div><div style="font-weight:700">${esc(q.buyer_name||'بدون نام')}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${faNum(n)} قلم · ${faNum(q.items_total||0)} ت · ${esc(jDate(q.created_at))}${q.note?' · '+esc(q.note):''}</div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm" style="flex:2" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button><button class="btn sm sec" style="flex:1" onclick="openQuoteView('${q.id}')">👁 مشاهده</button></div></div>`; }).join('');
   html+='</div>'; body.innerHTML=html;
 }
 async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+encodeURIComponent(id)))[0]; }catch(e){ return null; } }
@@ -2619,11 +2652,12 @@ async function openQuoteView(id){
   const body=document.getElementById('quotesBody'); const q=await _getQuote(id);
   if(!q){ toast('یافت نشد'); return; }
   const items=asArray(q.items); const tot=Number(q.items_total||items.reduce((s,it)=>s+Number(it.quantity||0)*Number(it.unit_price||0),0)); const disc=Number(q.discount||0); const net=Math.max(0,tot-disc);
-  const rows=items.map(it=>`<div class="netrow"><span>${esc(it.product_name||it.name||'کالا')} <span style="color:var(--muted)">× ${faNum(it.quantity||0)}</span></span><b class="num">${faNum(Number(it.quantity||0)*Number(it.unit_price||0))}</b></div>`).join('');
+  const pn=(it)=>it.product_name||it.name||((PRODUCTS.find(x=>String(x.id)===String(it.product_id))||{}).name)||'کالا';
+  const rows=items.map(it=>`<div class="netrow"><span>${esc(pn(it))} <span style="color:var(--muted)">× ${faNum(it.quantity||0)}</span></span><b class="num">${faNum(Number(it.quantity||0)*Number(it.unit_price||0))}</b></div>`).join('');
   body.innerHTML=`<div class="ov-sheet">
     <button class="btn sm sec" style="margin-bottom:12px" onclick="renderQuotes()">‹ برگشت به لیست</button>
     <div style="font-size:18px;font-weight:700;margin-bottom:2px">🧾 پیش‌فاکتور</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${esc((q.created_at||'').slice(0,10))}</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${esc(jDate(q.created_at))}</div>
     <div class="card" style="padding:14px;margin-bottom:12px">
       <div style="font-weight:700;font-size:16px">${esc(q.buyer_name||'بدون نام')}</div>
       ${q.buyer_phone?`<div style="font-size:13px;color:var(--muted);margin-top:3px" dir="ltr">${esc(q.buyer_phone)}</div>`:''}
