@@ -1,0 +1,182 @@
+{
+  "schema": 1,
+  "guideline_version": "2026.08.1",
+  "checked_at": "2026-08-08",
+  "note": "منبعِ حقیقتِ نسخه‌ها. جدولِ «پشته» در FULLSTACK.md از روی همین ساخته می‌شود (guidelines/sync-table.py) — جدول را دستی ویرایش نکن. سنجش با check-drift.py.",
+  "policy": {
+    "manifest": "در package.json بازه‌ی ^ بنویس، ولی lockfile را کامیت کن و همان تعیین‌کننده باشد",
+    "ci": "نسخه‌ی ابزارهای CI را دقیق پین کن (بدون ^) — انتشارِ بی‌خبرِ یک ابزار نباید خطِ تولید را بشکند",
+    "major": "پرشِ نسخه‌ی اصلی هیچ‌وقت خودکار نیست: اول یک ورودی در MIGRATIONS.md، بعد اجرا",
+    "runtime": "همیشه روی LTSِ فعال بمان، نه روی current"
+  },
+  "entries": [
+    {
+      "id": "typescript",
+      "registry": "npm",
+      "name": "typescript",
+      "pinned": "7.0.2",
+      "role": "زبان",
+      "display": "TypeScript (`strict: true`)"
+    },
+    {
+      "id": "node",
+      "registry": "node",
+      "name": "node",
+      "pinned": "24.19.0",
+      "role": "زمانِ اجرا",
+      "display": "Node.js — LTSِ فعال (Krypton)"
+    },
+    {
+      "id": "pnpm",
+      "registry": "npm",
+      "name": "pnpm",
+      "pinned": "11.20.0",
+      "role": "مدیرِ بسته",
+      "display": "pnpm"
+    },
+    {
+      "id": "vite",
+      "registry": "npm",
+      "name": "vite",
+      "pinned": "8.2.1",
+      "role": "باندلر (SPA)",
+      "display": "Vite"
+    },
+    {
+      "id": "next",
+      "registry": "npm",
+      "name": "next",
+      "pinned": "16.3.0",
+      "role": "فریم‌ورکِ سرور",
+      "display": "Next.js"
+    },
+    {
+      "id": "react",
+      "registry": "npm",
+      "name": "react",
+      "pinned": "19.2.8",
+      "role": "رابطِ کاربری",
+      "display": "React"
+    },
+    {
+      "id": "tailwindcss",
+      "registry": "npm",
+      "name": "tailwindcss",
+      "pinned": "4.3.3",
+      "role": "استایل",
+      "display": "Tailwind CSS"
+    },
+    {
+      "id": "biome",
+      "registry": "npm",
+      "name": "@biomejs/biome",
+      "pinned": "2.5.7",
+      "role": "لینت + فرمت",
+      "display": "Biome — پیش‌فرضِ پروژه‌ی تازه"
+    },
+    {
+      "id": "eslint",
+      "registry": "npm",
+      "name": "eslint",
+      "pinned": "10.8.1",
+      "role": "لینت",
+      "display": "ESLint — پروژه‌های موجود"
+    },
+    {
+      "id": "vitest",
+      "registry": "npm",
+      "name": "vitest",
+      "pinned": "4.1.10",
+      "role": "تستِ واحد",
+      "display": "Vitest"
+    },
+    {
+      "id": "playwright",
+      "registry": "npm",
+      "name": "playwright",
+      "pinned": "1.62.1",
+      "role": "تستِ سرتاسری",
+      "display": "Playwright"
+    },
+    {
+      "id": "zod",
+      "registry": "npm",
+      "name": "zod",
+      "pinned": "4.4.3",
+      "role": "اعتبارسنجیِ مرزها",
+      "display": "Zod"
+    },
+    {
+      "id": "postgres",
+      "registry": "eol",
+      "name": "postgresql",
+      "pinned": "18",
+      "role": "دیتابیس",
+      "display": "PostgreSQL"
+    },
+    {
+      "id": "drizzle",
+      "registry": "npm",
+      "name": "drizzle-orm",
+      "pinned": "0.45.2",
+      "role": "لایه‌ی دیتابیس",
+      "display": "Drizzle ORM"
+    },
+    {
+      "id": "hono",
+      "registry": "npm",
+      "name": "hono",
+      "pinned": "4.13.1",
+      "role": "HTTP روی لبه",
+      "display": "Hono"
+    },
+    {
+      "id": "tanstack-query",
+      "registry": "npm",
+      "name": "@tanstack/react-query",
+      "pinned": "5.101.4",
+      "role": "داده‌ی سمتِ کلاینت",
+      "display": "TanStack Query"
+    },
+    {
+      "id": "otel",
+      "registry": "npm",
+      "name": "@opentelemetry/api",
+      "pinned": "1.9.1",
+      "role": "مشاهده‌پذیری",
+      "display": "OpenTelemetry"
+    },
+    {
+      "id": "uv",
+      "registry": "pypi",
+      "name": "uv",
+      "pinned": "0.12.3",
+      "role": "پایتون — بسته و محیط",
+      "display": "uv"
+    },
+    {
+      "id": "ruff",
+      "registry": "pypi",
+      "name": "ruff",
+      "pinned": "0.16.2",
+      "role": "پایتون — لینت و فرمت",
+      "display": "Ruff"
+    },
+    {
+      "id": "wrangler",
+      "registry": "npm",
+      "name": "wrangler",
+      "pinned": "4.120.0",
+      "role": "استقرار (همین مخزن)",
+      "display": "Wrangler"
+    },
+    {
+      "id": "supabase-js",
+      "registry": "npm",
+      "name": "@supabase/supabase-js",
+      "pinned": "2.112.2",
+      "role": "کلاینتِ داده (همین مخزن)",
+      "display": "supabase-js"
+    }
+  ]
+}
