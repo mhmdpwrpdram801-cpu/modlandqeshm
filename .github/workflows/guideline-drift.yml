@@ -1,0 +1,169 @@
+name: سنجشِ هفتگیِ دستورالعملِ فول‌استک
+
+# دستورالعمل نباید بی‌سروصدا کهنه شود.
+# هر دوشنبه نسخه‌های پین‌شده با رجیستری‌های عمومی سنجیده می‌شوند:
+#   · عقب‌افتادگیِ کوچک (minor/patch) → خودش PR باز می‌کند. مکانیکی و کم‌خطر.
+#   · پرشِ نسخه‌ی اصلی (major)        → ایشو باز می‌کند، چون قضاوت لازم دارد و
+#                                        باید اول یک ورودیِ مهاجرت نوشته شود (SELF-02).
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'          # دوشنبه‌ها ۶:۰۰ UTC
+  workflow_dispatch:
+  push:
+    paths:
+      - 'guidelines/**'
+      - '.github/workflows/guideline-drift.yml'
+
+concurrency:
+  group: guideline-drift
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  BRANCH: guideline/version-sync
+  ISSUE_TITLE: 'دستورالعمل: پرشِ نسخه‌ی اصلی، مهاجرت لازم دارد'
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: خودوارسیِ دستورالعمل
+        # اگر دستورالعمل همین الان با خودش نمی‌خواند، سنجشِ نسخه بی‌معنی است.
+        run: python3 guidelines/self-check.py
+
+      - name: سنجشِ نسخه‌ها
+        id: drift
+        run: |
+          set +e
+          python3 guidelines/check-drift.py --json > /tmp/drift.json
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          python3 guidelines/check-drift.py || true      # گزارشِ خوانا در لاگ
+          case "$code" in
+            0) echo "همه‌چیز به‌روز است." ;;
+            1) echo "عقب‌افتادگیِ کوچک هست." ;;
+            2) echo "پرشِ نسخه‌ی اصلی هست." ;;
+            *) echo "::warning::سنجش انجام نشد (کدِ $code) — احتمالاً شبکه. این اجرا رد می‌شود." ;;
+          esac
+
+      - name: ساختِ متنِ گزارش‌ها
+        if: steps.drift.outputs.code == '1' || steps.drift.outputs.code == '2'
+        run: |
+          python3 - <<'PY'
+          import json
+          d = json.load(open('/tmp/drift.json', encoding='utf-8'))
+          rows = d['results']
+          major = [r for r in rows if r['drift'] == 'major']
+          minor = [r for r in rows if r['drift'] in ('minor', 'patch')]
+
+          def table(rs):
+              out = ['| بسته | از | به | نقش |', '|------|-----|-----|-----|']
+              out += [f"| `{r['name']}` | {r['pinned']} | **{r['latest']}** | {r['role']} |" for r in rs]
+              return '\n'.join(out)
+
+          with open('/tmp/pr-body.md', 'w', encoding='utf-8') as f:
+              f.write(f"""به‌روزرسانیِ خودکارِ نسخه‌های پین‌شده در `guidelines/stack.json`.
+
+          فقط عقب‌افتادگیِ **minor/patch** — پرشِ نسخه‌ی اصلی خودکار انجام نمی‌شود.
+
+          {table(minor) if minor else '_موردی نبود._'}
+
+          جدولِ §۴ در `FULLSTACK.md` با `sync-table.py` بازتولید شد و `self-check.py` سبز است.
+
+          ### قبل از مرج
+          - [ ] هیچ‌کدام از این‌ها در عمل چیزی را نمی‌شکند
+          - [ ] اگر شکست، ورودیِ `MIGRATIONS.md` لازم است (SELF-02)
+
+          پس از مرج، اگر رفتاری عوض شده: `/gl-migrate`.
+          """)
+
+          if major:
+              with open('/tmp/issue-body.md', 'w', encoding='utf-8') as f:
+                  f.write(f"""این‌ها **نسخه‌ی اصلی**شان جلو رفته و خودکار به‌روز نمی‌شوند.
+
+          {table(major)}
+
+          ### کارِ لازم
+          1. یادداشتِ انتشارِ هرکدام خوانده شود.
+          2. اگر کدِ این مخزن را نامنطبق می‌کند → **اول** ورودیِ `guidelines/MIGRATIONS.md`
+             نوشته شود، بعد پین عوض شود (SELF-02).
+          3. اگر نه → فقط پین و یک خط در `CHANGELOG.md`.
+
+          ساده‌ترین راه: در Claude Code بزن `/gl-sync full`.
+
+          _این ایشو خودکار ساخته و به‌روز می‌شود؛ وقتی همه‌ی پرش‌ها بسته شوند خودش بسته می‌شود._
+          """)
+          PY
+
+      - name: به‌روزرسانیِ پین‌ها و بازسازیِ جدول
+        if: steps.drift.outputs.code == '1' || steps.drift.outputs.code == '2'
+        run: |
+          python3 guidelines/check-drift.py --write || true   # ۱/۲ یعنی «عقب بود»، نه خطا
+          python3 guidelines/sync-table.py
+          python3 guidelines/self-check.py                    # نتیجه باید سازگار بماند
+
+      - name: PR برای عقب‌افتادگیِ کوچک
+        if: steps.drift.outputs.code == '1' || steps.drift.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          if git diff --quiet -- guidelines/; then
+            echo "چیزی برای نوشتن نبود (احتمالاً فقط پرشِ اصلی داشتیم)."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add guidelines/
+          git commit -m "guideline: به‌روزرسانیِ خودکارِ نسخه‌های پین‌شده
+
+          سنجشِ هفتگی: عقب‌افتادگیِ minor/patch در guidelines/stack.json.
+          جدولِ §۴ با sync-table.py بازتولید و با self-check.py وارسی شد.
+          پرشِ نسخه‌ی اصلی در این کامیت نیست."
+          git push -u origin "$BRANCH" --force-with-lease
+
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "PR باز هست؛ همان به‌روز شد."
+          else
+            gh pr create --draft --base main --head "$BRANCH" \
+              --title "guideline: به‌روزرسانیِ خودکارِ نسخه‌ها" \
+              --body-file /tmp/pr-body.md \
+              || echo "::warning::PR ساخته نشد. Settings → Actions → «Allow GitHub Actions to create and approve pull requests» روشن است؟ شاخه push شد و دستی هم می‌شود PR زد."
+          fi
+
+      - name: ایشو برای پرشِ نسخه‌ی اصلی
+        if: steps.drift.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          num=$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" \
+                  --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
+          if [ -n "$num" ]; then
+            gh issue edit "$num" --body-file /tmp/issue-body.md
+            echo "ایشوی #$num به‌روز شد."
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file /tmp/issue-body.md
+          fi
+
+      - name: بستنِ ایشو وقتی چیزی نمانده
+        if: steps.drift.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          num=$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" \
+                  --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
+          if [ -n "$num" ]; then
+            gh issue close "$num" --comment "همه‌ی نسخه‌ها به‌روزند — خودکار بسته شد."
+          fi

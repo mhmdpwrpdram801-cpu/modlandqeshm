@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "note": "مُهرِ انطباق. می‌گوید هر بخش از این مخزن با کدام نسخه‌ی دستورالعمل منطبق شده. فقط بعد از سبز شدنِ verify به‌روز می‌شود (MIG-06).",
+
+  "guideline_version": "2026.08.1",
+  "applied_at": "2026-08-08",
+
+  "verify": [
+    {
+      "name": "بازرسِ پنل",
+      "cmd": "python3 auditor/audit.py panel/index.html -c auditor/audit.config.json",
+      "note": "دروازه‌ی اصلیِ این مخزن. کدِ خروجی ۰ یعنی آماده."
+    },
+    {
+      "name": "خودوارسیِ دستورالعمل",
+      "cmd": "python3 guidelines/self-check.py",
+      "note": "سازگاریِ درونیِ خودِ دستورالعمل و فایل‌های کنارش."
+    }
+  ],
+
+  "areas": {
+    "panel/": {
+      "version": "2026.08.1",
+      "kind": "کدِ موجود",
+      "note": "پنلِ تک‌فایل. قاعده‌های رفتاری (§۲، §۶–§۱۲) اعمال می‌شوند؛ انتخابِ فناوری نه — waiverِ panel-no-framework."
+    },
+    "bot/": {
+      "version": "2026.08.1",
+      "kind": "کدِ موجود",
+      "note": "کپیِ مرجعِ Edge Function. قبل از تغییر bot/README.md خوانده شود."
+    },
+    "auditor/": {
+      "version": "2026.08.1",
+      "kind": "ابزارِ داخلی",
+      "note": "روی سرور نمی‌رود. قاعده‌های تست (§۱۰) اینجا مرجع‌اند."
+    },
+    "guidelines/": {
+      "version": "2026.08.1",
+      "kind": "خودِ دستورالعمل",
+      "note": ""
+    }
+  },
+
+  "waivers": [
+    {
+      "id": "panel-no-framework",
+      "rules": ["STACK-01", "STACK-02", "PREC-02"],
+      "scope": "panel/",
+      "reason": "خواستِ صریحِ مالک: یک فایلِ تک‌پارچه بدونِ فریم‌ورک و بدونِ مرحله‌ی build. تصمیمِ معماریِ آگاهانه است، نه بدهیِ فنی. برگرداندنِ فریم‌ورک پیشنهاد نشود.",
+      "approved_by": "owner",
+      "date": "2026-08-08",
+      "expires": null
+    },
+    {
+      "id": "panel-inline-handlers",
+      "rules": ["SEC-05"],
+      "scope": "panel/index.html",
+      "reason": "معماریِ تک‌فایل به onclickِ درون‌خطی و اسکریپتِ درون‌خطی متکی است، پس CSPِ بدونِ unsafe-inline عملی نیست. جبران: هر خروجی از esc() رد می‌شود (SEC-04) و بازرس آن را می‌سنجد.",
+      "approved_by": "owner",
+      "date": "2026-08-08",
+      "expires": null
+    },
+    {
+      "id": "panel-anon-key-client",
+      "rules": ["SEC-02"],
+      "scope": "panel/index.html",
+      "reason": "کلیدِ anonِ Supabase عمداً در کلاینت است — همین‌طور هم طراحی شده. دسترسیِ واقعی باید با RLS روی دیتابیس بسته باشد (DATA-06)، نه با پنهان‌کردنِ کلید.",
+      "approved_by": "owner",
+      "date": "2026-08-08",
+      "expires": null
+    }
+  ],
+
+  "history": [
+    { "version": "2026.08.1", "date": "2026-08-08", "note": "مُهرِ اولیه — همه‌ی بخش‌ها با نسخه‌ی نخست منطبق شدند." }
+  ]
+}
