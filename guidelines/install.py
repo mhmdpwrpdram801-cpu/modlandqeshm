@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+نصبِ بسته‌ی دستورالعمل روی یک پروژه‌ی تازه — بدونِ هیچ تنظیمِ دستی.
+
+  cd /مسیرِ/پروژه
+  curl -fsS https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/main/guidelines/install.py | python3 -
+
+یا اگر فایل را داری:  python3 install.py /مسیرِ/پروژه [--ref=شاخه]
+
+چه می‌کند:
+  ۱. کلِ بسته را از منبع می‌گیرد (سند + ابزار + هوک + دستورها)
+  ۲. `lock.json` را برای همان پروژه می‌سازد — با دروازه‌ی وارسیِ کارکننده،
+     نه کپیِ مُهرِ مخزنِ منبع
+  ۳. هوکِ SessionStart را در `.claude/settings.json` **ادغام** می‌کند
+     (اگر از قبل تنظیماتی داشته باشد، خرابش نمی‌کند)
+  ۴. گردش‌کارِ هفتگی را در `.github/workflows/` می‌گذارد
+  ۵. کشِ محلی را به `.gitignore` اضافه می‌کند
+  ۶. خودوارسی می‌گیرد و نتیجه را می‌گوید
+
+هیچ‌جا لازم نیست چیزی را دستی عوض کنی: `is_origin` روی `auto` است و خودش از
+روی remoteهای گیت می‌فهمد اینجا کپی است نه منبع.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+OWNER, REPO, DEFAULT_REF = "mhmdpwrpdram801-cpu", "modlandqeshm", "main"
+TIMEOUT = 30
+BASE = ""          # در main() از روی --ref پر می‌شود
+
+# اگر منبع در دسترس نبود، از فهرستِ ثابت استفاده می‌شود؛ وگرنه از source.json.
+FALLBACK = [
+    "guidelines/FULLSTACK.md", "guidelines/MIGRATIONS.md", "guidelines/CHANGELOG.md",
+    "guidelines/README.md", "guidelines/stack.json", "guidelines/source.json",
+    "guidelines/check-drift.py", "guidelines/self-check.py", "guidelines/sync-table.py",
+    "guidelines/gl-update.py", "guidelines/install.py",
+    "guidelines/templates/guideline-upstream.yml",
+    ".claude/hooks/guideline-boot.py",
+    ".claude/commands/gl-check.md", ".claude/commands/gl-migrate.md",
+    ".claude/commands/gl-sync.md", ".claude/commands/gl-pull.md",
+]
+
+HOOK_CMD = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/guideline-boot.py" 2>/dev/null || true'
+
+
+def get(path: str) -> bytes:
+    req = urllib.request.Request(BASE + path, headers={"User-Agent": "modland-guideline-install/1"})
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+        return r.read()
+
+
+def say(mark: str, msg: str) -> None:
+    print(f"{mark} {msg}")
+
+
+def file_list() -> list[str]:
+    try:
+        cfg = json.loads(get("guidelines/source.json").decode("utf-8"))
+        paths = [e["path"] for e in cfg["files"]]
+        for extra in ("guidelines/source.json", "guidelines/install.py"):
+            if extra not in paths:
+                paths.append(extra)
+        return paths
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
+            OSError, ValueError, KeyError):
+        return FALLBACK
+
+
+def detect_verify(root: str) -> list[dict]:
+    """دروازه‌ی وارسی را از روی خودِ پروژه حدس بزن.
+
+    `self-check.py` همیشه هست و همیشه کار می‌کند، پس نصبِ تازه از همان اول
+    سبز است. اگر پروژه تستِ خودش را داشت، کنارش گذاشته می‌شود.
+    """
+    out = [{"name": "خودوارسیِ دستورالعمل",
+            "cmd": "python3 guidelines/self-check.py",
+            "note": "سازگاریِ درونیِ خودِ دستورالعمل. جای تستِ پروژه را نمی‌گیرد."}]
+
+    pkg = os.path.join(root, "package.json")
+    if os.path.isfile(pkg):
+        try:
+            with open(pkg, encoding="utf-8") as f:
+                scripts = (json.load(f) or {}).get("scripts", {})
+        except (OSError, ValueError):
+            scripts = {}
+        for name in ("test", "lint", "typecheck"):
+            if name in scripts:
+                out.append({"name": name, "cmd": f"npm run {name}", "note": "از package.json"})
+    elif os.path.isfile(os.path.join(root, "pyproject.toml")):
+        out.append({"name": "تستِ پایتون", "cmd": "python3 -m pytest -q",
+                    "note": "اگر pytest ندارید، این خط را عوض کنید"})
+    return out
+
+
+def merge_settings(root: str) -> str:
+    """هوک را به `.claude/settings.json` اضافه کن بدونِ خراب کردنِ تنظیماتِ موجود."""
+    path = os.path.join(root, ".claude", "settings.json")
+    data = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            return "settings.json خوانده نشد — دستی هوک را اضافه کن"
+
+    hooks = data.setdefault("hooks", {})
+    starts = hooks.setdefault("SessionStart", [])
+    for group in starts:
+        for h in group.get("hooks", []):
+            if "guideline-boot.py" in str(h.get("command", "")):
+                return "از قبل بود"
+    starts.append({"hooks": [{"type": "command", "command": HOOK_CMD}]})
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    return "اضافه شد"
+
+
+def main() -> int:
+    global BASE
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    ref = DEFAULT_REF
+    for a in sys.argv[1:]:
+        if a.startswith("--ref="):
+            ref = a.split("=", 1)[1]
+    BASE = f"https://raw.githubusercontent.com/{OWNER}/{REPO}/{ref}/"
+
+    root = os.path.abspath(args[0] if args else os.getcwd())
+    if not os.path.isdir(root):
+        print(f"پوشه نیست: {root}", file=sys.stderr)
+        return 2
+    print(f"نصب روی: {root}  ·  از شاخه‌ی {ref}\n")
+
+    # ۱) بسته
+    paths = file_list()
+    got, failed = 0, []
+    for rel in paths:
+        dest = os.path.join(root, rel)
+        try:
+            blob = get(rel)
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+            failed.append(f"{rel} ({type(exc).__name__})")
+            continue
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, "wb") as f:
+            f.write(blob)
+        if rel.endswith(".py"):
+            os.chmod(dest, 0o755)
+        got += 1
+    say("✅" if not failed else "⚠️", f"{got} فایل گرفته شد" +
+        (f" · {len(failed)} نشد: {', '.join(failed)}" if failed else ""))
+    if not got:
+        print("هیچ فایلی گرفته نشد — شبکه؟", file=sys.stderr)
+        return 3
+
+    # ۲) مُهرِ این پروژه، نه کپیِ مُهرِ منبع
+    lock_path = os.path.join(root, "guidelines", "lock.json")
+    version = "?"
+    try:
+        with open(os.path.join(root, "guidelines", "FULLSTACK.md"), encoding="utf-8") as f:
+            import re
+            mm = re.search(r"^\*\*نسخه: `([^`]+)`\*\*", f.read(), re.M)
+            version = mm.group(1) if mm else "?"
+    except OSError:
+        pass
+
+    if os.path.isfile(lock_path):
+        say("·", "lock.json از قبل هست — دست نخورد")
+    else:
+        with open(lock_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "schema": 1,
+                "note": "مُهرِ انطباقِ این پروژه. هیچ‌وقت از منبع نمی‌آید (MIG-07).",
+                "guideline_version": version,
+                "applied_at": __import__("datetime").date.today().isoformat(),
+                "verify": detect_verify(root),
+                "areas": {},
+                "waivers": [],
+                "history": [{"version": version,
+                             "date": __import__("datetime").date.today().isoformat(),
+                             "note": "نصبِ اولیه با install.py"}],
+            }, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        say("✅", f"lock.json ساخته شد (نسخه {version}) — دروازه‌ی وارسی خودکار پر شد")
+
+    # ۳) هوک
+    say("✅", f"هوکِ SessionStart: {merge_settings(root)}")
+
+    # ۴) گردش‌کارِ هفتگی
+    tpl = os.path.join(root, "guidelines", "templates", "guideline-upstream.yml")
+    wf = os.path.join(root, ".github", "workflows", "guideline-upstream.yml")
+    if os.path.isfile(tpl) and not os.path.isfile(wf):
+        os.makedirs(os.path.dirname(wf), exist_ok=True)
+        with open(tpl, encoding="utf-8") as s, open(wf, "w", encoding="utf-8") as d:
+            d.write(s.read())
+        say("✅", "گردش‌کارِ هفتگی در .github/workflows/ گذاشته شد")
+    elif os.path.isfile(wf):
+        say("·", "گردش‌کار از قبل هست")
+
+    # ۵) gitignore
+    gi = os.path.join(root, ".gitignore")
+    line = "guidelines/.upstream-cache.json"
+    body = ""
+    if os.path.isfile(gi):
+        with open(gi, encoding="utf-8") as f:
+            body = f.read()
+    if line not in body:
+        with open(gi, "a", encoding="utf-8") as f:
+            if body and not body.endswith("\n"):
+                f.write("\n")
+            f.write(line + "\n")
+        say("✅", ".gitignore به‌روز شد")
+
+    # ۶) وارسی
+    print()
+    rc = subprocess.run([sys.executable, os.path.join(root, "guidelines", "self-check.py")],
+                        cwd=root).returncode
+    print()
+    if rc == 0:
+        say("✅", "نصب تمام شد و خودوارسی سبز است.")
+        print("   از این به بعد: هر نشست خودش نسخه را اعلام می‌کند و هفته‌ای یک بار")
+        print("   اگر منبع جلو برود، در همین مخزن یک PR باز می‌شود.")
+        print()
+        print("   گامِ بعدی (اختیاری): در Claude Code بزن /gl-check تا ببینی کدِ فعلی")
+        print("   کجاها با دستورالعمل نمی‌خواند، و بعد بخش‌ها را در lock.json مُهر بزن.")
+    else:
+        say("⚠️", "نصب انجام شد ولی خودوارسی قرمز است — خروجیِ بالا را ببین.")
+    return 0 if rc == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

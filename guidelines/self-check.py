@@ -29,6 +29,7 @@ STACK = os.path.join(HERE, "stack.json")
 LOCK = os.path.join(HERE, "lock.json")
 CHANGELOG = os.path.join(HERE, "CHANGELOG.md")
 MIGRATIONS = os.path.join(HERE, "MIGRATIONS.md")
+SOURCE = os.path.join(HERE, "source.json")
 
 PREFIXES = ("ACT", "PREC", "CORE", "DOD", "STACK", "ARCH", "DATA", "API", "SEC",
             "UI", "TEST", "OPS", "GIT", "SELF", "MIG")
@@ -70,6 +71,27 @@ def vkey(v: str) -> tuple[int, ...]:
         return (0,)
 
 
+def load_module(rel: str, name: str):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, os.path.join(ROOT, rel))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)                           # type: ignore[union-attr]
+    return mod
+
+
+def detect_origin() -> bool:
+    """همان تشخیصی که gl-update می‌کند — نه خواندنِ خامِ is_origin.
+
+    پیش‌فرض `"auto"` یک رشته است و `bool("auto")` همیشه True؛ یعنی خواندنِ خام
+    باعث می‌شد هر کپی هم «منبع» دیده شود و بررسی‌های مخصوصِ منبع رویش اجرا شوند.
+    """
+    try:
+        gu = load_module("guidelines/gl-update.py", "gl_update")
+        return gu.is_origin_repo(read_json(SOURCE))
+    except Exception:                                      # noqa: BLE001
+        return True                                        # بدونِ ابزار، سخت‌گیرانه بسنج
+
+
 def load_hook():
     """پارسرِ مهاجرت را از خودِ هوک بردار — یک منبعِ حقیقت، و هوک هم آزموده می‌شود."""
     import importlib.util
@@ -106,10 +128,14 @@ def main() -> int:
     check(bool(guide_v and VERSION_RE.match(guide_v)),
           "قالبِ نسخه YYYY.MM.N است", f"دیده شد: {guide_v}")
 
+    # `lock.json` عمداً اینجا نیست. مُهر **مالِ کد** است و بعد از `gl-update`
+    # قانوناً عقب می‌مانَد تا `/gl-migrate` اجرا شود (MIG-07). اگر اینجا
+    # می‌آمد، هر پروژه‌ای که تازه به‌روز شده بود قرمز می‌شد — یعنی بررسی با
+    # قاعده‌ای که خودِ همین فایل تعریفش کرده می‌جنگید. «جلوتر نبودنِ مُهر»
+    # جداگانه سنجیده می‌شود.
     versions = {
         "FULLSTACK.md": guide_v,
         "stack.json": stack.get("guideline_version"),
-        "lock.json": lock.get("guideline_version"),
     }
     m2 = re.search(r"^<!--\s*$.*?^\s*version:\s*(\S+)\s*$", guide, re.M | re.S)
     if m2:
@@ -207,14 +233,23 @@ def main() -> int:
           "lock.json دستِ‌کم یک دروازه‌ی وارسی دارد (DOD-02)")
 
     areas = lock.get("areas", {})
-    check(bool(areas), "lock.json بخش‌های مُهرخورده دارد")
+    # `areas` خالی در نصبِ تازه **راست** است، نه ناسازگار: هنوز هیچ بخشی سنجیده
+    # نشده. پر کردنش موقعِ نصب یعنی مُهرِ دروغ — ادعای انطباقی که هیچ‌وقت وارسی
+    # نشده، و آن دقیقاً چیزی است که MIG-06 منع می‌کند. پس فقط ساختارش سنجیده
+    # می‌شود و خالی بودن در نامِ بررسی گزارش می‌شود.
+    check(isinstance(areas, dict),
+          "areas در lock.json ساختارِ درست دارد"
+          + ("" if areas else " — هنوز چیزی مُهر نخورده (نصبِ تازه؛ /gl-check را بزن)"),
+          f"دیده شد: {type(areas).__name__}")
     ahead = [f"{k}={v.get('version')}" for k, v in areas.items()
              if v.get("version") and guide_v and vkey(v["version"]) > vkey(guide_v)]
     check(not ahead, "هیچ بخشی نسخه‌ای جلوتر از خودِ دستورالعمل ندارد", " · ".join(ahead))
 
     lock_v = lock.get("guideline_version")
+    lagging = bool(lock_v and guide_v and vkey(lock_v) < vkey(guide_v))
     check(not (lock_v and guide_v) or vkey(lock_v) <= vkey(guide_v),
-          "مُهرِ lock.json جلوتر از خودِ دستورالعمل نیست",
+          f"مُهرِ lock.json جلوتر از دستورالعمل نیست (lock={lock_v}"
+          + ("، عقب است → مهاجرت معلق" if lagging else "") + ")",
           f"lock={lock_v} · دستورالعمل={guide_v}")
 
     # ── استثناها به قاعده‌ی واقعی اشاره می‌کنند؟ (MIG-05) ────────────────
@@ -240,7 +275,8 @@ def main() -> int:
         for tok in v["cmd"].split():
             if "/" in tok and not tok.startswith("-") and not os.path.exists(os.path.join(ROOT, tok)):
                 broken.append(f"{v.get('name')}: {tok}")
-    check(not broken, "فایلِ هر مسیری که در فرمان‌های وارسی آمده هست", " · ".join(broken))
+    check(not broken, "فایلِ هر مسیری که در فرمان‌های وارسی آمده هست",
+          " · ".join(broken) + "  ← `verify` در lock.json را برای همین پروژه تنظیم کن")
 
     # ── عددِ قاعده‌ها در README هم همان است؟ ──────────────────────────────
     readme = read(os.path.join(HERE, "README.md")) if os.path.isfile(os.path.join(HERE, "README.md")) else ""
@@ -253,19 +289,69 @@ def main() -> int:
     # ── هر مسیری که در مستندات نام برده شده واقعاً هست؟ ──────────────────
     # یک بار §۱۴ به `guideline-boot.sh` ارجاع می‌داد در حالی که فایل `.py` بود.
     # ارجاعِ مرده در مستند، کاربر را دنبالِ فایلی می‌فرستد که وجود ندارد.
+    # فقط در خودِ مخزنِ منبع معنی دارد: مستندها آنجا نوشته می‌شوند و مثال‌هایشان
+    # به فایل‌های همان مخزن اشاره می‌کنند (`CLAUDE.md`، `bot/README.md`، …). در یک
+    # پروژه‌ی مقصد آن فایل‌ها لازم نیست وجود داشته باشند، و قرمز کردنِ همه‌شان یعنی
+    # بررسی‌ای که هر بار الکی قرمز است — و بعد از چند بار دیگر کسی نگاهش نمی‌کند.
+    is_origin = detect_origin() if os.path.isfile(SOURCE) else True
     docs = [GUIDE, MIGRATIONS, CHANGELOG,
             os.path.join(HERE, "README.md"), os.path.join(ROOT, "CLAUDE.md")]
     docs += glob.glob(os.path.join(ROOT, ".claude", "commands", "*.md"))
-    search_dirs = ["", "guidelines/", ".claude/", ".claude/hooks/", ".claude/commands/",
-                   ".github/workflows/"]
+    search_dirs = ["", "guidelines/", "guidelines/templates/", ".claude/",
+                   ".claude/hooks/", ".claude/commands/", ".github/workflows/"]
+    # فایل‌هایی که هنگامِ اجرا ساخته می‌شوند و در مخزن نیستند. اگر این‌ها را هم
+    # «ارجاعِ مرده» بشماریم، بررسی همیشه قرمز می‌ماند و بعد از چند بار نادیده
+    # گرفته می‌شود — و آن‌وقت ارجاعِ مرده‌ی واقعی را هم کسی نمی‌بیند (CORE-04).
+    runtime_made = {".upstream.json", ".upstream-cache.json"}
     dead = []
     for doc in docs:
         if not os.path.isfile(doc):
             continue
         for ref in set(re.findall(r"`([A-Za-z0-9_./-]+\.(?:py|sh|md|json|yml|yaml|toml))`", read(doc))):
+            if os.path.basename(ref) in runtime_made:
+                continue
+            # فقط ادعای *مسیر* سنجیده می‌شود، نه نامِ عامّ. `package.json` یا
+            # `pyproject.toml` در متن یعنی «فایلی از این نوع»، نه «این فایل در
+            # این مخزن هست» — قرمز کردنشان همان هشدارِ نادرستی است که ابزار را
+            # بی‌اعتبار می‌کند. باگی که این بررسی برایش نوشته شد
+            # (`guideline-boot.sh`) خودش مسیر داشت.
+            if "/" not in ref:
+                continue
             if not any(os.path.exists(os.path.join(ROOT, d, ref)) for d in search_dirs):
                 dead.append(f"{os.path.relpath(doc, ROOT)} → {ref}")
-    check(not dead, "هر مسیرِ فایلی که در مستندات آمده وجود دارد", " · ".join(sorted(dead)))
+    if is_origin:
+        check(not dead, "هر مسیرِ فایلی که در مستندات آمده وجود دارد", " · ".join(sorted(dead)))
+
+    # ── بسته‌ی منبع سالم است؟ ────────────────────────────────────────────
+    src = read_json(SOURCE) if os.path.isfile(SOURCE) else None
+    if src:
+        missing_files = [e["path"] for e in src.get("files", [])
+                         if not os.path.exists(os.path.join(ROOT, e["path"]))]
+        check(not missing_files,
+              "هر فایلی که در source.json فهرست شده وجود دارد",
+              "نبود: " + " · ".join(missing_files))
+
+        kinds = {e.get("kind") for e in src.get("files", [])}
+        check(kinds <= {"doc", "tool"}, "نوعِ هر فایلِ بسته doc یا tool است",
+              f"ناشناخته: {sorted(kinds - {'doc', 'tool'})}")
+
+        # قلبِ MIG-07: مُهر هیچ‌وقت نباید از منبع بیاید.
+        check("guidelines/lock.json" in src.get("never_touch", []),
+              "lock.json در never_touch هست (MIG-07)",
+              "بدونِ آن، به‌روزرسانی مُهر را هم رونویسی می‌کند و مهاجرت‌ها گم می‌شوند")
+
+        bundled = {e["path"] for e in src.get("files", [])}
+        overlap = bundled & set(src.get("never_touch", []))
+        check(not overlap, "هیچ فایلی هم‌زمان در بسته و در never_touch نیست",
+              " · ".join(sorted(overlap)))
+
+        # پیش‌فرض «auto» است: تشخیص از روی remoteهای گیت، بدونِ هیچ تنظیمِ دستی.
+        # true/false فقط درِ فرارِ حالت‌های عجیب است.
+        check(src.get("is_origin") == "auto" or isinstance(src.get("is_origin"), bool),
+              "is_origin مقدارش auto یا بولی است", f"دیده شد: {src.get('is_origin')!r}")
+        check(src.get("is_origin") == "auto",
+              "is_origin روی auto است (کپی‌ها تنظیمِ دستی لازم ندارند)",
+              "با مقدارِ ثابت، کپی یا هیچ‌وقت به‌روز نمی‌شود یا خودش را رونویسی می‌کند")
 
     # ── تاریخِ سرآیندِ HTML با تاریخِ متنِ سرصفحه یکی است؟ ─────────────────
     mh = re.search(r"^\s*updated:\s*(\d{4}-\d{2}-\d{2})\s*$", guide, re.M)

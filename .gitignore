@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 modland-panel.zip
 .wrangler/
+guidelines/.upstream-cache.json

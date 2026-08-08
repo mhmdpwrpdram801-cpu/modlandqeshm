@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "note": "منبعِ رسمیِ دستورالعمل. هر پروژه‌ای که این بسته را نصب کرده با guidelines/gl-update.py از همین‌جا به‌روز می‌شود. is_origin روی auto است: خودش از روی remoteهای گیت تشخیص می‌دهد اینجا منبع است یا کپی — پس هیچ تنظیمِ دستی‌ای لازم نیست. true/false فقط درِ فرارِ حالت‌های عجیب است.",
+  "is_origin": "auto",
+  "origin": {
+    "kind": "github-raw",
+    "owner": "mhmdpwrpdram801-cpu",
+    "repo": "modlandqeshm",
+    "ref": "main"
+  },
+  "files": [
+    {
+      "path": "guidelines/FULLSTACK.md",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/MIGRATIONS.md",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/CHANGELOG.md",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/README.md",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/stack.json",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/templates/guideline-upstream.yml",
+      "kind": "doc"
+    },
+    {
+      "path": ".claude/commands/gl-check.md",
+      "kind": "doc"
+    },
+    {
+      "path": ".claude/commands/gl-migrate.md",
+      "kind": "doc"
+    },
+    {
+      "path": ".claude/commands/gl-sync.md",
+      "kind": "doc"
+    },
+    {
+      "path": ".claude/commands/gl-pull.md",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/check-drift.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/self-check.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/sync-table.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/gl-update.py",
+      "kind": "tool"
+    },
+    {
+      "path": ".claude/hooks/guideline-boot.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/install.py",
+      "kind": "tool"
+    }
+  ],
+  "never_touch": [
+    "guidelines/lock.json",
+    "guidelines/source.json",
+    ".claude/settings.json"
+  ],
+  "policy": {
+    "doc": "خودکار به‌روز می‌شود — متن و داده است، اجرا نمی‌شود",
+    "tool": "کدِ اجرایی است؛ فقط با --with-tools یا از راهِ PR که آدم می‌بیندش",
+    "never_touch": "وضعیتِ خودِ پروژه است — مُهر، منبع، و تنظیماتِ محلی. هیچ‌وقت از منبع نمی‌آید."
+  }
+}
