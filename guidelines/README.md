@@ -169,6 +169,18 @@ VPNِ کند شروعِ کار را می‌خواباند — و آن بدتر �
 `Settings → Actions → General → Allow GitHub Actions to create and approve pull requests`
 باید روشن باشد. شاخه در هر حال push می‌شود، پس دستی هم می‌شود PR زد.
 
+**همین الان چیزی به منبع پوش شد و نصب نسخه‌ی کهنه گرفت.**
+`raw.githubusercontent.com` برای نامِ شاخه چند دقیقه کشِ لبه دارد. اگر عجله داری،
+به‌جای نامِ شاخه از SHAِ کامیت استفاده کن — نشانیِ SHAدار تغییرناپذیر است و کش ندارد:
+
+```bash
+curl -fsS https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/<SHA>/guidelines/install.py \
+  | python3 - --ref=<SHA>
+```
+
+اگر بسته‌ی نیم‌کهنه بیاید، `self-check` همان آخرِ نصب قرمز می‌دهد — یعنی خودش
+می‌گیردش و بی‌صدا رد نمی‌شود.
+
 **اگر شبکه نبود؟**
 `check-drift.py` با کدِ ۳ برمی‌گردد و گردش‌کار فقط هشدار می‌دهد. `self-check.py`
 اصلاً به شبکه نیاز ندارد.
