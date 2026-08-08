@@ -464,6 +464,13 @@
       "needs": "'serviceWorker' in navigator",
       "js": "()=>{const seen=[];const h=(e)=>seen.push(String((e.reason&&e.reason.message)||e.reason));window.addEventListener('unhandledrejection',h);return navigator.serviceWorker.getRegistration().then(reg=>{if(!reg)return 'سرویس‌ورکر ثبت نشد';const bak=reg.update;reg.update=function(){return Promise.reject(new Error('Failed to update a ServiceWorker'));};document.dispatchEvent(new Event('visibilitychange'));document.dispatchEvent(new Event('visibilitychange'));return new Promise(r=>setTimeout(r,400)).then(()=>{reg.update=bak;window.removeEventListener('unhandledrejection',h);return seen.length===0?'بدونِ ردشدنِ بی‌صاحب':('ردشد: '+seen.length);});});}",
       "expect": "بدونِ ردشدنِ بی‌صاحب"
+    },
+    {
+      "name": "نوارِ «نسخه‌ی جدید» جلوی نوارِ انتخابِ گروهی را نمی‌گیرد",
+      "before": "nav('dashboard')",
+      "js": "()=>{const bb=document.getElementById('bulkBar');if(!bb)return 'نوارِ گروهی نیست';const wasHidden=bb.classList.contains('hidden');bb.classList.remove('hidden');bb.innerHTML='<button id=\"_tstBulk\">حذفِ گروهی</button>';showUpdateBar(function(){});const ub=document.getElementById('updBar');const done=(m)=>{const u=document.getElementById('updBar');if(u)u.remove();bb.innerHTML='';if(wasHidden)bb.classList.add('hidden');return m;};if(!ub)return done('نوارِ به‌روزرسانی ساخته نشد');const br=bb.getBoundingClientRect(),ur=ub.getBoundingClientRect();const shown=getComputedStyle(ub).display!=='none';const hit=shown&&!(ur.right<=br.left||ur.left>=br.right||ur.bottom<=br.top||ur.top>=br.bottom);if(hit)return done('روی نوارِ گروهی می‌افتد');const b=document.getElementById('_tstBulk'),rb=b.getBoundingClientRect();const el=document.elementFromPoint(rb.left+rb.width/2,rb.top+rb.height/2);if(el===b||b.contains(el))return done('با نوارِ گروهی برخورد ندارد');const d=el?(el.tagName.toLowerCase()+(el.id?'#'+el.id:'')+(el.className&&el.className.baseVal===undefined?'.'+String(el.className).trim().split(/\\s+/).join('.'):'')):'هیچ';return done('لمس را می‌دزدد: '+d+' | دکمه در '+Math.round(rb.left)+','+Math.round(rb.top)+' اندازه '+Math.round(rb.width)+'x'+Math.round(rb.height));}",
+      "expect": "با نوارِ گروهی برخورد ندارد",
+      "wait": 900
     }
   ],
   "click_test": {
