@@ -29,6 +29,7 @@ STACK = os.path.join(HERE, "stack.json")
 LOCK = os.path.join(HERE, "lock.json")
 CHANGELOG = os.path.join(HERE, "CHANGELOG.md")
 MIGRATIONS = os.path.join(HERE, "MIGRATIONS.md")
+SOURCE = os.path.join(HERE, "source.json")
 
 PREFIXES = ("ACT", "PREC", "CORE", "DOD", "STACK", "ARCH", "DATA", "API", "SEC",
             "UI", "TEST", "OPS", "GIT", "SELF", "MIG")
@@ -256,16 +257,48 @@ def main() -> int:
     docs = [GUIDE, MIGRATIONS, CHANGELOG,
             os.path.join(HERE, "README.md"), os.path.join(ROOT, "CLAUDE.md")]
     docs += glob.glob(os.path.join(ROOT, ".claude", "commands", "*.md"))
-    search_dirs = ["", "guidelines/", ".claude/", ".claude/hooks/", ".claude/commands/",
-                   ".github/workflows/"]
+    search_dirs = ["", "guidelines/", "guidelines/templates/", ".claude/",
+                   ".claude/hooks/", ".claude/commands/", ".github/workflows/"]
+    # فایل‌هایی که هنگامِ اجرا ساخته می‌شوند و در مخزن نیستند. اگر این‌ها را هم
+    # «ارجاعِ مرده» بشماریم، بررسی همیشه قرمز می‌ماند و بعد از چند بار نادیده
+    # گرفته می‌شود — و آن‌وقت ارجاعِ مرده‌ی واقعی را هم کسی نمی‌بیند (CORE-04).
+    runtime_made = {".upstream.json", ".upstream-cache.json"}
     dead = []
     for doc in docs:
         if not os.path.isfile(doc):
             continue
         for ref in set(re.findall(r"`([A-Za-z0-9_./-]+\.(?:py|sh|md|json|yml|yaml|toml))`", read(doc))):
+            if os.path.basename(ref) in runtime_made:
+                continue
             if not any(os.path.exists(os.path.join(ROOT, d, ref)) for d in search_dirs):
                 dead.append(f"{os.path.relpath(doc, ROOT)} → {ref}")
     check(not dead, "هر مسیرِ فایلی که در مستندات آمده وجود دارد", " · ".join(sorted(dead)))
+
+    # ── بسته‌ی منبع سالم است؟ ────────────────────────────────────────────
+    src = read_json(SOURCE) if os.path.isfile(SOURCE) else None
+    if src:
+        missing_files = [e["path"] for e in src.get("files", [])
+                         if not os.path.exists(os.path.join(ROOT, e["path"]))]
+        check(not missing_files,
+              "هر فایلی که در source.json فهرست شده وجود دارد",
+              "نبود: " + " · ".join(missing_files))
+
+        kinds = {e.get("kind") for e in src.get("files", [])}
+        check(kinds <= {"doc", "tool"}, "نوعِ هر فایلِ بسته doc یا tool است",
+              f"ناشناخته: {sorted(kinds - {'doc', 'tool'})}")
+
+        # قلبِ MIG-07: مُهر هیچ‌وقت نباید از منبع بیاید.
+        check("guidelines/lock.json" in src.get("never_touch", []),
+              "lock.json در never_touch هست (MIG-07)",
+              "بدونِ آن، به‌روزرسانی مُهر را هم رونویسی می‌کند و مهاجرت‌ها گم می‌شوند")
+
+        bundled = {e["path"] for e in src.get("files", [])}
+        overlap = bundled & set(src.get("never_touch", []))
+        check(not overlap, "هیچ فایلی هم‌زمان در بسته و در never_touch نیست",
+              " · ".join(sorted(overlap)))
+
+        check(isinstance(src.get("is_origin"), bool),
+              "is_origin مقدارِ بولی دارد", f"دیده شد: {src.get('is_origin')!r}")
 
     # ── تاریخِ سرآیندِ HTML با تاریخِ متنِ سرصفحه یکی است؟ ─────────────────
     mh = re.search(r"^\s*updated:\s*(\d{4}-\d{2}-\d{2})\s*$", guide, re.M)

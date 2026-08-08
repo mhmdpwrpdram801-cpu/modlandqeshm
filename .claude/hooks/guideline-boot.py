@@ -13,13 +13,18 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 G = os.path.join(ROOT, "guidelines")
+
+UPSTREAM_CACHE = os.path.join(G, ".upstream-cache.json")
+UPSTREAM_MAX_AGE_H = 12          # کهنه‌تر از این شد، در پس‌زمینه تازه‌اش کن
 
 VERSION_RE = re.compile(r"^\*\*نسخه: `([^`]+)`\*\*", re.M)
 # «## 2026.08.1 → 2026.09.1» و همچنین «## → 2026.08.1 (نسخه‌ی نخست)».
@@ -82,6 +87,47 @@ def pending(text: str, frm: str, to: str) -> list[tuple[str, str]]:
         lvl = LEVEL_RE.search(body)
         out.append((target, lvl.group(1) if lvl else "نامشخص"))
     return sorted(out, key=lambda t: vkey(t[0]))
+
+
+def upstream_note(gv: str) -> list[str]:
+    """آیا منبعِ رسمی نسخه‌ی تازه‌تری دارد؟
+
+    **شروعِ نشست هیچ‌وقت منتظرِ شبکه نمی‌ماند.** فقط کشِ روی دیسک خوانده می‌شود؛
+    اگر کهنه بود، یک فرآیندِ جدا در پس‌زمینه تازه‌اش می‌کند و نتیجه‌اش نشستِ
+    بعدی به کار می‌آید. هوکی که به اینترنت بند باشد، آفلاین یا پشتِ VPNِ کند
+    شروعِ کار را می‌خواباند — و آن بدتر از ندانستنِ نسخه است.
+    """
+    cache = {}
+    fresh = False
+    try:
+        with open(UPSTREAM_CACHE, encoding="utf-8") as f:
+            cache = json.load(f)
+        stamp = datetime.datetime.fromisoformat(cache.get("checked_at", ""))
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=datetime.timezone.utc)
+        age_h = (datetime.datetime.now(datetime.timezone.utc) - stamp).total_seconds() / 3600
+        fresh = age_h < UPSTREAM_MAX_AGE_H
+    except (OSError, ValueError, TypeError):
+        pass
+
+    if not fresh:
+        try:                                        # جدا، بی‌صدا، بدونِ انتظار
+            with open(os.devnull, "wb") as null:
+                subprocess.Popen(
+                    [sys.executable, os.path.join(G, "gl-update.py"), "--json"],
+                    stdout=null, stderr=null, stdin=null,
+                    start_new_session=True, cwd=ROOT)
+        except (OSError, ValueError):
+            pass
+
+    rv = cache.get("remote")
+    if not rv or not gv or vkey(rv) <= vkey(gv):
+        return []
+    return [
+        "",
+        f"⬆️ منبعِ رسمیِ دستورالعمل روی {rv} است ولی این پروژه روی {gv}.",
+        "به کاربر بگو و اگر خواست: `python3 guidelines/gl-update.py --apply` (یا /gl-pull).",
+    ]
 
 
 def main() -> int:
@@ -151,6 +197,9 @@ def main() -> int:
             "همین اول به کاربر بگو و بپرس الان انجام بدهی یا نه — خودسرانه اجرا نکن (MIG-01).",
             "برای اجرا: /gl-migrate",
         ]
+
+    if m is not None and os.path.isfile(os.path.join(G, "gl-update.py")):
+        lines += upstream_note(gv)
 
     lines.append("</fullstack-guideline>")
     print("\n".join(lines))

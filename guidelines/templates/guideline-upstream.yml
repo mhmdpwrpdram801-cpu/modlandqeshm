@@ -1,0 +1,112 @@
+# قالب — این فایل را در پروژه‌های *دیگر* بگذار، نه در مخزنِ منبع.
+#
+#   cp guidelines/templates/guideline-upstream.yml .github/workflows/
+#
+# کاری که می‌کند: هفته‌ای یک بار می‌بیند منبعِ رسمیِ دستورالعمل جلو رفته یا نه،
+# و اگر رفته باشد نسخه‌ی تازه را می‌گیرد و یک PRِ پیش‌نویس باز می‌کند.
+#
+# چرا لازم است: بدونِ این، پروژه‌ای که چند ماه بازش نمی‌کنی هیچ‌وقت نمی‌فهمد
+# دستورالعمل عوض شده. هوکِ شروعِ نشست فقط وقتی خبر می‌دهد که پروژه را باز کنی.
+#
+# چرا PR و نه کامیتِ مستقیم: بخشی از بسته کدِ اجرایی است (اسکریپت‌ها و هوک).
+# آمدنِ کدِ اجرایی از اینترنت باید دیده شود، نه اینکه بی‌صدا روی main بنشیند.
+
+name: به‌روزرسانیِ دستورالعمل از منبع
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'          # دوشنبه‌ها ۷:۰۰ UTC — یک ساعت بعد از سنجشِ خودِ منبع
+  workflow_dispatch:
+
+concurrency:
+  group: guideline-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  BRANCH: guideline/upstream-sync
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: منبع جلوتر است؟
+        id: check
+        run: |
+          set +e
+          python3 guidelines/gl-update.py --json > /tmp/up.json
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          cat /tmp/up.json
+          case "$code" in
+            0) echo "به‌روز است." ;;
+            1) echo "نسخه‌ی تازه‌تری در منبع هست." ;;
+            *) echo "::warning::سنجش انجام نشد (کدِ $code) — این اجرا رد می‌شود." ;;
+          esac
+
+      - name: گرفتن و وارسی
+        if: steps.check.outputs.code == '1'
+        run: |
+          set -eu
+          # --with-tools چون خروجی یک PR است و آدم قبل از مرج می‌بیندش.
+          python3 guidelines/gl-update.py --apply --with-tools
+          python3 guidelines/self-check.py
+
+      - name: PR
+        if: steps.check.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          if git diff --quiet; then
+            echo "چیزی عوض نشد."
+            exit 0
+          fi
+
+          LOCAL=$(python3 -c "import json;print(json.load(open('/tmp/up.json',encoding='utf-8'))['local'])")
+          REMOTE=$(python3 -c "import json;print(json.load(open('/tmp/up.json',encoding='utf-8'))['remote'])")
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "guideline: گرفتنِ نسخه‌ی $REMOTE از منبع
+
+          دستورالعملِ این پروژه روی $LOCAL بود و منبع روی $REMOTE رفته.
+          مُهرِ lock.json عمداً دست نخورد — مهاجرت جدا انجام می‌شود (MIG-07)."
+
+          # کلونِ CI فقط شاخه‌ی تریگر را دارد، پس --force-with-leaseِ سربسته
+          # با «stale info» رد می‌شود. lease را صریح می‌دهیم تا محافظِ
+          # هم‌زمانی هم سرِ جایش بماند.
+          git fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null || true
+          if git rev-parse --verify -q "refs/remotes/origin/$BRANCH" >/dev/null; then
+            git push origin "$BRANCH" \
+              --force-with-lease="$BRANCH:$(git rev-parse "refs/remotes/origin/$BRANCH")"
+          else
+            git push -u origin "$BRANCH"
+          fi
+
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "PR باز هست؛ همان به‌روز شد."
+          else
+            gh pr create --draft --base "${{ github.event.repository.default_branch }}" \
+              --head "$BRANCH" \
+              --title "guideline: نسخه‌ی $REMOTE از منبع" \
+              --body "دستورالعملِ این پروژه روی \`$LOCAL\` بود؛ منبع روی \`$REMOTE\` است.
+
+          تغییرها در \`guidelines/CHANGELOG.md\` همین PR.
+
+          ### قبل از مرج
+          - [ ] \`CHANGELOG\` را خواندم
+          - [ ] اگر قاعده‌ای عوض شده که کدِ این پروژه را نامنطبق می‌کند، بعد از مرج \`/gl-migrate\`
+          - [ ] دیفِ فایل‌های \`.py\` را دیدم (کدِ اجرایی از منبع می‌آید)
+
+          \`lock.json\` عمداً دست نخورده — مُهر فقط بعد از مهاجرتِ واقعی جلو می‌رود (MIG-06, MIG-07)." \
+              || echo "::warning::PR ساخته نشد. Settings → Actions → «Allow GitHub Actions to create and approve pull requests» روشن است؟"
+          fi

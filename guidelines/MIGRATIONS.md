@@ -54,6 +54,64 @@ python3 guidelines/self-check.py && <دروازه‌ی وارسیِ پروژه>
 
 <!-- ورودیِ تازه بالای همین خط اضافه شود -->
 
+## 2026.08.1 → 2026.08.2 (به‌روز ماندنِ کپی‌ها)
+
+**سطح:** پیشنهادی
+**قاعده‌ها:** SELF-05، MIG-07
+**علت:** تا اینجا `lock.json` می‌گفت «کدِ من از دستورالعمل عقب است»، ولی هیچ‌چیز
+نمی‌گفت «دستورالعملِ من از منبع عقب است». پروژه‌ای که این بسته در آن کپی شده بود،
+جدا کهنه می‌شد و کسی خبردار نمی‌شد.
+
+> **این یکی را نمی‌شود خودکار گرفت.** پروژه‌ای که `gl-update.py` ندارد، نمی‌تواند
+> نسخه‌ای را بگیرد که خودِ `gl-update.py` در آن است. پس **فقط این بار** دستی است؛
+> از این به بعد خودکار می‌شود.
+
+### چه کسانی درگیرند
+```bash
+test -f guidelines/gl-update.py || echo "درگیر است"
+```
+خروجی خالی بود یعنی از قبل دارد — رد شو.
+
+### چطور مهاجرت کن
+
+۱. این چهار فایل را از منبع بردار:
+```bash
+BASE=https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/main
+curl -fsS "$BASE/guidelines/gl-update.py"  -o guidelines/gl-update.py
+curl -fsS "$BASE/guidelines/source.json"   -o guidelines/source.json
+curl -fsS "$BASE/.claude/commands/gl-pull.md" -o .claude/commands/gl-pull.md
+mkdir -p guidelines/templates
+curl -fsS "$BASE/guidelines/templates/guideline-upstream.yml" \
+     -o guidelines/templates/guideline-upstream.yml
+chmod +x guidelines/gl-update.py
+```
+
+۲. **`source.json` را ویرایش کن:** `is_origin` را `false` بگذار. اگر `true` بماند،
+   `gl-update` فکر می‌کند اینجا خودِ منبع است و هیچ‌وقت چیزی نمی‌گیرد.
+
+۳. هوک را هم به‌روز کن (بخشِ خبرِ منبع در آن اضافه شده):
+```bash
+curl -fsS "$BASE/.claude/hooks/guideline-boot.py" -o .claude/hooks/guideline-boot.py
+```
+
+۴. کشِ محلی را به `.gitignore` اضافه کن: `guidelines/.upstream-cache.json`
+
+۵. **اختیاری ولی توصیه‌شده** — برای پروژه‌هایی که ماه‌ها بازشان نمی‌کنی:
+```bash
+cp guidelines/templates/guideline-upstream.yml .github/workflows/
+```
+
+### چطور وارسی کن
+```bash
+python3 guidelines/gl-update.py     # باید نسخه‌ی محلی و منبع را نشان بدهد
+python3 guidelines/self-check.py    # باید سبز باشد
+```
+قبل از مهاجرت، فرمانِ اول اصلاً وجود ندارد؛ بعدش کار می‌کند.
+
+### خطر و راهِ برگشت
+هیچ فایلِ موجودی جز هوک عوض نمی‌شود و هوک هم رو به عقب سازگار است (اگر
+`gl-update.py` نباشد، بخشِ منبع را اصلاً اجرا نمی‌کند). برگشت: حذفِ همان چهار فایل.
+
 ## → 2026.08.1 (نسخه‌ی نخست)
 
 **سطح:** اجباری
