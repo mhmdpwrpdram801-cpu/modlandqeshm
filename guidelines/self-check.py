@@ -233,7 +233,14 @@ def main() -> int:
           "lock.json دستِ‌کم یک دروازه‌ی وارسی دارد (DOD-02)")
 
     areas = lock.get("areas", {})
-    check(bool(areas), "lock.json بخش‌های مُهرخورده دارد")
+    # `areas` خالی در نصبِ تازه **راست** است، نه ناسازگار: هنوز هیچ بخشی سنجیده
+    # نشده. پر کردنش موقعِ نصب یعنی مُهرِ دروغ — ادعای انطباقی که هیچ‌وقت وارسی
+    # نشده، و آن دقیقاً چیزی است که MIG-06 منع می‌کند. پس فقط ساختارش سنجیده
+    # می‌شود و خالی بودن در نامِ بررسی گزارش می‌شود.
+    check(isinstance(areas, dict),
+          "areas در lock.json ساختارِ درست دارد"
+          + ("" if areas else " — هنوز چیزی مُهر نخورده (نصبِ تازه؛ /gl-check را بزن)"),
+          f"دیده شد: {type(areas).__name__}")
     ahead = [f"{k}={v.get('version')}" for k, v in areas.items()
              if v.get("version") and guide_v and vkey(v["version"]) > vkey(guide_v)]
     check(not ahead, "هیچ بخشی نسخه‌ای جلوتر از خودِ دستورالعمل ندارد", " · ".join(ahead))
