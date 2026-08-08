@@ -1,42 +1,70 @@
 name: سنجشِ هفتگیِ دستورالعملِ فول‌استک
 
 # دستورالعمل نباید بی‌سروصدا کهنه شود.
-# هر دوشنبه نسخه‌های پین‌شده با رجیستری‌های عمومی سنجیده می‌شوند:
-#   · عقب‌افتادگیِ کوچک (minor/patch) → خودش PR باز می‌کند. مکانیکی و کم‌خطر.
-#   · پرشِ نسخه‌ی اصلی (major)        → ایشو باز می‌کند، چون قضاوت لازم دارد و
-#                                        باید اول یک ورودیِ مهاجرت نوشته شود (SELF-02).
+#
+# دو کارِ جدا:
+#   · job «check»  — روی هر PR و هر push، فقط سازگاریِ درونی. بدونِ شبکه، بدونِ نوشتن.
+#   · job «drift»  — فقط زمان‌بندی‌شده / دستی / push روی main. نسخه‌ها را با
+#                    رجیستری‌ها می‌سنجد و PR یا ایشو می‌سازد.
+#
+# چرا «drift» روی هر شاخه‌ای اجرا نمی‌شود: خودش به guidelines/ کامیت می‌کند و
+# آن کامیت دوباره همین گردش‌کار را صدا می‌زد؛ ضمناً روی یک شاخه‌ی موضوعی،
+# PR را از محتوای همان شاخه می‌ساخت نه از main.
 
 on:
   schedule:
     - cron: '0 6 * * 1'          # دوشنبه‌ها ۶:۰۰ UTC
   workflow_dispatch:
   push:
+    branches: [main]           # روی شاخه‌های موضوعی، pull_request پوشش می‌دهد — دوباره‌کاری نشود
     paths:
       - 'guidelines/**'
+      - '.claude/hooks/guideline-boot.py'
+      - '.github/workflows/guideline-drift.yml'
+  pull_request:
+    paths:
+      - 'guidelines/**'
+      - '.claude/hooks/guideline-boot.py'
       - '.github/workflows/guideline-drift.yml'
 
 concurrency:
-  group: guideline-drift
+  group: guideline-drift-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 env:
   BRANCH: guideline/version-sync
   ISSUE_TITLE: 'دستورالعمل: پرشِ نسخه‌ی اصلی، مهاجرت لازم دارد'
 
 jobs:
-  drift:
+  # ── همیشه: دستورالعمل با خودش می‌خواند؟ ────────────────────────────────
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: خودوارسیِ دستورالعمل
-        # اگر دستورالعمل همین الان با خودش نمی‌خواند، سنجشِ نسخه بی‌معنی است.
         run: python3 guidelines/self-check.py
+
+      - name: جدولِ §۴ با stack.json می‌خواند؟
+        run: python3 guidelines/sync-table.py --check
+
+  # ── فقط زمان‌بندی‌شده / دستی / main: سنجشِ نسخه‌ها با دنیای بیرون ───────
+  drift:
+    needs: check
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
 
       - name: سنجشِ نسخه‌ها
         id: drift
@@ -46,6 +74,17 @@ jobs:
           code=$?
           set -e
           echo "code=$code" >> "$GITHUB_OUTPUT"
+
+          # چند ورودی خوانده نشد؟ اگر رجیستری‌ای پایین باشد، کدِ خروجی می‌تواند
+          # ۰ شود در حالی که واقعاً همه‌چیز سنجیده نشده. بستنِ ایشو با این داده‌ی
+          # ناقص یعنی پرشِ نسخه‌ی اصلیِ بازْ خاموش بسته شود.
+          errs=$(python3 -c "
+          import json,sys
+          try: print(len(json.load(open('/tmp/drift.json',encoding='utf-8'))['errors']))
+          except Exception: print(-1)")
+          echo "errors=$errs" >> "$GITHUB_OUTPUT"
+          [ "$errs" = "0" ] || echo "::warning::$errs ورودی خوانده نشد — نتیجه ناقص است."
+
           python3 guidelines/check-drift.py || true      # گزارشِ خوانا در لاگ
           case "$code" in
             0) echo "همه‌چیز به‌روز است." ;;
@@ -130,7 +169,18 @@ jobs:
           سنجشِ هفتگی: عقب‌افتادگیِ minor/patch در guidelines/stack.json.
           جدولِ §۴ با sync-table.py بازتولید و با self-check.py وارسی شد.
           پرشِ نسخه‌ی اصلی در این کامیت نیست."
-          git push -u origin "$BRANCH" --force-with-lease
+
+          # کلونِ CI فقط شاخه‌ی تریگر را دارد، پس refِ راه‌دورِ این شاخه وجود ندارد.
+          # در آن حالت `--force-with-lease`ِ سربسته با «stale info» رد می‌شود
+          # (آزموده شد). پس اول refspecِ صریح می‌گیریم و lease را دستی می‌دهیم —
+          # این‌طور محافظِ هم‌زمانی هم سرِ جایش می‌ماند.
+          git fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" 2>/dev/null || true
+          if git rev-parse --verify -q "refs/remotes/origin/$BRANCH" >/dev/null; then
+            git push origin "$BRANCH" \
+              --force-with-lease="$BRANCH:$(git rev-parse "refs/remotes/origin/$BRANCH")"
+          else
+            git push -u origin "$BRANCH"
+          fi
 
           if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
             echo "PR باز هست؛ همان به‌روز شد."
@@ -141,14 +191,17 @@ jobs:
               || echo "::warning::PR ساخته نشد. Settings → Actions → «Allow GitHub Actions to create and approve pull requests» روشن است؟ شاخه push شد و دستی هم می‌شود PR زد."
           fi
 
+      # عنوانِ ایشو فارسی است و «:» دارد؛ جست‌وجوی متنیِ گیت‌هاب رویش شکننده است
+      # و یک بارِ نگرفتن یعنی هر هفته یک ایشوی تکراری. پس فهرست می‌گیریم و
+      # با jq روی env دقیقاً تطبیق می‌دهیم — بدونِ هیچ نقلِ‌قولی در کوئری.
       - name: ایشو برای پرشِ نسخه‌ی اصلی
         if: steps.drift.outputs.code == '2'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          num=$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" \
-                  --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
+          num=$(gh issue list --state open --limit 100 --json number,title \
+                  --jq 'map(select(.title == env.ISSUE_TITLE)) | .[0].number // empty')
           if [ -n "$num" ]; then
             gh issue edit "$num" --body-file /tmp/issue-body.md
             echo "ایشوی #$num به‌روز شد."
@@ -156,14 +209,15 @@ jobs:
             gh issue create --title "$ISSUE_TITLE" --body-file /tmp/issue-body.md
           fi
 
+      # فقط وقتی سنجش کامل بوده — با داده‌ی ناقص ایشو بسته نمی‌شود.
       - name: بستنِ ایشو وقتی چیزی نمانده
-        if: steps.drift.outputs.code == '0'
+        if: steps.drift.outputs.code == '0' && steps.drift.outputs.errors == '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          num=$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" \
-                  --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
+          num=$(gh issue list --state open --limit 100 --json number,title \
+                  --jq 'map(select(.title == env.ISSUE_TITLE)) | .[0].number // empty')
           if [ -n "$num" ]; then
             gh issue close "$num" --comment "همه‌ی نسخه‌ها به‌روزند — خودکار بسته شد."
           fi

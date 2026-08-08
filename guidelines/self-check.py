@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -31,7 +32,10 @@ MIGRATIONS = os.path.join(HERE, "MIGRATIONS.md")
 
 PREFIXES = ("ACT", "PREC", "CORE", "DOD", "STACK", "ARCH", "DATA", "API", "SEC",
             "UI", "TEST", "OPS", "GIT", "SELF", "MIG")
-RULE_RE = re.compile(r"\*\*(" + "|".join(PREFIXES) + r")-(\d{2})\b")
+# فقط *تعریفِ* قاعده، نه هر جایی که شناسه bold شده باشد. تعریف‌ها همیشه سرِ خط
+# می‌آیند (`> **X-01 —` یا `- [ ] **X-01**`). بدونِ این لنگر، یک ارجاعِ درون‌متنیِ
+# bold به قاعده‌ای که قبلاً تعریف شده، «شناسه‌ی تکراری» گزارش می‌شد — هشدارِ نادرست.
+RULE_RE = re.compile(r"^(?:>\s*|-\s*\[\s*\]\s*)\*\*(" + "|".join(PREFIXES) + r")-(\d{2})\b", re.M)
 VERSION_RE = re.compile(r"^\d{4}\.\d{2}\.\d+$")
 
 FA_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
@@ -52,6 +56,28 @@ def read(path: str) -> str:
 def read_json(path: str) -> dict:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def vkey(v: str) -> tuple[int, ...]:
+    """کلیدِ مقایسه‌ی نسخه — عددی، نه رشته‌ای.
+
+    مقایسه‌ی رشته‌ای «2026.08.10» را کوچک‌تر از «2026.08.9» می‌بیند و
+    «2026.10.1» را کوچک‌تر از «2026.9.1». هر دو غلط‌اند.
+    """
+    try:
+        return tuple(int(x) for x in str(v).split("."))
+    except ValueError:
+        return (0,)
+
+
+def load_hook():
+    """پارسرِ مهاجرت را از خودِ هوک بردار — یک منبعِ حقیقت، و هوک هم آزموده می‌شود."""
+    import importlib.util
+    path = os.path.join(ROOT, ".claude", "hooks", "guideline-boot.py")
+    spec = importlib.util.spec_from_file_location("guideline_boot", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)                          # type: ignore[union-attr]
+    return mod
 
 
 def main() -> int:
@@ -97,9 +123,19 @@ def main() -> int:
           "نسخه‌ی فعلی ورودیِ CHANGELOG دارد (SELF-01)",
           f"«## {guide_v}» در CHANGELOG.md نیست")
 
-    check(bool(guide_v) and guide_v in migrations,
-          "نسخه‌ی فعلی در MIGRATIONS.md آمده (SELF-02)",
-          f"«{guide_v}» در MIGRATIONS.md نیست")
+    # جست‌وجوی رشته‌ایِ ساده اینجا سبزِ دروغ می‌داد: نسخه در «قالبِ نمونه» هم
+    # هست. پس با همان پارسری سنجیده می‌شود که هوک استفاده می‌کند، روی متنی که
+    # بلوک‌های کد از آن حذف شده‌اند.
+    try:
+        hook = load_hook()
+        targets = {t for _, t in hook.MIG_RE.findall(hook.strip_fences(migrations))}
+        check(bool(guide_v) and guide_v in targets,
+              "نسخه‌ی فعلی ورودیِ واقعی در MIGRATIONS.md دارد (SELF-02)",
+              f"«{guide_v}» هدرِ واقعی ندارد. ورودی‌های دیده‌شده: {sorted(targets) or 'هیچ'}")
+        check(all(vkey(t) > (0,) for t in targets) and bool(targets),
+              "هدرهای MIGRATIONS.md قابلِ پارس‌اند", f"دیده شد: {sorted(targets)}")
+    except Exception as exc:                              # noqa: BLE001
+        check(False, "هوکِ guideline-boot.py قابلِ بارگذاری است", f"{type(exc).__name__}: {exc}")
 
     # ── شناسه‌ی قاعده‌ها ──────────────────────────────────────────────────
     found: dict[str, list[int]] = {}
@@ -173,8 +209,13 @@ def main() -> int:
     areas = lock.get("areas", {})
     check(bool(areas), "lock.json بخش‌های مُهرخورده دارد")
     ahead = [f"{k}={v.get('version')}" for k, v in areas.items()
-             if v.get("version") and guide_v and v["version"] > guide_v]
+             if v.get("version") and guide_v and vkey(v["version"]) > vkey(guide_v)]
     check(not ahead, "هیچ بخشی نسخه‌ای جلوتر از خودِ دستورالعمل ندارد", " · ".join(ahead))
+
+    lock_v = lock.get("guideline_version")
+    check(not (lock_v and guide_v) or vkey(lock_v) <= vkey(guide_v),
+          "مُهرِ lock.json جلوتر از خودِ دستورالعمل نیست",
+          f"lock={lock_v} · دستورالعمل={guide_v}")
 
     # ── استثناها به قاعده‌ی واقعی اشاره می‌کنند؟ (MIG-05) ────────────────
     all_ids = {f"{p}-{n:02d}" for p, nums in found.items() for n in nums}
@@ -192,15 +233,46 @@ def main() -> int:
     check(len(ids) == len(set(ids)), "شناسه‌ی استثناها یکتاست")
 
     # ── فرمانِ وارسی واقعاً وجود دارد؟ ────────────────────────────────────
+    # همه‌ی مسیرهای فرمان سنجیده می‌شوند، نه فقط اولی — فرمانی که فایلِ
+    # پیکربندی‌اش جابه‌جا شده باشد هم باید همین‌جا لو برود.
     broken = []
     for v in verify:
-        first = v["cmd"].split()
-        for tok in first:
-            if "/" in tok and not tok.startswith("-"):
-                if not os.path.exists(os.path.join(ROOT, tok)):
-                    broken.append(f"{v.get('name')}: {tok}")
-                break
-    check(not broken, "فایلِ هر فرمانِ وارسی روی دیسک هست", " · ".join(broken))
+        for tok in v["cmd"].split():
+            if "/" in tok and not tok.startswith("-") and not os.path.exists(os.path.join(ROOT, tok)):
+                broken.append(f"{v.get('name')}: {tok}")
+    check(not broken, "فایلِ هر مسیری که در فرمان‌های وارسی آمده هست", " · ".join(broken))
+
+    # ── عددِ قاعده‌ها در README هم همان است؟ ──────────────────────────────
+    readme = read(os.path.join(HERE, "README.md")) if os.path.isfile(os.path.join(HERE, "README.md")) else ""
+    if readme:
+        nums = {int(n.translate(FA_DIGITS)) for n in re.findall(r"([۰-۹\d]+) قاعده", readme)}
+        check(not nums or nums == {total},
+              "عددِ قاعده‌ها در README.md با FULLSTACK.md می‌خواند",
+              f"README: {sorted(nums)} · واقعی: {total}")
+
+    # ── هر مسیری که در مستندات نام برده شده واقعاً هست؟ ──────────────────
+    # یک بار §۱۴ به `guideline-boot.sh` ارجاع می‌داد در حالی که فایل `.py` بود.
+    # ارجاعِ مرده در مستند، کاربر را دنبالِ فایلی می‌فرستد که وجود ندارد.
+    docs = [GUIDE, MIGRATIONS, CHANGELOG,
+            os.path.join(HERE, "README.md"), os.path.join(ROOT, "CLAUDE.md")]
+    docs += glob.glob(os.path.join(ROOT, ".claude", "commands", "*.md"))
+    search_dirs = ["", "guidelines/", ".claude/", ".claude/hooks/", ".claude/commands/",
+                   ".github/workflows/"]
+    dead = []
+    for doc in docs:
+        if not os.path.isfile(doc):
+            continue
+        for ref in set(re.findall(r"`([A-Za-z0-9_./-]+\.(?:py|sh|md|json|yml|yaml|toml))`", read(doc))):
+            if not any(os.path.exists(os.path.join(ROOT, d, ref)) for d in search_dirs):
+                dead.append(f"{os.path.relpath(doc, ROOT)} → {ref}")
+    check(not dead, "هر مسیرِ فایلی که در مستندات آمده وجود دارد", " · ".join(sorted(dead)))
+
+    # ── تاریخِ سرآیندِ HTML با تاریخِ متنِ سرصفحه یکی است؟ ─────────────────
+    mh = re.search(r"^\s*updated:\s*(\d{4}-\d{2}-\d{2})\s*$", guide, re.M)
+    mp = re.search(r"آخرین به‌روزرسانی:.*?\((\d{4}-\d{2}-\d{2})\)", guide)
+    check(bool(mh) and bool(mp) and mh.group(1) == mp.group(1),
+          "تاریخِ سرآیندِ HTML با تاریخِ سرصفحه یکی است",
+          f"سرآیند={mh.group(1) if mh else '؟'} · سرصفحه={mp.group(1) if mp else '؟'}")
 
     report(args.verbose)
     return 0 if all(ok for ok, _, _ in results) else 1

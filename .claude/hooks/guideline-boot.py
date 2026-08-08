@@ -22,9 +22,12 @@ ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 G = os.path.join(ROOT, "guidelines")
 
 VERSION_RE = re.compile(r"^\*\*نسخه: `([^`]+)`\*\*", re.M)
-# «## 2026.08.1 → 2026.09.1» و همچنین «## → 2026.08.1»
-MIG_RE = re.compile(r"^##\s*(?:(\d{4}\.\d{2}\.\d+)\s*)?→\s*(\d{4}\.\d{2}\.\d+)\s*$", re.M)
+# «## 2026.08.1 → 2026.09.1» و همچنین «## → 2026.08.1 (نسخه‌ی نخست)».
+# عمداً به آخرِ خط لنگر نمی‌زند: هدرهای واقعی توضیحِ دنباله دارند و یک بار
+# همین `$` باعث شد ورودیِ واقعی دیده نشود و فقط نمونه‌ی داخلِ نمونه‌کد دیده شود.
+MIG_RE = re.compile(r"^##\s*(?:(\d{4}\.\d{2}\.\d+)\s*)?→\s*(\d{4}\.\d{2}\.\d+)(?=\s|$)", re.M)
 LEVEL_RE = re.compile(r"^\*\*سطح:\*\*\s*(\S+)", re.M)
+FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
 
 
 def vkey(v: str) -> tuple[int, ...]:
@@ -32,6 +35,30 @@ def vkey(v: str) -> tuple[int, ...]:
         return tuple(int(x) for x in v.split("."))
     except ValueError:
         return (0,)
+
+
+def strip_fences(text: str) -> str:
+    """خطوطِ داخلِ بلوکِ کد را خالی می‌کند.
+
+    قالبِ نمونه در MIGRATIONS.md خودش یک هدرِ «## X → Y» دارد. بدونِ این،
+    آن نمونه به‌عنوانِ مهاجرتِ واقعی شمرده می‌شود.
+    """
+    out: list[str] = []
+    fence: str | None = None
+    for line in text.splitlines():
+        m = FENCE_RE.match(line.lstrip())
+        if m:
+            tok = m.group(1)
+            if fence is None:
+                fence = tok
+                out.append("")
+                continue
+            if tok[0] == fence[0] and len(tok) >= len(fence):
+                fence = None
+                out.append("")
+                continue
+        out.append("" if fence else line)
+    return "\n".join(out)
 
 
 def read(path: str) -> str | None:
@@ -44,6 +71,7 @@ def read(path: str) -> str | None:
 
 def pending(text: str, frm: str, to: str) -> list[tuple[str, str]]:
     """مهاجرت‌هایی که مقصدشان بینِ نسخه‌ی مُهرخورده و نسخه‌ی فعلی است."""
+    text = strip_fences(text)
     out = []
     blocks = list(MIG_RE.finditer(text))
     for i, m in enumerate(blocks):
@@ -92,7 +120,21 @@ def main() -> int:
             + "، ".join(f"{w.get('id')} ({w.get('scope')})" for w in waivers)
         )
 
-    if lv and lv != gv:
+    if m is None:
+        # نسخه در سرصفحه پیدا نشد. مقایسه‌ی نسخه از اینجا به بعد بی‌معنی است و
+        # اگر انجامش بدهیم، «مُهر جلوتر است» می‌گوید که تشخیصِ غلطی است.
+        lines.append("⚠️ نسخه در سرصفحه‌ی FULLSTACK.md خوانده نشد — "
+                     "`python3 guidelines/self-check.py` را بزن.")
+    elif lv and vkey(lv) > vkey(gv):
+        # مُهر جلوتر از خودِ دستورالعمل است — یعنی دستورالعمل عقب برده شده یا
+        # مُهر دستی جلو رفته. این مهاجرت نیست و «N مهاجرت معلق» گفتن گمراه‌کننده است.
+        lines += [
+            "",
+            f"⚠️ ناسازگاری: مُهرِ lock.json روی {lv} است ولی خودِ دستورالعمل روی {gv} — "
+            "یعنی مُهر جلوتر از دستورالعمل است.",
+            "این مهاجرت نیست؛ یا دستورالعمل عقب برگردانده شده یا مُهر دستی جلو رفته. به کاربر بگو.",
+        ]
+    elif lv and lv != gv:
         mig = read(os.path.join(G, "MIGRATIONS.md")) or ""
         rows = pending(mig, lv, gv)
         lines += [
@@ -102,6 +144,9 @@ def main() -> int:
         if rows:
             lines.append(f"{len(rows)} مهاجرت در صف:")
             lines += [f"  · {t} — سطح: {lvl}" for t, lvl in rows]
+        else:
+            lines.append("ولی هیچ ورودیِ متناظری در MIGRATIONS.md نیست — "
+                         "این خودش ایراد است (SELF-02)، به کاربر بگو.")
         lines += [
             "همین اول به کاربر بگو و بپرس الان انجام بدهی یا نه — خودسرانه اجرا نکن (MIG-01).",
             "برای اجرا: /gl-migrate",

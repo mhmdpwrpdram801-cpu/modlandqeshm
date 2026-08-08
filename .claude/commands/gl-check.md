@@ -1,7 +1,7 @@
 ---
 description: کدِ فعلی را با دستورالعملِ فول‌استک بسنج و فهرستِ اولویت‌دارِ اختلاف‌ها را بده (بدونِ تغییرِ کد)
 argument-hint: "[مسیر یا بخش — خالی یعنی کلِ مخزن]"
-allowed-tools: Read, Grep, Glob, Bash(python3 guidelines/*.py*), Bash(git status*), Bash(git diff*), Bash(git log*)
+allowed-tools: Read, Grep, Glob, Bash(python3 guidelines/self-check.py:*), Bash(python3 guidelines/check-drift.py:*), Bash(python3 guidelines/sync-table.py:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*)
 ---
 
 # سنجشِ انطباق

@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -60,8 +61,16 @@ def is_prerelease(v: str) -> bool:
 
 
 def newer(a: str, b: str) -> bool:
-    """آیا a از b جدیدتر است؟"""
-    return parse_version(a)[0] > parse_version(b)[0]
+    """آیا a از b جدیدتر است؟
+
+    وقتی اعداد یکی‌اند، نسخه‌ی نهایی از پیش‌انتشار جدیدتر است — وگرنه اگر کسی
+    «5.0.0-rc.1» پین کرده باشد، انتشارِ «5.0.0» هیچ‌وقت گزارش نمی‌شد.
+    """
+    na, pa = parse_version(a)
+    nb, pb = parse_version(b)
+    if na != nb:
+        return na > nb
+    return not pa and bool(pb)
 
 
 def bump_kind(old: str, new: str) -> str:
@@ -99,11 +108,16 @@ def latest_node(_name: str) -> str:
 
 
 def latest_eol(name: str) -> str:
-    """جدیدترین چرخه‌ای که هنوز پشتیبانی می‌شود (endoflife.date)."""
+    """جدیدترین چرخه‌ای که هنوز پشتیبانی می‌شود (endoflife.date).
+
+    تاریخ از ساعتِ سیستم خوانده می‌شود، نه ثابت — یک تاریخِ ثابت در کد یعنی
+    سالِ بعد نسخه‌های ازرده‌خارج‌شده «زنده» گزارش می‌شوند و کسی نمی‌فهمد.
+    """
+    today = datetime.date.today().isoformat()
     data = http_json(f"https://endoflife.date/api/{name}.json")
     for cycle in data:                       # از جدید به قدیم
         eol = cycle.get("eol")
-        if eol is False or (isinstance(eol, str) and eol > "2026-08-08"):
+        if eol is False or (isinstance(eol, str) and eol > today):
             return str(cycle["cycle"])
     raise RuntimeError(f"هیچ چرخه‌ی زنده‌ای برای {name} پیدا نشد")
 
@@ -182,7 +196,6 @@ def write_back(stack: dict, results: list[dict], allow_major: bool) -> int:
         e["pinned"] = r["latest"]
         changed += 1
     if changed:
-        import datetime
         stack["checked_at"] = datetime.date.today().isoformat()
         with open(STACK, "w", encoding="utf-8") as f:
             json.dump(stack, f, ensure_ascii=False, indent=2)
