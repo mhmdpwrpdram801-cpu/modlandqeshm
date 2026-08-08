@@ -458,6 +458,12 @@
       "name": "اشتراکِ عکس در هر پنج حالت درست رفتار می‌کند و نتیجه را ثبت می‌کند",
       "js": "()=>{const dl=window.dlBlob,ts=window.toast,re=window.reportError,bc=navigator.canShare,bs=navigator.share;const out=[];const run=async(setup)=>{let d=0,sh=0,note='';window.dlBlob=()=>{d=1;};window.toast=()=>{};window.reportError=(k,m)=>{note=m;};setup(()=>{sh=1;});await shareOrDownload(new Blob(['x'],{type:'image/png'}),'t.png',{},'ok');return sh+''+d+(/باز شد/.test(note)?'A':/لغو/.test(note)?'B':/رد شد/.test(note)?'C':/ندارد/.test(note)?'D':'?');};return run(()=>{navigator.canShare=undefined;navigator.share=undefined;}).then(r=>{out.push(r);return run(()=>{navigator.canShare=()=>false;});}).then(r=>{out.push(r);return run((ok)=>{navigator.canShare=()=>true;navigator.share=()=>{ok();return Promise.resolve();};});}).then(r=>{out.push(r);return run(()=>{navigator.canShare=()=>true;navigator.share=()=>{const e=new Error('x');e.name='AbortError';return Promise.reject(e);};});}).then(r=>{out.push(r);return run(()=>{navigator.canShare=()=>true;navigator.share=()=>{const e=new Error('x');e.name='NotAllowedError';return Promise.reject(e);};});}).then(r=>{out.push(r);window.dlBlob=dl;window.toast=ts;window.reportError=re;try{navigator.canShare=bc;navigator.share=bs;}catch(_){}return out.join(' ');});}",
       "expect": "01D 01D 10A 00B 01C"
+    },
+    {
+      "name": "شکستِ به‌روزرسانیِ سرویس‌ورکر «ردشدنِ بی‌صاحب» نمی‌سازد",
+      "needs": "'serviceWorker' in navigator",
+      "js": "()=>{const seen=[];const h=(e)=>seen.push(String((e.reason&&e.reason.message)||e.reason));window.addEventListener('unhandledrejection',h);return navigator.serviceWorker.getRegistration().then(reg=>{if(!reg)return 'سرویس‌ورکر ثبت نشد';const bak=reg.update;reg.update=function(){return Promise.reject(new Error('Failed to update a ServiceWorker'));};document.dispatchEvent(new Event('visibilitychange'));document.dispatchEvent(new Event('visibilitychange'));return new Promise(r=>setTimeout(r,400)).then(()=>{reg.update=bak;window.removeEventListener('unhandledrejection',h);return seen.length===0?'بدونِ ردشدنِ بی‌صاحب':('ردشد: '+seen.length);});});}",
+      "expect": "بدونِ ردشدنِ بی‌صاحب"
     }
   ],
   "click_test": {

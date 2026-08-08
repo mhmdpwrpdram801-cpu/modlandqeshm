@@ -643,9 +643,14 @@ if('serviceWorker' in navigator){
          .then(function(t){ var m=t.match(/mlq-[0-9A-Za-z-]+/); if(m)window.__APPVER=m[0]; })
          .catch(function(){}); }catch(e){}
     navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(function(reg){
-      try{ reg.update(); }catch(e){}
-      document.addEventListener('visibilitychange', function(){ if(!document.hidden){ try{ reg.update(); }catch(e){} } });
-      setInterval(function(){ try{ reg.update(); }catch(e){} }, 20*60*1000);
+      // reg.update() یک Promise برمی‌گردانَد؛ try همگام ردشدنش را نمی‌گیرد.
+      // روی اینترنتِ ناپایدار این شکست عادی است و بی‌ضرر — ولی «ردشدنِ بی‌صاحب»
+      // می‌سازد و حالا که ثبتِ خطا داریم، یکی از ۸ جای گزارش را الکی می‌خورَد و
+      // می‌تواند جای یک باگِ واقعی را بگیرد. (خودِ ثبتِ خطا همین را لو داد.)
+      var swUpdate=function(){ try{ var p=reg.update(); if(p&&p.catch)p.catch(function(){}); }catch(e){} };
+      swUpdate();
+      document.addEventListener('visibilitychange', function(){ if(!document.hidden) swUpdate(); });
+      setInterval(swUpdate, 20*60*1000);
       reg.addEventListener('updatefound', function(){
         var nw=reg.installing; if(!nw)return;
         nw.addEventListener('statechange', function(){
