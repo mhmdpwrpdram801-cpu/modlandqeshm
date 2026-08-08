@@ -77,11 +77,12 @@
   "never_touch": [
     "guidelines/lock.json",
     "guidelines/source.json",
-    ".claude/settings.json"
+    ".claude/settings.json",
+    "CLAUDE.md"
   ],
   "policy": {
     "doc": "خودکار به‌روز می‌شود — متن و داده است، اجرا نمی‌شود",
     "tool": "کدِ اجرایی است؛ فقط با --with-tools یا از راهِ PR که آدم می‌بیندش",
-    "never_touch": "وضعیتِ خودِ پروژه است — مُهر، منبع، و تنظیماتِ محلی. هیچ‌وقت از منبع نمی‌آید."
+    "never_touch": "وضعیتِ خودِ پروژه است — مُهر، منبع، تنظیماتِ محلی و CLAUDE.mdِ خودِ پروژه. هیچ‌وقت از منبع نمی‌آید."
   }
 }

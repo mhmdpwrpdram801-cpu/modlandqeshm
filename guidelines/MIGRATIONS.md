@@ -54,6 +54,37 @@ python3 guidelines/self-check.py && <دروازه‌ی وارسیِ پروژه>
 
 <!-- ورودیِ تازه بالای همین خط اضافه شود -->
 
+## 2026.08.3 → 2026.08.4 (CLAUDE.md برای نصب‌های قدیمی)
+
+**سطح:** پیشنهادی
+**قاعده‌ها:** ACT-01
+**علت:** پروژه‌هایی که پیش از این نسخه نصب شده‌اند `CLAUDE.md` ندارند، پس
+دستورالعمل در حافظه بار نمی‌شود و فعال‌سازی فقط به هوک تکیه دارد.
+
+### چه کسانی درگیرند
+```bash
+grep -q 'guidelines/FULLSTACK.md' CLAUDE.md 2>/dev/null || echo "درگیر است"
+```
+
+### چطور مهاجرت کن
+نصاب را دوباره اجرا کن — بی‌خطر است و چیزی را خراب نمی‌کند:
+
+```bash
+curl -fsS https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/main/guidelines/install.py | python3 -
+```
+
+`lock.json`ِ موجود دست نمی‌خورد، `settings.json` ادغام می‌شود، و `CLAUDE.md`ِ
+موجود فقط یک بلوک اضافه می‌گیرد (رونویسی نمی‌شود).
+
+### چطور وارسی کن
+```bash
+grep -c 'guidelines/FULLSTACK.md' CLAUDE.md   # باید ۱ باشد
+python3 guidelines/self-check.py
+```
+
+### خطر و راهِ برگشت
+فایلِ موجود رونویسی نمی‌شود. برگشت: بلوکِ بینِ نشانه‌های `GUIDELINE-IMPORT` را بردار.
+
 ## 2026.08.2 → 2026.08.3 (اصلاحِ ابزار)
 
 **سطح:** اختیاری

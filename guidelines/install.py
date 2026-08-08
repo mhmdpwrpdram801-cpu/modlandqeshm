@@ -12,11 +12,12 @@
   ۱. کلِ بسته را از منبع می‌گیرد (سند + ابزار + هوک + دستورها)
   ۲. `lock.json` را برای همان پروژه می‌سازد — با دروازه‌ی وارسیِ کارکننده،
      نه کپیِ مُهرِ مخزنِ منبع
-  ۳. هوکِ SessionStart را در `.claude/settings.json` **ادغام** می‌کند
+  ۳. `CLAUDE.md` را می‌سازد (یا اگر هست، فقط خطِ import را کنارش می‌گذارد)
+  ۴. هوکِ SessionStart را در `.claude/settings.json` **ادغام** می‌کند
      (اگر از قبل تنظیماتی داشته باشد، خرابش نمی‌کند)
-  ۴. گردش‌کارِ هفتگی را در `.github/workflows/` می‌گذارد
-  ۵. کشِ محلی را به `.gitignore` اضافه می‌کند
-  ۶. خودوارسی می‌گیرد و نتیجه را می‌گوید
+  ۵. گردش‌کارِ هفتگی را در `.github/workflows/` می‌گذارد
+  ۶. کشِ محلی را به `.gitignore` اضافه می‌کند
+  ۷. خودوارسی می‌گیرد و نتیجه را می‌گوید
 
 هیچ‌جا لازم نیست چیزی را دستی عوض کنی: `is_origin` روی `auto` است و خودش از
 روی remoteهای گیت می‌فهمد اینجا کپی است نه منبع.
@@ -116,6 +117,57 @@ def bundle_version(root: str) -> tuple[str | None, str | None]:
     except (OSError, ValueError):
         pass
     return a, b
+
+
+IMPORT_BEGIN = "<!-- GUIDELINE-IMPORT:BEGIN — ساختهٔ guidelines/install.py -->"
+IMPORT_END = "<!-- GUIDELINE-IMPORT:END -->"
+
+
+def claude_md(root: str, verify: list[dict]) -> str:
+    """`CLAUDE.md` را می‌سازد یا خطِ import را به فایلِ موجود اضافه می‌کند.
+
+    هوکِ شروعِ نشست می‌گوید «این فایل را بخوان»، ولی `CLAUDE.md` خودِ دستورالعمل
+    را در حافظه **بار می‌کند**. دو لایه بهتر از یکی است، و ترتیبِ اولویت هم
+    همین‌جا نوشته می‌شود تا دستورالعملِ عمومی روی قاعده‌های پروژه سوار نشود.
+
+    فایلِ موجود **هیچ‌وقت رونویسی نمی‌شود** — فقط یک بلوکِ نشانه‌دار به آن
+    اضافه می‌شود، و اگر از قبل باشد دست نمی‌خورد.
+    """
+    path = os.path.join(root, "CLAUDE.md")
+    gates = "\n".join(v["cmd"] for v in verify) or "python3 guidelines/self-check.py"
+
+    block = f"""{IMPORT_BEGIN}
+@guidelines/FULLSTACK.md
+
+**ترتیبِ اولویت:** حرفِ صریحِ کاربر در همین گفت‌وگو › قاعده‌های مخصوصِ همین پروژه
+(هرچه در همین فایل پایین‌تر بنویسی) › `guidelines/lock.json` → `waivers` ›
+دستورالعملِ فول‌استک › پیش‌فرض‌های عمومی.
+
+دستورالعمل **عمومی** است و این پروژه **خاص**. جایی که تناقض دیدی، قاعده‌ی پروژه برنده است.
+
+**قبل از هر تحویل:**
+```bash
+{gates}
+```
+
+**دستورها:** `/gl-check` اختلافِ کد با دستورالعمل · `/gl-migrate` مهاجرت‌های معلق ·
+`/gl-pull` گرفتنِ نسخه‌ی تازه از منبع
+{IMPORT_END}"""
+
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        if IMPORT_BEGIN in body or "guidelines/FULLSTACK.md" in body:
+            return "از قبل بود — دست نخورد"
+        with open(path, "a", encoding="utf-8") as f:
+            if not body.endswith("\n"):
+                f.write("\n")
+            f.write("\n" + block + "\n")
+        return "به فایلِ موجود اضافه شد (رونویسی نشد)"
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("# راهنمای این پروژه برای Claude Code\n\n" + block + "\n")
+    return "ساخته شد"
 
 
 def merge_settings(root: str) -> str:
@@ -237,10 +289,18 @@ def main() -> int:
             f.write("\n")
         say("✅", f"lock.json ساخته شد (نسخه {version}) — دروازه‌ی وارسی خودکار پر شد")
 
-    # ۳) هوک
+    # ۳) CLAUDE.md — تا دستورالعمل واقعاً در حافظه بار شود، نه فقط هوک بگوید بخوانش
+    try:
+        with open(lock_path, encoding="utf-8") as f:
+            gates = (json.load(f) or {}).get("verify", [])
+    except (OSError, ValueError):
+        gates = []
+    say("✅", f"CLAUDE.md: {claude_md(root, gates)}")
+
+    # ۴) هوک
     say("✅", f"هوکِ SessionStart: {merge_settings(root)}")
 
-    # ۴) گردش‌کارِ هفتگی
+    # ۵) گردش‌کارِ هفتگی
     tpl = os.path.join(root, "guidelines", "templates", "guideline-upstream.yml")
     wf = os.path.join(root, ".github", "workflows", "guideline-upstream.yml")
     if os.path.isfile(tpl) and not os.path.isfile(wf):
@@ -251,7 +311,7 @@ def main() -> int:
     elif os.path.isfile(wf):
         say("·", "گردش‌کار از قبل هست")
 
-    # ۵) gitignore
+    # ۶) gitignore
     gi = os.path.join(root, ".gitignore")
     line = "guidelines/.upstream-cache.json"
     body = ""
@@ -265,7 +325,7 @@ def main() -> int:
             f.write(line + "\n")
         say("✅", ".gitignore به‌روز شد")
 
-    # ۶) وارسی
+    # ۷) وارسی
     print()
     rc = subprocess.run([sys.executable, os.path.join(root, "guidelines", "self-check.py")],
                         cwd=root).returncode
