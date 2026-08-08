@@ -443,6 +443,16 @@
       "name": "خطای خودِ گزارش‌دهنده حلقه نمی‌سازد",
       "js": "()=>{const f=window.fetch;let n=0;window.fetch=function(u){if(String(u).indexOf('client_errors')>=0){n++;throw new Error('شکستِ عمدیِ فرستادن');}return f.apply(this,arguments);};_errSent=0;_errSeen.clear();try{reportError('reported','یک خطا');}catch(e){window.fetch=f;return 'throw کرد: '+e.message;}return new Promise(r=>setTimeout(r,200)).then(()=>{window.fetch=f;_errSent=0;_errSeen.clear();return n===1?'یک بار، بدونِ حلقه':('چند بار: '+n);});}",
       "expect": "یک بار، بدونِ حلقه"
+    },
+    {
+      "name": "وقتی گوشی آفلاین است، پیام همین را می‌گوید نه «فیلتر»",
+      "js": "()=>{const d=Object.getOwnPropertyDescriptor(navigator,'onLine');Object.defineProperty(navigator,'onLine',{get:()=>false,configurable:true});const f=window.fetch;window.fetch=function(u){const s=String(u);if(s.indexOf('/rest/v1/')>=0)return Promise.reject(new TypeError('Failed to fetch'));return f.apply(this,arguments);};return sbFetch('products?select=id').then(()=>'خطا نداد').catch(e=>e.message).then(m=>{window.fetch=f;if(d)Object.defineProperty(navigator,'onLine',d);return (/وصل نیست/.test(m)&&!/فیلتر/.test(m))?'درست':'غلط: '+m;});}",
+      "expect": "درست"
+    },
+    {
+      "name": "وقتی اینترنت وصل است ولی سرور نمی‌آید، فیلترشکن را پیشنهاد می‌دهد",
+      "js": "()=>{const d=Object.getOwnPropertyDescriptor(navigator,'onLine');Object.defineProperty(navigator,'onLine',{get:()=>true,configurable:true});const f=window.fetch;window.fetch=function(u){const s=String(u);if(s.indexOf('/rest/v1/')>=0)return Promise.reject(new TypeError('Failed to fetch'));return f.apply(this,arguments);};return sbFetch('products?select=id').then(()=>'خطا نداد').catch(e=>e.message).then(m=>{window.fetch=f;if(d)Object.defineProperty(navigator,'onLine',d);return (/فیلترشکن/.test(m)&&!/وصل نیست/.test(m))?'درست':'غلط: '+m;});}",
+      "expect": "درست"
     }
   ],
   "click_test": {

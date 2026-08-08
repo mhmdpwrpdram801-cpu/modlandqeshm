@@ -978,9 +978,16 @@ async function sbFetch(path, opts={}){
     }
     try{ return await fetch(SUPABASE_URL+"/rest/v1/"+path, Object.assign(build(), signal?{signal}:{})); }
     catch(e){
+      // «اتصالت رو چک کن» جوابِ کاربری نیست که اینترنتش وصل است ولی سرور برایش
+      // فیلتر شده — و در قشم این حالتِ رایجی است. پس دو حالت را جدا می‌کنیم:
+      // navigator.onLine وقتی false باشد قابلِ اعتماد است (یعنی واقعاً قطع)؛
+      // وقتی true باشد قطعیتی ندارد، پس با «احتمالاً» می‌گوییم و راهِ حل می‌دهیم.
+      const off = (typeof navigator!=='undefined' && navigator.onLine===false);
       if(e && (e.name==='TimeoutError'||e.name==='AbortError'||/abort|timeout/i.test(e.message||'')))
-        throw new Error('اینترنت جواب نداد ('+Math.round(ms/1000)+' ثانیه صبر کردم) — دوباره بزن 🙏');
-      throw new Error('اینترنت وصل نشد — اتصالت رو چک کن 🙏');
+        throw new Error(off ? ('گوشی به اینترنت وصل نیست 🙏')
+          : ('سرور تا '+faNum(Math.round(ms/1000))+' ثانیه جواب نداد. اگه اینترنتت وصله، احتمالاً فیلتر شده — فیلترشکن رو روشن کن و دوباره بزن 🙏'));
+      throw new Error(off ? ('گوشی به اینترنت وصل نیست 🙏')
+        : ('به سرورِ اطلاعات نرسیدم. اینترنتت وصله، پس احتمالاً فیلتر شده — فیلترشکن رو روشن کن و دوباره بزن 🙏'));
     }
     finally{ if(t)clearTimeout(t); }
   };
@@ -1019,7 +1026,12 @@ async function doLogin(){
     window.__dashPre=dashFetch();
     DATA_LOADING=true; nav('dashboard');      // فوری — منتظرِ کالا و مشتری نمی‌مونیم
     await loadAll(); DATA_LOADING=false; afterDataReady();
-  }catch(e){ msg.className='msg err'; msg.textContent=(e.message&&e.message.includes('Failed to fetch'))?'اتصال به سرور برقرار نشد (اینترنت/فیلترشکن را چک کن)':e.message; }
+  }catch(e){ msg.className='msg err';
+    msg.textContent=(e.message&&e.message.includes('Failed to fetch'))
+      ? ((typeof navigator!=='undefined' && navigator.onLine===false)
+          ? 'گوشی به اینترنت وصل نیست 🙏'
+          : 'به سرورِ ورود نرسیدم. اینترنتت وصله، پس احتمالاً فیلتر شده — فیلترشکن رو روشن کن 🙏')
+      : e.message; }
   finally{ btn.disabled=false; btn.textContent='ورود'; }
 }
 function doLogout(){ clearSession(); location.reload(); }
