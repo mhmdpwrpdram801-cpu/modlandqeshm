@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "guideline_version": "2026.08.4",
+  "guideline_version": "2026.08.5",
   "checked_at": "2026-08-08",
   "note": "منبعِ حقیقتِ نسخه‌ها. جدولِ «پشته» در FULLSTACK.md از روی همین ساخته می‌شود (guidelines/sync-table.py) — جدول را دستی ویرایش نکن. سنجش با check-drift.py.",
   "policy": {
