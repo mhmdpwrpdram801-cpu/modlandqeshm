@@ -107,10 +107,14 @@ def main() -> int:
     check(bool(guide_v and VERSION_RE.match(guide_v)),
           "قالبِ نسخه YYYY.MM.N است", f"دیده شد: {guide_v}")
 
+    # `lock.json` عمداً اینجا نیست. مُهر **مالِ کد** است و بعد از `gl-update`
+    # قانوناً عقب می‌مانَد تا `/gl-migrate` اجرا شود (MIG-07). اگر اینجا
+    # می‌آمد، هر پروژه‌ای که تازه به‌روز شده بود قرمز می‌شد — یعنی بررسی با
+    # قاعده‌ای که خودِ همین فایل تعریفش کرده می‌جنگید. «جلوتر نبودنِ مُهر»
+    # جداگانه سنجیده می‌شود.
     versions = {
         "FULLSTACK.md": guide_v,
         "stack.json": stack.get("guideline_version"),
-        "lock.json": lock.get("guideline_version"),
     }
     m2 = re.search(r"^<!--\s*$.*?^\s*version:\s*(\S+)\s*$", guide, re.M | re.S)
     if m2:
@@ -214,8 +218,10 @@ def main() -> int:
     check(not ahead, "هیچ بخشی نسخه‌ای جلوتر از خودِ دستورالعمل ندارد", " · ".join(ahead))
 
     lock_v = lock.get("guideline_version")
+    lagging = bool(lock_v and guide_v and vkey(lock_v) < vkey(guide_v))
     check(not (lock_v and guide_v) or vkey(lock_v) <= vkey(guide_v),
-          "مُهرِ lock.json جلوتر از خودِ دستورالعمل نیست",
+          f"مُهرِ lock.json جلوتر از دستورالعمل نیست (lock={lock_v}"
+          + ("، عقب است → مهاجرت معلق" if lagging else "") + ")",
           f"lock={lock_v} · دستورالعمل={guide_v}")
 
     # ── استثناها به قاعده‌ی واقعی اشاره می‌کنند؟ (MIG-05) ────────────────
@@ -241,7 +247,8 @@ def main() -> int:
         for tok in v["cmd"].split():
             if "/" in tok and not tok.startswith("-") and not os.path.exists(os.path.join(ROOT, tok)):
                 broken.append(f"{v.get('name')}: {tok}")
-    check(not broken, "فایلِ هر مسیری که در فرمان‌های وارسی آمده هست", " · ".join(broken))
+    check(not broken, "فایلِ هر مسیری که در فرمان‌های وارسی آمده هست",
+          " · ".join(broken) + "  ← `verify` در lock.json را برای همین پروژه تنظیم کن")
 
     # ── عددِ قاعده‌ها در README هم همان است؟ ──────────────────────────────
     readme = read(os.path.join(HERE, "README.md")) if os.path.isfile(os.path.join(HERE, "README.md")) else ""
@@ -254,6 +261,11 @@ def main() -> int:
     # ── هر مسیری که در مستندات نام برده شده واقعاً هست؟ ──────────────────
     # یک بار §۱۴ به `guideline-boot.sh` ارجاع می‌داد در حالی که فایل `.py` بود.
     # ارجاعِ مرده در مستند، کاربر را دنبالِ فایلی می‌فرستد که وجود ندارد.
+    # فقط در خودِ مخزنِ منبع معنی دارد: مستندها آنجا نوشته می‌شوند و مثال‌هایشان
+    # به فایل‌های همان مخزن اشاره می‌کنند (`CLAUDE.md`، `bot/README.md`، …). در یک
+    # پروژه‌ی مقصد آن فایل‌ها لازم نیست وجود داشته باشند، و قرمز کردنِ همه‌شان یعنی
+    # بررسی‌ای که هر بار الکی قرمز است — و بعد از چند بار دیگر کسی نگاهش نمی‌کند.
+    is_origin = bool((read_json(SOURCE) or {}).get("is_origin")) if os.path.isfile(SOURCE) else True
     docs = [GUIDE, MIGRATIONS, CHANGELOG,
             os.path.join(HERE, "README.md"), os.path.join(ROOT, "CLAUDE.md")]
     docs += glob.glob(os.path.join(ROOT, ".claude", "commands", "*.md"))
@@ -272,7 +284,8 @@ def main() -> int:
                 continue
             if not any(os.path.exists(os.path.join(ROOT, d, ref)) for d in search_dirs):
                 dead.append(f"{os.path.relpath(doc, ROOT)} → {ref}")
-    check(not dead, "هر مسیرِ فایلی که در مستندات آمده وجود دارد", " · ".join(sorted(dead)))
+    if is_origin:
+        check(not dead, "هر مسیرِ فایلی که در مستندات آمده وجود دارد", " · ".join(sorted(dead)))
 
     # ── بسته‌ی منبع سالم است؟ ────────────────────────────────────────────
     src = read_json(SOURCE) if os.path.isfile(SOURCE) else None
