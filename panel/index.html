@@ -2006,10 +2006,18 @@ function ensureH2C(){
    لغو کرده باشد (AbortError)؛ بقیه‌ی خطاها می‌افتند روی دانلود. */
 async function shareOrDownload(blob, filename, shareData, okMsg){
   const file=new File([blob],filename,{type:blob.type||'image/png'});
+  // نتیجه‌ی هر بار را ثبت می‌کنیم. رفتارِ واقعیِ سافاریِ آیفون با هیچ موتورِ تستی
+  // سنجیده نمی‌شود؛ این تنها راهی است که بفهمیم روی گوشیِ واقعی کدام شاخه افتاد،
+  // بدونِ اینکه کاربر لازم باشد چیزی را متوجه شود یا توصیف کند.
+  // چهار پیامِ متمایز، چون گزارش‌دهنده پیامِ تکراری را دوباره نمی‌فرستد.
+  const note=(m)=>{ try{ reportError('share', 'اشتراکِ '+filename+' — '+m); }catch(_){} };
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{ await navigator.share(Object.assign({files:[file]},shareData||{})); return; }
-    catch(e){ if(e&&e.name==='AbortError')return; }   /* خودش لغو کرد — بی‌صدا */
-  }
+    try{ await navigator.share(Object.assign({files:[file]},shareData||{})); note('صفحه‌ی اشتراک باز شد'); return; }
+    catch(e){
+      if(e&&e.name==='AbortError'){ note('کاربر لغو کرد'); return; }   /* خودش لغو کرد — بی‌صدا */
+      note('اشتراک رد شد ('+((e&&e.name)||'?')+') — رفت روی دانلود');
+    }
+  } else { note('مرورگر اشتراکِ فایل ندارد — رفت روی دانلود'); }
   dlBlob(blob, filename);
   toast(okMsg||'عکس دانلود شد ✅');
 }
