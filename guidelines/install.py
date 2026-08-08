@@ -6,7 +6,10 @@
   cd /مسیرِ/پروژه
   curl -fsS https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/main/guidelines/install.py | python3 -
 
-یا اگر فایل را داری:  python3 install.py /مسیرِ/پروژه [--ref=شاخه]
+یا اگر فایل را داری:  python3 install.py /مسیرِ/پروژه [--ref=شاخه] [--if-missing]
+
+`--if-missing` اگر بسته از قبل نصب باشد فوراً و بدونِ شبکه بیرون می‌آید —
+برای وقتی که این فرمان در هر شروعِ نشست اجرا می‌شود.
 
 چه می‌کند:
   ۱. کلِ بسته را از منبع می‌گیرد (سند + ابزار + هوک + دستورها)
@@ -209,6 +212,14 @@ def main() -> int:
     if not os.path.isdir(root):
         print(f"پوشه نیست: {root}", file=sys.stderr)
         return 2
+
+    # `--if-missing` برای وقتی که این فرمان در **هر** شروعِ نشست اجرا می‌شود:
+    # اگر بسته از قبل هست، بدونِ یک بایت شبکه بیرون می‌آید. بدونِ این، هر نشست
+    # ۱۷ فایل را بی‌دلیل دوباره می‌گرفت.
+    if "--if-missing" in sys.argv[1:] and os.path.isfile(
+            os.path.join(root, "guidelines", "FULLSTACK.md")):
+        return 0
+
     print(f"نصب روی: {root}  ·  از شاخه‌ی {ref}\n")
 
     # ۱) بسته — با وارسیِ یکدستی.
