@@ -28,6 +28,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -99,6 +100,24 @@ def detect_verify(root: str) -> list[dict]:
     return out
 
 
+def bundle_version(root: str) -> tuple[str | None, str | None]:
+    """نسخه‌ای که دو فایلِ مستقلِ بسته ادعا می‌کنند."""
+    import re as _re
+    a = b = None
+    try:
+        with open(os.path.join(root, "guidelines", "FULLSTACK.md"), encoding="utf-8") as f:
+            mm = _re.search(r"^\*\*نسخه: `([^`]+)`\*\*", f.read(), _re.M)
+            a = mm.group(1) if mm else None
+    except OSError:
+        pass
+    try:
+        with open(os.path.join(root, "guidelines", "stack.json"), encoding="utf-8") as f:
+            b = (json.load(f) or {}).get("guideline_version")
+    except (OSError, ValueError):
+        pass
+    return a, b
+
+
 def merge_settings(root: str) -> str:
     """هوک را به `.claude/settings.json` اضافه کن بدونِ خراب کردنِ تنظیماتِ موجود."""
     path = os.path.join(root, ".claude", "settings.json")
@@ -140,27 +159,53 @@ def main() -> int:
         return 2
     print(f"نصب روی: {root}  ·  از شاخه‌ی {ref}\n")
 
-    # ۱) بسته
+    # ۱) بسته — با وارسیِ یکدستی.
+    #
+    # raw.githubusercontent.com برای نامِ شاخه کشِ لبه دارد و **هر فایل جدا**
+    # منقضی می‌شود. درست بعد از یک پوش، می‌شود نصفِ بسته را تازه گرفت و نصفش
+    # را کهنه — بسته‌ی مخلوطی که نه کار می‌کند نه معلوم است چرا. پس بعد از هر
+    # دور، دو فایلِ مستقل (FULLSTACK.md و stack.json) با هم مقابله می‌شوند و
+    # اگر نخواندند، دوباره گرفته می‌شود.
     paths = file_list()
     got, failed = 0, []
-    for rel in paths:
-        dest = os.path.join(root, rel)
-        try:
-            blob = get(rel)
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
-            failed.append(f"{rel} ({type(exc).__name__})")
-            continue
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        with open(dest, "wb") as f:
-            f.write(blob)
-        if rel.endswith(".py"):
-            os.chmod(dest, 0o755)
-        got += 1
+    for attempt in range(1, 4):
+        got, failed = 0, []
+        for rel in paths:
+            dest = os.path.join(root, rel)
+            try:
+                blob = get(rel)
+            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+                failed.append(f"{rel} ({type(exc).__name__})")
+                continue
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "wb") as f:
+                f.write(blob)
+            if rel.endswith(".py"):
+                os.chmod(dest, 0o755)
+            got += 1
+        if not got:
+            print("هیچ فایلی گرفته نشد — شبکه؟", file=sys.stderr)
+            return 3
+
+        va, vb = bundle_version(root)
+        if va and vb and va == vb:
+            break
+        if attempt < 3:
+            say("⏳", f"بسته یکدست نیست (FULLSTACK={va} · stack={vb}) — "
+                     f"کشِ منبع هنوز نچرخیده. تلاشِ {attempt + 1} از ۳ بعد از ۳۰ ثانیه…")
+            time.sleep(30)
+    else:
+        va, vb = bundle_version(root)
+        print(f"\n❌ بسته یکدست نشد (FULLSTACK={va} · stack={vb}).", file=sys.stderr)
+        print("   منبع همین چند دقیقه‌ی پیش به‌روز شده و کشِ raw هنوز نچرخیده.",
+              file=sys.stderr)
+        print("   چند دقیقه صبر کن و دوباره بزن — یا با SHAِ کامیت نصب کن که کش ندارد:",
+              file=sys.stderr)
+        print("   python3 install.py --ref=<SHA>", file=sys.stderr)
+        return 3
+
     say("✅" if not failed else "⚠️", f"{got} فایل گرفته شد" +
         (f" · {len(failed)} نشد: {', '.join(failed)}" if failed else ""))
-    if not got:
-        print("هیچ فایلی گرفته نشد — شبکه؟", file=sys.stderr)
-        return 3
 
     # ۲) مُهرِ این پروژه، نه کپیِ مُهرِ منبع
     lock_path = os.path.join(root, "guidelines", "lock.json")
