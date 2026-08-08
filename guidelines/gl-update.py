@@ -34,6 +34,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -66,6 +67,69 @@ def read_json(path: str, default=None):
             return json.load(f)
     except (OSError, ValueError):
         return default
+
+
+def _norm_repo(url: str) -> str:
+    """`git@github.com:a/b.git` و `https://github.com/A/B` → `a/b`."""
+    u = url.strip().rstrip("/")
+    if u.endswith(".git"):
+        u = u[:-4]
+    u = re.sub(r"^[a-z+]+://", "", u)          # https:// ، ssh:// …
+    u = re.sub(r"^[^@/]+@", "", u)             # git@
+    u = u.replace(":", "/", 1) if "/" not in u.split(":")[0] else u
+    parts = [p for p in u.split("/") if p]
+    return "/".join(parts[-2:]).lower() if len(parts) >= 2 else ""
+
+
+def is_origin_repo(cfg: dict) -> bool:
+    """آیا همین‌جا خودِ مخزنِ منبع است؟
+
+    عمداً **تشخیص داده می‌شود، نه اعلام**: اگر آدم باید دستی `is_origin` را
+    false می‌کرد، اولین چیزی بود که یادش می‌رفت — و آن‌وقت پروژه بی‌صدا هیچ
+    به‌روزرسانی‌ای نمی‌گرفت و کسی هم نمی‌فهمید. مقایسه‌ی remoteهای گیت با
+    نشانیِ منبع این را خودکار می‌کند.
+
+    `is_origin` اگر بولی باشد همان برنده است (درِ فرار برای حالت‌های عجیب).
+    اگر گیت نبود یا خطا داد، «کپی» فرض می‌شود: کپی به‌روزرسانی می‌گیرد، و
+    این بی‌خطرتر از مخزنی است که هیچ‌وقت به‌روز نمی‌شود.
+    """
+    override = cfg.get("is_origin")
+    if isinstance(override, bool):
+        return override
+
+    origin = cfg.get("origin", {})
+    want = f"{origin.get('owner', '')}/{origin.get('repo', '')}".lower()
+    if not want.strip("/"):
+        return False
+    try:
+        out = subprocess.run(["git", "-C", ROOT, "remote", "-v"],
+                             capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if out.returncode != 0:
+        return False
+    for line in out.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and _norm_repo(parts[1]) == want:
+            return True
+    return False
+
+
+def dirty_bundle(cfg: dict) -> list[str]:
+    """فایل‌های بسته که کامیت‌نشده عوض شده‌اند.
+
+    محافظِ آخر: اگر کسی وسطِ کار روی همین فایل‌ها باشد، به‌روزرسانی نباید
+    کارش را ببلعد — حتی اگر تشخیصِ «منبع» به هر دلیلی اشتباه شده باشد.
+    """
+    paths = [e["path"] for e in cfg.get("files", [])]
+    try:
+        out = subprocess.run(["git", "-C", ROOT, "status", "--porcelain", "--", *paths],
+                             capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    return [ln[3:].strip() for ln in out.stdout.splitlines() if ln.strip()]
 
 
 def base_url(origin: dict) -> str:
@@ -216,7 +280,7 @@ def main() -> int:
     write_cache(lv, rv)
     behind = bool(lv and rv and vkey(rv) > vkey(lv))
 
-    if cfg.get("is_origin"):
+    if is_origin_repo(cfg):
         if args.json:
             json.dump({"ok": True, "is_origin": True, "local": lv, "remote": rv, "behind": False},
                       sys.stdout, ensure_ascii=False)
@@ -235,6 +299,14 @@ def main() -> int:
         else:
             print(f"دستورالعمل به‌روز است (نسخه {lv}).")
         return 0
+
+    dirty = dirty_bundle(cfg)
+    if dirty and args.apply and not args.force:
+        print("این فایل‌های بسته کامیت‌نشده عوض شده‌اند — اول کامیتشان کن "
+              "(یا --force):", file=sys.stderr)
+        for d in dirty:
+            print(f"   {d}", file=sys.stderr)
+        return 3
 
     rows = plan(cfg, base)
     errors = [r for r in rows if r["state"] == "خطا"]

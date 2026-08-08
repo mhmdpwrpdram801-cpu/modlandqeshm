@@ -71,6 +71,27 @@ def vkey(v: str) -> tuple[int, ...]:
         return (0,)
 
 
+def load_module(rel: str, name: str):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(name, os.path.join(ROOT, rel))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)                           # type: ignore[union-attr]
+    return mod
+
+
+def detect_origin() -> bool:
+    """همان تشخیصی که gl-update می‌کند — نه خواندنِ خامِ is_origin.
+
+    پیش‌فرض `"auto"` یک رشته است و `bool("auto")` همیشه True؛ یعنی خواندنِ خام
+    باعث می‌شد هر کپی هم «منبع» دیده شود و بررسی‌های مخصوصِ منبع رویش اجرا شوند.
+    """
+    try:
+        gu = load_module("guidelines/gl-update.py", "gl_update")
+        return gu.is_origin_repo(read_json(SOURCE))
+    except Exception:                                      # noqa: BLE001
+        return True                                        # بدونِ ابزار، سخت‌گیرانه بسنج
+
+
 def load_hook():
     """پارسرِ مهاجرت را از خودِ هوک بردار — یک منبعِ حقیقت، و هوک هم آزموده می‌شود."""
     import importlib.util
@@ -265,7 +286,7 @@ def main() -> int:
     # به فایل‌های همان مخزن اشاره می‌کنند (`CLAUDE.md`، `bot/README.md`، …). در یک
     # پروژه‌ی مقصد آن فایل‌ها لازم نیست وجود داشته باشند، و قرمز کردنِ همه‌شان یعنی
     # بررسی‌ای که هر بار الکی قرمز است — و بعد از چند بار دیگر کسی نگاهش نمی‌کند.
-    is_origin = bool((read_json(SOURCE) or {}).get("is_origin")) if os.path.isfile(SOURCE) else True
+    is_origin = detect_origin() if os.path.isfile(SOURCE) else True
     docs = [GUIDE, MIGRATIONS, CHANGELOG,
             os.path.join(HERE, "README.md"), os.path.join(ROOT, "CLAUDE.md")]
     docs += glob.glob(os.path.join(ROOT, ".claude", "commands", "*.md"))
@@ -281,6 +302,13 @@ def main() -> int:
             continue
         for ref in set(re.findall(r"`([A-Za-z0-9_./-]+\.(?:py|sh|md|json|yml|yaml|toml))`", read(doc))):
             if os.path.basename(ref) in runtime_made:
+                continue
+            # فقط ادعای *مسیر* سنجیده می‌شود، نه نامِ عامّ. `package.json` یا
+            # `pyproject.toml` در متن یعنی «فایلی از این نوع»، نه «این فایل در
+            # این مخزن هست» — قرمز کردنشان همان هشدارِ نادرستی است که ابزار را
+            # بی‌اعتبار می‌کند. باگی که این بررسی برایش نوشته شد
+            # (`guideline-boot.sh`) خودش مسیر داشت.
+            if "/" not in ref:
                 continue
             if not any(os.path.exists(os.path.join(ROOT, d, ref)) for d in search_dirs):
                 dead.append(f"{os.path.relpath(doc, ROOT)} → {ref}")
@@ -310,8 +338,13 @@ def main() -> int:
         check(not overlap, "هیچ فایلی هم‌زمان در بسته و در never_touch نیست",
               " · ".join(sorted(overlap)))
 
-        check(isinstance(src.get("is_origin"), bool),
-              "is_origin مقدارِ بولی دارد", f"دیده شد: {src.get('is_origin')!r}")
+        # پیش‌فرض «auto» است: تشخیص از روی remoteهای گیت، بدونِ هیچ تنظیمِ دستی.
+        # true/false فقط درِ فرارِ حالت‌های عجیب است.
+        check(src.get("is_origin") == "auto" or isinstance(src.get("is_origin"), bool),
+              "is_origin مقدارش auto یا بولی است", f"دیده شد: {src.get('is_origin')!r}")
+        check(src.get("is_origin") == "auto",
+              "is_origin روی auto است (کپی‌ها تنظیمِ دستی لازم ندارند)",
+              "با مقدارِ ثابت، کپی یا هیچ‌وقت به‌روز نمی‌شود یا خودش را رونویسی می‌کند")
 
     # ── تاریخِ سرآیندِ HTML با تاریخِ متنِ سرصفحه یکی است؟ ─────────────────
     mh = re.search(r"^\s*updated:\s*(\d{4}-\d{2}-\d{2})\s*$", guide, re.M)

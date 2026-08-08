@@ -74,32 +74,21 @@ test -f guidelines/gl-update.py || echo "درگیر است"
 
 ### چطور مهاجرت کن
 
-۱. این چهار فایل را از منبع بردار:
+یک فرمان — بقیه‌اش خودکار است:
+
 ```bash
-BASE=https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/main
-curl -fsS "$BASE/guidelines/gl-update.py"  -o guidelines/gl-update.py
-curl -fsS "$BASE/guidelines/source.json"   -o guidelines/source.json
-curl -fsS "$BASE/.claude/commands/gl-pull.md" -o .claude/commands/gl-pull.md
-mkdir -p guidelines/templates
-curl -fsS "$BASE/guidelines/templates/guideline-upstream.yml" \
-     -o guidelines/templates/guideline-upstream.yml
-chmod +x guidelines/gl-update.py
+curl -fsS https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/main/guidelines/install.py | python3 -
 ```
 
-۲. **`source.json` را ویرایش کن:** `is_origin` را `false` بگذار. اگر `true` بماند،
-   `gl-update` فکر می‌کند اینجا خودِ منبع است و هیچ‌وقت چیزی نمی‌گیرد.
+نصاب کلِ بسته را می‌گیرد، هوک را در `.claude/settings.json` **ادغام** می‌کند (تنظیماتِ
+موجود را خراب نمی‌کند)، گردش‌کارِ هفتگی را می‌گذارد، `.gitignore` را به‌روز می‌کند و
+آخرش خودوارسی می‌گیرد.
 
-۳. هوک را هم به‌روز کن (بخشِ خبرِ منبع در آن اضافه شده):
-```bash
-curl -fsS "$BASE/.claude/hooks/guideline-boot.py" -o .claude/hooks/guideline-boot.py
-```
+`lock.json`ِ موجود دست نمی‌خورد. اگر نبود، نصاب یکی می‌سازد و دروازه‌ی وارسی را از روی
+خودِ پروژه پر می‌کند (`package.json` → `npm run test/lint`، یا `pyproject.toml` → pytest).
 
-۴. کشِ محلی را به `.gitignore` اضافه کن: `guidelines/.upstream-cache.json`
-
-۵. **اختیاری ولی توصیه‌شده** — برای پروژه‌هایی که ماه‌ها بازشان نمی‌کنی:
-```bash
-cp guidelines/templates/guideline-upstream.yml .github/workflows/
-```
+**هیچ تنظیمِ دستی‌ای لازم نیست:** `is_origin` روی `auto` است و از روی remoteهای گیت
+خودش می‌فهمد اینجا کپی است نه منبع.
 
 ### چطور وارسی کن
 ```bash
