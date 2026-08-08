@@ -1,0 +1,102 @@
+name: به‌روزرسانیِ خودکارِ پشته
+
+# جدولِ «پشته» در CLAUDE.md را هفتگی تازه می‌کند و اگر چیزی عوض شد PR باز می‌کند.
+# مستقیم روی main نمی‌نویسد: عوض شدنِ نسخه‌ها خبر است، نه دستور — آدم باید ببیندش.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'      # دوشنبه‌ها ۶:۰۰ UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/update_stack.py'
+      - 'scripts/stack_sources.json'
+      - '.github/workflows/stack-update.yml'
+
+concurrency:
+  group: stack-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: گرفتنِ نسخه‌ها و بازنویسیِ جدول
+        id: run
+        env:
+          # برای api.github.com — بدونِ آن، ردیف‌های اکشن‌ها پر نمی‌شوند.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          python3 scripts/update_stack.py 2>&1 | tee /tmp/stack.log
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          case "$code" in
+            0)  echo "چیزی عوض نشد." ;;
+            10) echo "سند عوض شد — PR باز می‌شود." ;;
+            *)  echo "❌ اسکریپت با کدِ $code شکست."; exit 1 ;;
+          esac
+
+      - name: باز کردن یا تازه‌کردنِ PR
+        if: steps.run.outputs.code == '10'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # همیشه به شاخه‌ی پیش‌فرض PR بزن، حتی اگر دستی از شاخه‌ی دیگری اجرا شد.
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          BRANCH=chore/stack-update
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # شاخه‌ی رباتی است و فقط همین گردش‌کار رویش می‌نویسد، پس هر بار از main
+          # ساخته می‌شود و با force جلو می‌رود — تاریخچه‌ی این شاخه ارزشی ندارد.
+          git fetch origin "$BRANCH" || true
+          git checkout -B "$BRANCH"
+          git add CLAUDE.md
+
+          if git diff --cached --quiet; then
+            echo "چیزی برای کامیت نبود."
+            exit 0
+          fi
+
+          git commit -m "به‌روزرسانیِ خودکارِ جدولِ پشته در CLAUDE.md"
+
+          for i in 1 2 3 4; do
+            if git push -u origin "$BRANCH" --force; then break; fi
+            [ "$i" -lt 4 ] || { echo "❌ push نشد."; exit 1; }
+            sleep $((2 ** i))
+          done
+
+          {
+            echo "جدولِ پشته در \`CLAUDE.md\` خودکار تازه شد."
+            echo
+            echo "خروجیِ اسکریپت:"
+            echo
+            echo '```'
+            cat /tmp/stack.log
+            echo '```'
+            echo
+            echo "این PR فقط **گزارش** است. عوض کردنِ نسخه‌های واقعیِ پروژه"
+            echo "(پینِ \`wranglerVersion\`، \`compatibility_date\`) کارِ جداگانه‌ای است"
+            echo "و باید با بازرسِ سبز جلو برود."
+          } > /tmp/body.md
+
+          OPEN=$(gh pr list --head "$BRANCH" --state open --json number -q '.[].number' || echo "")
+          if [ -n "$OPEN" ]; then
+            echo "PR شماره‌ی $OPEN باز است و با این push تازه شد."
+          else
+            gh pr create --draft \
+              --base "${BASE:-main}" \
+              --head "$BRANCH" \
+              --title "به‌روزرسانیِ خودکارِ جدولِ پشته" \
+              --body-file /tmp/body.md
+          fi
