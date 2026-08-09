@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فراری F40 — آخرین ماشینِ انزو</title>
+<meta name="description" content="همه‌چیز درباره‌ی فراری F40: موتورِ توئین‌توربوی F120A، بدنه‌ی کولار و کربن، تاریخچه، مشخصاتِ فنی و نسخه‌های مسابقه‌ای.">
+<meta name="theme-color" content="#0d0d10">
+<meta property="og:title" content="فراری F40 — آخرین ماشینِ انزو">
+<meta property="og:description" content="۴۷۸ اسب بخار، ۱۱۰۰ کیلوگرم، ۳۲۴ کیلومتر بر ساعت. ماشینی که برای چهلمین سالگردِ فراری ساخته شد.">
+<meta property="og:type" content="website">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   فونت
+   ═══════════════════════════════════════════════════════════════ */
+@font-face{font-family:'Vazirmatn';font-weight:400;font-display:swap;src:url('font1.woff2') format('woff2');}
+@font-face{font-family:'Vazirmatn';font-weight:700;font-display:swap;src:url('font2.woff2') format('woff2');}
+
+/* ═══════════════════════════════════════════════════════════════
+   نردبانِ z-index — نام‌دار. از این خارج نشو.
+     محتوا ۰ · هنرِ پس‌زمینه ۱ · نوارِ بالا ۳۰ · پرده‌ی منو ۴۰
+     لینکِ پرش ۴۵ · منوی موبایل ۵۰ · پنجره ۶۰ · پیامِ شناور ۸۰
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   رنگ‌ها — هر متغیر در هر دو تم تعریف می‌شود. رنگِ ثابت ننویس.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#f4f4f6;
+  --bg-2:#ffffff;
+  --bg-3:#e9e9ee;
+  --ink:#16161a;
+  --ink-2:#4a4a55;
+  --ink-3:#63636e;
+  --line:#d5d5de;
+  --line-2:#bfbfcc;
+  --red:#c8102e;
+  --red-ink:#a00d25;
+  --red-soft:rgba(200,16,46,.10);
+  --gold:#8a6a12;
+  --on-red:#ffffff;
+  --shadow:0 1px 2px rgba(20,20,30,.08),0 8px 24px rgba(20,20,30,.07);
+  --shadow-lg:0 2px 6px rgba(20,20,30,.10),0 24px 60px rgba(20,20,30,.13);
+  --tint:rgba(20,20,30,.04);
+  --scrim:rgba(15,15,20,.45);
+  --focus:#1f5fd0;
+  --car-body:#c8102e;
+  --car-body-2:#8d0a20;
+  --car-glass:#2c3140;
+  --car-shade:rgba(0,0,0,.28);
+  --car-line:rgba(255,255,255,.30);
+  --car-ground:rgba(20,20,30,.13);
+  --tire:#2a2a30;
+  --rim:#c9ccd4;
+
+  --z-art:1; --z-top:30; --z-scrim:40; --z-skip:45; --z-menu:50; --z-modal:60; --z-toast:80;
+  --wrap:1120px;
+  --r:14px;
+
+  /* دو رنگِ «سطح» که بخش‌های یک‌درمیان جایشان را عوض می‌کنند.
+     کارت‌ها همیشه --panel-2 می‌گیرند، پس هیچ‌وقت هم‌رنگِ زمینه‌ی بخش نمی‌شوند. */
+  --panel:var(--bg);
+  --panel-2:var(--bg-2);
+}
+html[data-theme="dark"]{
+  --bg:#0d0d10;
+  --bg-2:#16161b;
+  --bg-3:#1e1e25;
+  --ink:#f2f2f5;
+  --ink-2:#bcbcc8;
+  --ink-3:#9494a2;
+  --line:#2c2c36;
+  --line-2:#3d3d4a;
+  --red:#ff2d46;
+  --red-ink:#ff7182;
+  --red-soft:rgba(255,45,70,.14);
+  --gold:#e0b84a;
+  --on-red:#12070a;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.42);
+  --shadow-lg:0 2px 6px rgba(0,0,0,.55),0 24px 60px rgba(0,0,0,.5);
+  --tint:rgba(255,255,255,.045);
+  --scrim:rgba(0,0,0,.66);
+  --focus:#7fb0ff;
+  --car-body:#e01b34;
+  --car-body-2:#7d0d1d;
+  --car-glass:#0e1220;
+  --car-shade:rgba(0,0,0,.42);
+  --car-line:rgba(255,255,255,.22);
+  --car-ground:rgba(0,0,0,.5);
+  --tire:#121216;
+  --rim:#8d919c;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   پایه
+   ═══════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font-family:'Vazirmatn',system-ui,'Segoe UI',Tahoma,sans-serif;
+  background:var(--bg);
+  color:var(--ink);
+  line-height:1.85;
+  overflow-x:hidden;
+  scroll-padding-block-start:78px;
+}
+html{scroll-padding-block-start:78px}
+img,svg{max-width:100%;height:auto}
+h1,h2,h3,h4{line-height:1.35;margin:0;font-weight:700;letter-spacing:-.01em}
+p{margin:0 0 1em}
+a{color:var(--red-ink);text-decoration-thickness:1px;text-underline-offset:3px}
+ul{margin:0;padding-inline-start:1.3em}
+:focus-visible{outline:3px solid var(--focus);outline-offset:3px;border-radius:6px}
+::selection{background:var(--red);color:var(--on-red)}
+
+.wrap{max-width:var(--wrap);margin-inline:auto;padding-inline:20px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:absolute;inset-block-start:-100px;inset-inline-start:12px;z-index:var(--z-skip);
+  background:var(--red);color:var(--on-red);padding:10px 16px;border-radius:10px;font-weight:700;text-decoration:none}
+.skip:focus{inset-block-start:12px}
+
+/* اعداد لاتین داخلِ متنِ فارسی به‌هم نریزند */
+.num{font-variant-numeric:tabular-nums;unicode-bidi:plaintext}
+
+/* ═══════════════════════════════════════════════════════════════
+   نوارِ بالا
+   ═══════════════════════════════════════════════════════════════ */
+.topbar{
+  position:sticky;inset-block-start:0;z-index:var(--z-top);
+  background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-block-end:1px solid var(--line);
+}
+.topbar .wrap{display:flex;align-items:center;gap:14px;min-height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;color:var(--ink);flex:0 0 auto}
+.brand-mark{
+  inline-size:34px;block-size:34px;border-radius:9px;display:grid;place-items:center;
+  background:var(--red);color:var(--on-red);font-weight:700;font-size:13px;letter-spacing:.02em;flex:0 0 auto;
+}
+.brand-txt{font-size:15px;white-space:nowrap}
+.brand-txt small{display:block;font-size:11px;font-weight:400;color:var(--ink-3);line-height:1.2}
+
+.mainnav{margin-inline-start:auto;display:flex;gap:2px;flex-wrap:wrap}
+.mainnav a{
+  color:var(--ink-2);text-decoration:none;font-size:14px;padding:9px 12px;border-radius:9px;
+  white-space:nowrap;transition:background .18s,color .18s;
+}
+.mainnav a:hover{background:var(--tint);color:var(--ink)}
+.mainnav a[aria-current="true"]{color:var(--red-ink);background:var(--red-soft);font-weight:700}
+
+.iconbtn{
+  min-inline-size:44px;min-block-size:44px;display:grid;place-items:center;
+  background:transparent;border:1px solid var(--line);border-radius:11px;color:var(--ink);
+  cursor:pointer;font-size:18px;line-height:1;padding:0;flex:0 0 auto;
+  transition:background .18s,border-color .18s;
+}
+.iconbtn:hover{background:var(--tint);border-color:var(--line-2)}
+#menuBtn{display:none}
+
+/* منوی موبایل */
+.scrim{
+  position:fixed;inset:0;z-index:var(--z-scrim);background:var(--scrim);
+  opacity:0;visibility:hidden;transition:opacity .22s,visibility .22s;
+}
+.scrim.open{opacity:1;visibility:visible}
+.drawer{
+  position:fixed;inset-block:0;inset-inline-end:0;z-index:var(--z-menu);
+  inline-size:min(78vw,300px);background:var(--bg-2);border-inline-start:1px solid var(--line);
+  padding:18px;display:flex;flex-direction:column;gap:6px;
+  /* inset-inline-end در RTL لبه‌ی چپِ فیزیکی است، پس پنهان‌شدن یعنی رفتن به چپ.
+     یک بار عکسش نوشته شد و کشوی «بسته» روی صفحه می‌ماند و لمسِ دکمه‌ها را می‌دزدید. */
+  transform:translateX(-100%);visibility:hidden;
+  transition:transform .26s cubic-bezier(.4,0,.2,1),visibility .26s;
+  box-shadow:var(--shadow-lg);overflow-y:auto;
+}
+.drawer.open{transform:translateX(0);visibility:visible}
+.drawer a{
+  color:var(--ink);text-decoration:none;padding:13px 12px;border-radius:11px;font-size:15px;
+  min-block-size:44px;display:flex;align-items:center;
+}
+.drawer a:hover{background:var(--tint)}
+.drawer a[aria-current="true"]{background:var(--red-soft);color:var(--red-ink);font-weight:700}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;margin-block-end:8px}
+.drawer-head strong{font-size:14px;color:var(--ink-3);font-weight:400}
+
+/* ═══════════════════════════════════════════════════════════════
+   قهرمانِ صفحه
+   ═══════════════════════════════════════════════════════════════ */
+.hero{position:relative;overflow:hidden;padding-block:56px 0;border-block-end:1px solid var(--line)}
+.hero::before{
+  content:"";position:absolute;inset-block-start:-30%;inset-inline-end:0;
+  inline-size:70vw;block-size:70vw;max-inline-size:820px;max-block-size:820px;border-radius:50%;
+  background:radial-gradient(circle,var(--red-soft) 0%,transparent 68%);
+  z-index:var(--z-art);pointer-events:none;
+}
+.hero .wrap{position:relative;z-index:2}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;
+  color:var(--red-ink);background:var(--red-soft);border:1px solid color-mix(in srgb,var(--red) 26%,transparent);
+  padding:6px 13px;border-radius:999px;margin-block-end:18px;
+}
+.hero h1{font-size:clamp(34px,8.5vw,74px);letter-spacing:-.03em;margin-block-end:6px}
+.hero h1 .mark{color:var(--red)}
+.hero .lede{font-size:clamp(15px,3.4vw,20px);color:var(--ink-2);max-inline-size:56ch;margin-block-end:26px}
+
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-block:26px 34px}
+.hstat{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r);padding:14px 12px;text-align:center;min-inline-size:0}
+.hstat b{display:block;font-size:clamp(19px,5.2vw,30px);color:var(--red);letter-spacing:-.02em;line-height:1.25}
+.hstat span{display:block;font-size:11.5px;color:var(--ink-3);line-height:1.5}
+
+.cta-row{display:flex;gap:10px;flex-wrap:wrap;margin-block-end:34px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-block-size:46px;padding:0 20px;border-radius:12px;font:inherit;font-weight:700;font-size:14.5px;
+  cursor:pointer;text-decoration:none;border:1px solid transparent;transition:transform .15s,background .18s,border-color .18s;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--red);color:var(--on-red);border-color:var(--red)}
+.btn-primary:hover{background:var(--red-ink);border-color:var(--red-ink)}
+.btn-ghost{background:var(--bg-2);color:var(--ink);border-color:var(--line-2)}
+.btn-ghost:hover{background:var(--bg-3)}
+
+.hero-art{margin-block-start:8px;position:relative}
+.hero-art svg{display:block;inline-size:100%;block-size:auto}
+
+/* ═══════════════════════════════════════════════════════════════
+   بخش‌ها
+   ═══════════════════════════════════════════════════════════════ */
+section[id]{padding-block:64px;border-block-end:1px solid var(--line);background:var(--panel)}
+section[id]:nth-of-type(even){--panel:var(--bg-2);--panel-2:var(--bg)}
+.sec-head{max-inline-size:62ch;margin-block-end:34px}
+.sec-kicker{font-size:12.5px;font-weight:700;color:var(--red-ink);letter-spacing:.04em;margin-block-end:8px;display:block}
+.sec-head h2{font-size:clamp(24px,5.4vw,38px);letter-spacing:-.02em;margin-block-end:12px}
+.sec-head p{color:var(--ink-2);font-size:clamp(14.5px,3vw,17px);margin:0}
+
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+.card{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r);padding:22px;
+  min-inline-size:0;
+}
+.card h3{font-size:17px;margin-block-end:10px;display:flex;align-items:center;gap:9px}
+.card p:last-child{margin-block-end:0}
+.card .ico{
+  inline-size:32px;block-size:32px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;
+  background:var(--red-soft);color:var(--red-ink);font-size:15px;
+}
+.card-body{color:var(--ink-2);font-size:14.5px}
+
+.quote{
+  border-inline-start:4px solid var(--red);
+  background:var(--red-soft);
+  padding:20px 22px;border-radius:0 var(--r) var(--r) 0;
+  font-size:clamp(15px,3.4vw,19px);line-height:1.9;
+}
+.quote footer{margin-block-start:10px;font-size:13.5px;color:var(--ink-2);font-weight:700}
+
+/* جدولِ مشخصات */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--panel-2)}
+table{border-collapse:collapse;inline-size:100%;font-size:14.5px;min-inline-size:340px}
+caption{text-align:start;padding:14px 16px 0;color:var(--ink-3);font-size:13px}
+th,td{padding:12px 16px;text-align:start;border-block-end:1px solid var(--line);vertical-align:top}
+thead th{background:var(--bg-3);font-size:13px;color:var(--ink-2);position:sticky;inset-block-start:0}
+tbody tr:last-child th,tbody tr:last-child td{border-block-end:0}
+tbody th{font-weight:400;color:var(--ink-2);inline-size:44%}
+tbody td{font-weight:700;color:var(--ink)}
+tbody tr:hover{background:var(--tint)}
+
+/* شمارنده‌ها */
+.stat{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--r);padding:20px 16px;text-align:center;min-inline-size:0}
+.stat b{display:block;font-size:clamp(26px,6.4vw,40px);color:var(--red);letter-spacing:-.02em;line-height:1.25}
+.stat b small{font-size:.45em;color:var(--ink-3);font-weight:400;margin-inline-start:4px}
+.stat span{display:block;font-size:12.5px;color:var(--ink-3);margin-block-start:2px}
+
+/* نوارِ مشخصاتِ موتور */
+.bars{display:flex;flex-direction:column;gap:16px}
+.bar-row{min-inline-size:0}
+.bar-top{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;margin-block-end:7px}
+.bar-top span:first-child{color:var(--ink-2)}
+.bar-top span:last-child{font-weight:700;color:var(--ink);white-space:nowrap}
+.bar-track{block-size:9px;background:var(--bg-3);border-radius:999px;overflow:hidden;border:1px solid var(--line)}
+.bar-fill{block-size:100%;background:linear-gradient(90deg,var(--red-ink),var(--red));inline-size:0;transition:inline-size .9s cubic-bezier(.2,.8,.2,1)}
+
+/* ═══════════════════════════════════════════════════════════════
+   خطِ زمان
+   ═══════════════════════════════════════════════════════════════ */
+.timeline{position:relative;padding-inline-start:34px}
+.timeline::before{
+  content:"";position:absolute;inset-block:6px 6px;inset-inline-start:9px;inline-size:2px;
+  background:linear-gradient(180deg,var(--red),color-mix(in srgb,var(--red) 18%,transparent));
+}
+.tl-item{position:relative;padding-block-end:26px}
+.tl-item:last-child{padding-block-end:0}
+.tl-item::before{
+  content:"";position:absolute;inset-inline-start:-30px;inset-block-start:9px;
+  inline-size:12px;block-size:12px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 0 4px var(--panel);
+}
+.tl-year{font-size:13px;font-weight:700;color:var(--red-ink);letter-spacing:.02em}
+.tl-item h3{font-size:16.5px;margin-block:2px 5px}
+.tl-item p{color:var(--ink-2);font-size:14.5px;margin:0;max-inline-size:62ch}
+
+/* ═══════════════════════════════════════════════════════════════
+   نمودارِ مقایسه
+   ═══════════════════════════════════════════════════════════════ */
+.seg{
+  display:inline-flex;background:var(--bg-3);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;
+  flex-wrap:wrap;margin-block-end:22px;max-inline-size:100%;
+}
+.seg button{
+  font:inherit;font-size:13.5px;font-weight:700;border:0;background:transparent;color:var(--ink-2);
+  padding:8px 14px;min-block-size:38px;border-radius:9px;cursor:pointer;white-space:nowrap;
+  transition:background .18s,color .18s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--red);color:var(--on-red)}
+
+.chart{display:flex;flex-direction:column;gap:14px}
+.chart-row{display:grid;grid-template-columns:minmax(92px,26%) 1fr;gap:12px;align-items:center;min-inline-size:0}
+.chart-name{font-size:13.5px;color:var(--ink-2);min-inline-size:0;overflow-wrap:anywhere}
+.chart-name b{display:block;color:var(--ink);font-size:14.5px}
+.chart-bar{position:relative;block-size:34px;background:var(--bg-3);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.chart-fill{
+  block-size:100%;inline-size:0;border-radius:8px 0 0 8px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--ink-3) 55%,transparent),var(--ink-3));
+  transition:inline-size .75s cubic-bezier(.2,.8,.2,1);
+}
+.chart-row.is-f40 .chart-fill{background:linear-gradient(90deg,var(--red-ink),var(--red))}
+.chart-val{
+  position:absolute;inset-block:0;inset-inline-start:10px;display:flex;align-items:center;
+  font-size:13px;font-weight:700;color:var(--ink);pointer-events:none;
+}
+.chart-note{margin-block-start:16px;font-size:13px;color:var(--ink-3)}
+
+/* ═══════════════════════════════════════════════════════════════
+   گالریِ نماها
+   ═══════════════════════════════════════════════════════════════ */
+.viewer{
+  background:var(--bg-3);border:1px solid var(--line);border-radius:var(--r);
+  padding:clamp(12px,4vw,34px);margin-block-end:18px;
+}
+.viewer svg{display:block;inline-size:100%;block-size:auto}
+.view-cap{font-size:14px;color:var(--ink-2);margin-block-start:14px;text-align:center;min-block-size:3em}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-block-end:18px}
+.chip{
+  font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--line-2);color:var(--ink-2);
+  padding:9px 16px;min-block-size:42px;border-radius:999px;transition:all .18s;
+}
+.chip:hover{border-color:var(--red);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:var(--on-red)}
+
+/* فهرستِ «چه چیزهایی نداشت» */
+.plain-list{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.plain-list li{
+  display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:var(--ink-2);
+  background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:12px 14px;
+}
+.plain-list .tick{color:var(--red);font-weight:700;flex:0 0 auto;line-height:1.7}
+
+/* ═══════════════════════════════════════════════════════════════
+   پاورقی
+   ═══════════════════════════════════════════════════════════════ */
+footer.site{padding-block:40px;background:var(--bg-2);color:var(--ink-3);font-size:13.5px}
+footer.site .wrap{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center}
+footer.site p{margin:0;max-inline-size:64ch}
+
+/* ═══════════════════════════════════════════════════════════════
+   ظهورِ نرم هنگامِ اسکرول
+   ═══════════════════════════════════════════════════════════════ */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s cubic-bezier(.2,.8,.2,1)}
+.reveal.in{opacity:1;transform:none}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  .reveal{opacity:1;transform:none}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   واکنش‌گرا
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width:900px){
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .mainnav{display:none}
+  #menuBtn{display:grid}
+  section[id]{padding-block:46px}
+  .hero{padding-block-start:38px}
+}
+@media (max-width:560px){
+  .wrap{padding-inline:16px}
+  .g2,.g3,.g4{grid-template-columns:minmax(0,1fr)}
+  .hero-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chart-row{grid-template-columns:minmax(0,1fr);gap:6px}
+  .chart-bar{block-size:30px}
+  .brand-txt small{display:none}
+  tbody th{inline-size:50%}
+}
+
+@media print{
+  .topbar,.drawer,.scrim,.cta-row,.seg,.chips,.skip{display:none!important}
+  body{background:#fff;color:#000}
+  section[id]{page-break-inside:avoid;border:0}
+}
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">پرش به محتوا</a>
+
+<!-- ══════════════════ نوارِ بالا ══════════════════ -->
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true">F40</span>
+      <span class="brand-txt">فراری F40<small>۱۹۸۷ – ۱۹۹۲</small></span>
+    </a>
+
+    <nav class="mainnav" id="mainnav" aria-label="بخش‌های صفحه">
+      <a href="#story">داستان</a>
+      <a href="#specs">مشخصات</a>
+      <a href="#engine">موتور</a>
+      <a href="#design">طراحی</a>
+      <a href="#timeline">خطِ زمان</a>
+      <a href="#race">مسابقه</a>
+      <a href="#compare">مقایسه</a>
+      <a href="#gallery">نماها</a>
+    </nav>
+
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="تغییرِ تمِ روشن و تاریک">
+      <span id="themeIco" aria-hidden="true">☾</span>
+    </button>
+    <button class="iconbtn" id="menuBtn" type="button" aria-label="بازکردنِ فهرست" aria-expanded="false" aria-controls="drawer">
+      <span aria-hidden="true">☰</span>
+    </button>
+  </div>
+</header>
+
+<div class="scrim" id="scrim" hidden></div>
+<nav class="drawer" id="drawer" data-overlay aria-label="فهرستِ موبایل" aria-hidden="true">
+  <div class="drawer-head">
+    <strong>بخش‌ها</strong>
+    <button class="iconbtn" id="closeMenu" type="button" aria-label="بستنِ فهرست"><span aria-hidden="true">✕</span></button>
+  </div>
+  <a href="#story">داستان</a>
+  <a href="#specs">مشخصات</a>
+  <a href="#engine">موتور</a>
+  <a href="#design">طراحی</a>
+  <a href="#timeline">خطِ زمان</a>
+  <a href="#race">مسابقه</a>
+  <a href="#compare">مقایسه</a>
+  <a href="#gallery">نماها</a>
+  <a href="#facts">نکته‌ها</a>
+</nav>
+
+<main id="main">
+
+<!-- ══════════════════ قهرمان ══════════════════ -->
+<div class="hero" id="top">
+  <div class="wrap">
+    <span class="eyebrow"><span aria-hidden="true">🏁</span> چهلمین سالگردِ فراری</span>
+    <h1>فراری <span class="mark">F40</span></h1>
+    <p class="lede">
+      آخرین ماشینی که انزو فراری خودش تأییدش کرد. بدونِ ABS، بدونِ فرمانِ هیدرولیک،
+      بدونِ دستگیره‌ی در. فقط ۱۱۰۰ کیلوگرم کولار و کربن، و یک V۸ِ توئین‌توربو که
+      ۴۷۸ اسب بخار به چرخ‌های عقب می‌ریزد.
+    </p>
+
+    <div class="hero-stats">
+      <div class="hstat"><b class="num" data-count="478" data-suffix="">۰</b><span>اسب بخار</span></div>
+      <div class="hstat"><b class="num" data-count="1100">۰</b><span>کیلوگرم (خشک)</span></div>
+      <div class="hstat"><b class="num" data-count="324">۰</b><span>کیلومتر بر ساعت</span></div>
+      <div class="hstat"><b class="num" data-count="1311">۰</b><span>دستگاه ساخته شد</span></div>
+    </div>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#specs">مشخصاتِ کامل</a>
+      <a class="btn btn-ghost" href="#story">داستانش را بخوان</a>
+    </div>
+  </div>
+
+  <div class="hero-art wrap" aria-hidden="true">
+    <!-- نمای جانبی — طرحِ اختصاصیِ همین صفحه -->
+    <svg viewBox="0 0 1000 340" role="img" xmlns="http://www.w3.org/2000/svg">
+      <title>نمای جانبیِ فراری F40</title>
+      <ellipse cx="500" cy="308" rx="430" ry="15" fill="var(--car-ground)"/>
+      <g id="heroCar"></g>
+    </svg>
+  </div>
+</div>
+
+<!-- ══════════════════ داستان ══════════════════ -->
+<section id="story">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">۱۹۸۷</span>
+      <h2>ماشینی که فقط برای رانندگی ساخته شد</h2>
+      <p>
+        فراری در سالِ ۱۹۸۷ چهل ساله می‌شد. انزو فراری، در ۸۹ سالگی، از مهندس‌هایش
+        چیزِ ساده‌ای خواست: ماشینی که هیچ چیزِ اضافه‌ای نداشته باشد.
+      </p>
+    </div>
+
+    <div class="grid g3">
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🧬</span> ریشه در ۲۸۸ GTO</h3>
+        <p class="card-body">
+          F40 از دلِ پروژه‌ی ۲۸۸ GTO اوولوتزیونه بیرون آمد — نسخه‌ای که برای گروه B
+          ساخته شده بود ولی آن کلاس قبل از شروع تعطیل شد. پنج دستگاه اوولوتزیونه
+          ساخته شده بود و همان بدنه و همان منطقِ توئین‌توربو، پایه‌ی F40 شد.
+        </p>
+      </article>
+
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">⏱️</span> ۱۳ ماه از ایده تا رونمایی</h3>
+        <p class="card-body">
+          تیمِ نیکولا ماته‌راتزی در حدودِ سیزده ماه کار را تمام کرد — سرعتی که
+          حتی برای فراری هم غیرعادی بود. رونمایی در ۲۱ ژوئیه‌ی ۱۹۸۷ در مارانلو
+          انجام شد و انزو خودش پشتِ میکروفن بود.
+        </p>
+      </article>
+
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🕯️</span> آخرین امضای انزو</h3>
+        <p class="card-body">
+          انزو فراری در اوتِ ۱۹۸۸ درگذشت. F40 آخرین خودرویی است که او شخصاً
+          تأیید و معرفی کرد — و به همین دلیل برای خیلی‌ها بیشتر از یک ماشین است.
+        </p>
+      </article>
+    </div>
+
+    <blockquote class="quote reveal" style="margin-block-start:26px">
+      «به مهندس‌ها گفتم ماشینی بسازید که بهترینِ دنیا باشد. و حالا آن ماشین اینجاست.»
+      <footer>— انزو فراری، مراسمِ رونماییِ F40</footer>
+    </blockquote>
+  </div>
+</section>
+
+<!-- ══════════════════ مشخصات ══════════════════ -->
+<section id="specs">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">اعداد</span>
+      <h2>مشخصاتِ فنی</h2>
+      <p>ارقامِ کارخانه‌ای برای نسخه‌ی جاده‌ایِ استاندارد (بازارِ اروپا).</p>
+    </div>
+
+    <div class="grid g4 reveal" style="margin-block-end:22px">
+      <div class="stat"><b><span class="num" data-count="478">۰</span></b><span>اسب بخار در ۷۰۰۰ دور</span></div>
+      <div class="stat"><b><span class="num" data-count="577">۰</span></b><span>نیوتن‌متر گشتاور</span></div>
+      <div class="stat"><b><span class="num" data-count="41" data-decimal="1">۰</span><small>ثانیه</small></b><span>صفر تا ۱۰۰</span></div>
+      <div class="stat"><b><span class="num" data-count="435">۰</span></b><span>اسب بخار در هر تُن</span></div>
+    </div>
+
+    <div class="tablewrap reveal">
+      <table>
+        <caption>واحدها متریک‌اند. وزنِ خشک یعنی بدونِ سوخت و مایعات.</caption>
+        <thead>
+          <tr><th scope="col">مشخصه</th><th scope="col">مقدار</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">موتور</th><td>V۸ِ ۹۰ درجه، توئین‌توربو، کدِ کارخانه F120A</td></tr>
+          <tr><th scope="row">حجم</th><td><span class="num">۲۹۳۶</span> سی‌سی</td></tr>
+          <tr><th scope="row">قطر × کورس</th><td><span class="num">۸۲</span> × <span class="num">۶۹٫۵</span> میلی‌متر</td></tr>
+          <tr><th scope="row">سوپاپ</th><td><span class="num">۳۲</span> سوپاپ، دو میل‌بادامکِ بالاسر در هر ردیف</td></tr>
+          <tr><th scope="row">تغذیه</th><td>دو توربوی IHI با اینترکولرِ Behr، انژکتورِ وبر–مارلی IAW</td></tr>
+          <tr><th scope="row">فشارِ توربو</th><td><span class="num">۱٫۱</span> بار</td></tr>
+          <tr><th scope="row">نسبتِ تراکم</th><td><span class="num">۷٫۷</span> به <span class="num">۱</span></td></tr>
+          <tr><th scope="row">قدرت</th><td><span class="num">۴۷۸</span> اسب بخار در <span class="num">۷۰۰۰</span> دور</td></tr>
+          <tr><th scope="row">گشتاور</th><td><span class="num">۵۷۷</span> نیوتن‌متر در <span class="num">۴۰۰۰</span> دور</td></tr>
+          <tr><th scope="row">گیربکس</th><td><span class="num">۵</span> سرعته‌ی دستی، دسته‌ی شیاردار، دیفرانسیلِ محدودکننده‌ی لغزش</td></tr>
+          <tr><th scope="row">شتاب ۰ تا ۱۰۰</th><td>حدودِ <span class="num">۴٫۱</span> ثانیه</td></tr>
+          <tr><th scope="row">سرعتِ نهایی</th><td><span class="num">۳۲۴</span> کیلومتر بر ساعت</td></tr>
+          <tr><th scope="row">وزنِ خشک</th><td><span class="num">۱۱۰۰</span> کیلوگرم</td></tr>
+          <tr><th scope="row">شاسی</th><td>قابِ لوله‌ایِ فولادی با پنل‌های کامپوزیتِ چسبیده</td></tr>
+          <tr><th scope="row">بدنه</th><td>کولار، فیبرِ کربن و آلومینیوم — <span class="num">۱۱</span> قطعه</td></tr>
+          <tr><th scope="row">ابعاد (طول×عرض×ارتفاع)</th><td><span class="num">۴۴۳۰</span> × <span class="num">۱۹۷۰</span> × <span class="num">۱۱۳۰</span> میلی‌متر</td></tr>
+          <tr><th scope="row">فاصله‌ی محورها</th><td><span class="num">۲۴۵۰</span> میلی‌متر</td></tr>
+          <tr><th scope="row">لاستیک</th><td>جلو <span class="num">۲۴۵/۴۰</span> ZR<span class="num">۱۷</span> — عقب <span class="num">۳۳۵/۳۵</span> ZR<span class="num">۱۷</span></td></tr>
+          <tr><th scope="row">ترمز</th><td>دیسکِ خنک‌شونده‌ی <span class="num">۳۳۰</span> میلی‌متری — بدونِ ABS و بدونِ بوستر</td></tr>
+          <tr><th scope="row">ضریبِ درگ</th><td><span class="num">۰٫۳۴</span></td></tr>
+          <tr><th scope="row">باکِ سوخت</th><td>دو مخزنِ لاستیکی، مجموعاً <span class="num">۱۲۰</span> لیتر</td></tr>
+          <tr><th scope="row">تعدادِ تولید</th><td><span class="num">۱۳۱۱</span> دستگاه بین <span class="num">۱۹۸۷</span> تا <span class="num">۱۹۹۲</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ موتور ══════════════════ -->
+<section id="engine">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">F120A</span>
+      <h2>سه لیتر که مثلِ پنج لیتر می‌زند</h2>
+      <p>
+        موتورِ F40 از نظرِ حجم کوچک است: کمتر از سه لیتر. کاری که آن را ترسناک
+        می‌کند، دو توربوی IHI و نحوه‌ی رسیدنِ فشار است.
+      </p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card reveal">
+        <h3><span class="ico" aria-hidden="true">📈</span> اعداد در یک نگاه</h3>
+        <div class="bars" id="engineBars"></div>
+      </div>
+
+      <div class="grid reveal" style="align-content:start">
+        <article class="card">
+          <h3><span class="ico" aria-hidden="true">💨</span> تأخیرِ توربو، بعد انفجار</h3>
+          <p class="card-body">
+            زیرِ حدودِ ۳۵۰۰ دور، F40 یک ماشینِ معمولی است. بالای آن، هر دو توربو
+            با هم وارد می‌شوند و فشار در کسری از ثانیه می‌نشیند. همین «پله»
+            چیزی است که رانندگانِ آن دوره از آن حرف می‌زنند — و دلیلِ اینکه
+            F40 هنوز ماشینِ ترسناکی حساب می‌شود.
+          </p>
+        </article>
+        <article class="card">
+          <h3><span class="ico" aria-hidden="true">🧯</span> بدونِ هیچ واسطه‌ای</h3>
+          <p class="card-body">
+            نه کنترلِ کشش، نه ABS، نه فرمانِ هیدرولیک، نه بوسترِ ترمز.
+            هر تصمیمی که ماشین می‌گیرد، تصمیمِ خودِ راننده است. این انتخابِ
+            مهندسی بود، نه کمبودِ فناوری.
+          </p>
+        </article>
+        <article class="card">
+          <h3><span class="ico" aria-hidden="true">🔧</span> ۱۶۳ اسب بخار از هر لیتر</h3>
+          <p class="card-body">
+            چگالیِ قدرتِ F40 در سالِ ۱۹۸۷ در ردیفِ ماشین‌های مسابقه‌ای بود.
+            برای رسیدن به آن، نسبتِ تراکم را تا <span class="num">۷٫۷:۱</span>
+            پایین آوردند تا موتور بتواند فشارِ <span class="num">۱٫۱</span> باری
+            را تحمل کند.
+          </p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ طراحی ══════════════════ -->
+<section id="design">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">پینین‌فارینا</span>
+      <h2>طراحی‌ای که از تونلِ باد بیرون آمد</h2>
+      <p>
+        شکلِ F40 نتیجه‌ی سلیقه نیست. تقریباً هر خط روی این بدنه یک کارِ
+        آیرودینامیکی می‌کند: هدایتِ هوا به اینترکولرها، خنک‌کردنِ ترمزها،
+        یا چسباندنِ عقبِ ماشین به زمین.
+      </p>
+    </div>
+
+    <div class="grid g2">
+      <div class="grid reveal" style="align-content:start">
+        <article class="card">
+          <h3><span class="ico" aria-hidden="true">🪶</span> ۱۱ قطعه، بدونِ فولاد</h3>
+          <p class="card-body">
+            کلِ بدنه از یازده قطعه‌ی کولار، کربن و آلومینیوم تشکیل شده و روی
+            یک قابِ لوله‌ایِ فولادی چسبانده شده است. کاپوتِ جلو و درِ موتور
+            یک‌تکه بلند می‌شوند.
+          </p>
+        </article>
+        <article class="card">
+          <h3><span class="ico" aria-hidden="true">🌬️</span> بالِ عقب که واقعاً کار می‌کند</h3>
+          <p class="card-body">
+            بالِ بزرگِ عقب تزیین نیست؛ در سرعتِ بالا نیروی رو به پایینِ لازم
+            برای پایدار ماندنِ ماشین را می‌سازد. درِ موتورِ شیاردار هم هوای
+            داغ را بیرون می‌کشد و هم موتور را نشان می‌دهد.
+          </p>
+        </article>
+        <article class="card">
+          <h3><span class="ico" aria-hidden="true">🎨</span> همه قرمز</h3>
+          <p class="card-body">
+            هر F40ای که از کارخانه بیرون آمد «رُسو کورسا» بود. چند دستگاه
+            بعدها به سفارشِ مالک‌هایشان رنگِ دیگری گرفتند، ولی هیچ‌کدام
+            از خطِ تولید با رنگِ دیگری خارج نشد.
+          </p>
+        </article>
+      </div>
+
+      <div class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🚫</span> چیزهایی که عمداً نگذاشتند</h3>
+        <ul class="plain-list" style="margin-block-start:6px">
+          <li><span class="tick" aria-hidden="true">✕</span> دستگیره‌ی در — به‌جایش یک سیمِ کشیدنی</li>
+          <li><span class="tick" aria-hidden="true">✕</span> شیشه‌ی برقی — نسخه‌های اول شیشه‌ی کشوییِ پلکسی داشتند</li>
+          <li><span class="tick" aria-hidden="true">✕</span> موکت و روکشِ داخلی — کولارِ لخت با چسبِ پیدا</li>
+          <li><span class="tick" aria-hidden="true">✕</span> رادیو و سیستمِ صوتی</li>
+          <li><span class="tick" aria-hidden="true">✕</span> ABS و کنترلِ کشش</li>
+          <li><span class="tick" aria-hidden="true">✕</span> فرمانِ هیدرولیک و بوسترِ ترمز</li>
+          <li><span class="tick" aria-hidden="true">✕</span> قفلِ مرکزی و هرچه وزن اضافه می‌کرد</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ خطِ زمان ══════════════════ -->
+<section id="timeline">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">۱۹۸۴ تا امروز</span>
+      <h2>خطِ زمان</h2>
+      <p>از تعطیل شدنِ گروه B تا رسیدنِ قیمتِ F40 به چند برابرِ روزِ اول.</p>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-item reveal">
+        <div class="tl-year"><span class="num">۱۹۸۴</span></div>
+        <h3>۲۸۸ GTO معرفی می‌شود</h3>
+        <p>فراری برای گروه B یک V۸ِ توئین‌توربوی میان‌موتور می‌سازد. همین موتور بعداً به F40 می‌رسد.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="tl-year"><span class="num">۱۹۸۶</span></div>
+        <h3>گروه B تعطیل می‌شود</h3>
+        <p>پنج دستگاه ۲۸۸ GTO اوولوتزیونه ساخته شده بود و کلاس منحل شد. فراری تصمیم می‌گیرد آن کار را به یک ماشینِ جاده‌ای تبدیل کند.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="tl-year"><span class="num">۲۱ ژوئیه ۱۹۸۷</span></div>
+        <h3>رونمایی در مارانلو</h3>
+        <p>انزو فراری خودش ماشین را معرفی می‌کند. برنامه‌ی اولیه ساختِ حدودِ ۴۰۰ دستگاه بود.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="tl-year"><span class="num">۱۹۸۸</span></div>
+        <h3>درگذشتِ انزو فراری</h3>
+        <p>F40 آخرین خودرویی می‌ماند که او شخصاً تأیید کرد.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="tl-year"><span class="num">۱۹۸۹</span></div>
+        <h3>F40 LM برای مسابقه</h3>
+        <p>میکلوتو نسخه‌ی مسابقه‌ای را می‌سازد: قدرت تا حدودِ ۷۲۰ اسب بخار و وزنِ کمتر. در مجموع ۱۹ دستگاه ساخته شد.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="tl-year"><span class="num">۱۹۹۲</span></div>
+        <h3>پایانِ تولید</h3>
+        <p>به‌جای ۴۰۰ دستگاهِ برنامه‌ریزی‌شده، ۱۳۱۱ دستگاه ساخته شد — تقاضا سه برابرِ پیش‌بینی درآمد.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="tl-year"><span class="num">۱۹۹۵</span></div>
+        <h3>F50 جانشین می‌شود</h3>
+        <p>فراری این بار سراغِ V۱۲ِ بدونِ توربو و شاسیِ تمام‌کربن می‌رود — مسیری کاملاً متفاوت با F40.</p>
+      </div>
+      <div class="tl-item reveal">
+        <div class="tl-year">امروز</div>
+        <h3>گران‌ترین از روزِ اول</h3>
+        <p>قیمتِ اولیه در آمریکا حدودِ ۴۰۰ هزار دلار بود. امروز نمونه‌های سالم چند برابرِ آن معامله می‌شوند و F40 یکی از شناخته‌شده‌ترین خودروهای تاریخ است.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ مسابقه ══════════════════ -->
+<section id="race">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">میکلوتو</span>
+      <h2>نسخه‌های مسابقه‌ای</h2>
+      <p>
+        F40 هیچ‌وقت برنامه‌ی رسمیِ کارخانه‌ای در مسابقه نداشت، ولی تیم‌های
+        خصوصی با کمکِ میکلوتو سه نسخه‌ی جدی از آن ساختند.
+      </p>
+    </div>
+
+    <div class="grid g3">
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🏆</span> F40 LM</h3>
+        <p class="card-body">
+          ساخته‌شده برای IMSA. قدرت تا حدودِ <span class="num">۷۲۰</span> اسب بخار،
+          وزنِ کمتر، آیرودینامیکِ تهاجمی‌تر و تعلیقِ مسابقه‌ای.
+          در مجموع <span class="num">۱۹</span> دستگاه ساخته شد.
+        </p>
+      </article>
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🛞</span> F40 GTE</h3>
+        <p class="card-body">
+          معروف به کومپتیتزیونه. برای کلاسِ GT در اروپا آماده شد؛
+          حدودِ <span class="num">۱۰</span> دستگاه با قدرتی نزدیک به
+          <span class="num">۷۰۰</span> اسب بخار.
+        </p>
+      </article>
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🇮🇹</span> F40 GT</h3>
+        <p class="card-body">
+          نسخه‌ای سبک‌تر برای قهرمانیِ GTِ ایتالیا با تعدادِ بسیار کم — حدودِ
+          <span class="num">۶</span> دستگاه. کمیاب‌ترین شاخه‌ی خانواده‌ی F40.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ مقایسه ══════════════════ -->
+<section id="compare">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">در برابرِ خانواده</span>
+      <h2>F40 کجای تاریخِ فراری ایستاده؟</h2>
+      <p>مقایسه با پدرش (۲۸۸ GTO) و جانشین‌هایش. یک معیار را انتخاب کن.</p>
+    </div>
+
+    <div class="seg" id="metricSeg" role="group" aria-label="انتخابِ معیارِ مقایسه"></div>
+
+    <div class="chart" id="chart" aria-live="polite"></div>
+    <p class="chart-note" id="chartNote"></p>
+  </div>
+</section>
+
+<!-- ══════════════════ نماها ══════════════════ -->
+<section id="gallery">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">طرح‌های اختصاصی</span>
+      <h2>نماهای بدنه</h2>
+      <p>
+        این تصویرها نقاشیِ برداریِ ساخته‌شده برای همین صفحه‌اند — عکس نیستند،
+        و برای نشان دادنِ نسبت‌ها و خطوطِ اصلیِ بدنه کشیده شده‌اند.
+      </p>
+    </div>
+
+    <div class="chips" id="viewChips" role="group" aria-label="انتخابِ نما"></div>
+
+    <div class="viewer">
+      <svg id="viewSvg" viewBox="0 0 1000 340" role="img" aria-labelledby="viewTitle" xmlns="http://www.w3.org/2000/svg">
+        <title id="viewTitle">نمای جانبیِ فراری F40</title>
+        <ellipse cx="500" cy="308" rx="420" ry="14" fill="var(--car-ground)"/>
+        <g id="viewGroup"></g>
+      </svg>
+    </div>
+    <p class="view-cap" id="viewCap"></p>
+  </div>
+</section>
+
+<!-- ══════════════════ نکته‌ها ══════════════════ -->
+<section id="facts">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="sec-kicker">حاشیه</span>
+      <h2>چند نکته که کمتر گفته می‌شود</h2>
+      <p>ریزه‌کاری‌هایی که شخصیتِ این ماشین را می‌سازند.</p>
+    </div>
+
+    <div class="grid g3">
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">💰</span> سه برابرِ برنامه</h3>
+        <p class="card-body">
+          فراری می‌خواست حدودِ ۴۰۰ دستگاه بسازد. تقاضا آن‌قدر بالا رفت که تولید
+          به ۱۳۱۱ دستگاه رسید و در همان سال‌ها بعضی نمونه‌ها چند برابرِ قیمتِ
+          کارخانه دست‌به‌دست می‌شدند.
+        </p>
+      </article>
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🪟</span> شیشه‌ی کشویی</h3>
+        <p class="card-body">
+          نسخه‌های اول شیشه‌ی کناریِ پلکسیِ کشویی داشتند. بعدها شیشه‌ی معمولیِ
+          بالابرنده هم عرضه شد و همین، نمونه‌های اولیه را بینِ مجموعه‌داران
+          خاص‌تر کرده است.
+        </p>
+      </article>
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🎚️</span> بدونِ عایقِ صدا</h3>
+        <p class="card-body">
+          صدای داخلِ کابین بخشی از تجربه است: هیچ عایقی بینِ راننده و موتور
+          نیست و صدای دو توربو کاملاً شنیده می‌شود.
+        </p>
+      </article>
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">🏎️</span> ۲۰۰ مایل</h3>
+        <p class="card-body">
+          فراری F40 را به‌عنوانِ اولین خودروی جاده‌ای که از مرزِ ۲۰۰ مایل بر
+          ساعت (۳۲۲ کیلومتر) عبور می‌کند معرفی کرد — ادعایی که آن زمان
+          سر و صدای زیادی به پا کرد.
+        </p>
+      </article>
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">⛽</span> دو باکِ لاستیکی</h3>
+        <p class="card-body">
+          به‌جای مخزنِ فلزی، دو مخزنِ لاستیکیِ سبکِ سبکِ مسابقه‌ای با مجموعِ
+          ۱۲۰ لیتر — همان چیزی که در ماشین‌های رقابتی استفاده می‌شد.
+        </p>
+      </article>
+      <article class="card reveal">
+        <h3><span class="ico" aria-hidden="true">📐</span> ۱۱۳ سانتی‌متر</h3>
+        <p class="card-body">
+          ارتفاعِ کلِ ماشین فقط ۱۱۳۰ میلی‌متر است — تقریباً هم‌قدِ کمرِ یک
+          آدمِ بالغ. عرضش اما نزدیک به دو متر است.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>
+      صفحه‌ای غیررسمی و آموزشی درباره‌ی فراری F40. ارقام از مشخصاتِ عمومیِ
+      منتشرشده‌ی این خودرو گرفته شده‌اند و ممکن است بینِ منابعِ مختلف کمی فرق کنند
+      (مثلاً تعدادِ تولید در بعضی منابع ۱۳۱۵ ذکر شده). تصویرها طرحِ برداریِ
+      اختصاصیِ همین صفحه‌اند.
+    </p>
+    <p>«فراری» و «F40» نام‌های تجاریِ متعلق به مالکانِ خودشان هستند.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════ ابزارهای کوچک ══════════════════ */
+var FA = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+function faNum(v){
+  return String(v).replace(/[0-9]/g, function(d){ return FA[+d]; });
+}
+function faGroup(n){
+  var s = String(Math.round(n)), out = '', c = 0, i;
+  for(i = s.length - 1; i >= 0; i--){
+    out = s[i] + out;
+    if(++c % 3 === 0 && i > 0) out = '٬' + out;
+  }
+  return faNum(out);
+}
+function faDec(n, digits){
+  return faNum(Number(n).toFixed(digits)).replace('.', '٫');
+}
+var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ══════════════════ تم ══════════════════ */
+var themeBtn = document.getElementById('themeBtn');
+var themeIco = document.getElementById('themeIco');
+
+function readTheme(){
+  var saved = null;
+  try{ saved = localStorage.getItem('f40-theme'); }catch(e){ saved = null; }
+  if(saved === 'dark' || saved === 'light') return saved;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  themeIco.textContent = (t === 'dark') ? '☀' : '☾';
+  themeBtn.setAttribute('aria-label', t === 'dark' ? 'رفتن به تمِ روشن' : 'رفتن به تمِ تاریک');
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', t === 'dark' ? '#0d0d10' : '#f4f4f6');
+}
+applyTheme(readTheme());
+themeBtn.addEventListener('click', function(){
+  var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try{ localStorage.setItem('f40-theme', next); }catch(e){ /* حالتِ خصوصی — تم فقط همین نشست می‌ماند */ }
+});
+
+/* ══════════════════ منوی موبایل ══════════════════ */
+var drawer   = document.getElementById('drawer');
+var scrim    = document.getElementById('scrim');
+var menuBtn  = document.getElementById('menuBtn');
+var closeBtn = document.getElementById('closeMenu');
+var lastFocus = null;
+
+function menuOpen(){
+  lastFocus = document.activeElement;
+  scrim.hidden = false;
+  /* یک فریم صبر تا ترنزیشن از حالتِ بسته شروع شود */
+  requestAnimationFrame(function(){
+    scrim.classList.add('open');
+    drawer.classList.add('open');
+  });
+  drawer.setAttribute('aria-hidden', 'false');
+  menuBtn.setAttribute('aria-expanded', 'true');
+  document.body.style.overflow = 'hidden';
+  closeBtn.focus();
+}
+function menuClose(){
+  scrim.classList.remove('open');
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden', 'true');
+  menuBtn.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+  window.setTimeout(function(){ if(!drawer.classList.contains('open')) scrim.hidden = true; }, 260);
+  if(lastFocus && lastFocus.focus) lastFocus.focus();
+}
+menuBtn.addEventListener('click', menuOpen);
+closeBtn.addEventListener('click', menuClose);
+scrim.addEventListener('click', menuClose);
+drawer.addEventListener('click', function(e){
+  if(e.target.tagName === 'A') menuClose();
+});
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape' && e.key !== 'Esc') return;
+  if(drawer.classList.contains('open')) menuClose();
+});
+/* فوکوس از کشو بیرون نرود */
+drawer.addEventListener('keydown', function(e){
+  if(e.key !== 'Tab') return;
+  var items = drawer.querySelectorAll('a, button');
+  if(!items.length) return;
+  var first = items[0], last = items[items.length - 1];
+  if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+});
+
+/* ══════════════════ نقاشیِ ماشین ══════════════════
+   چهار نما، همه با viewBox یکسانِ 1000×340 تا جابه‌جاییِ نماها نپرد.
+   هر نما یک رشته‌ی SVG برمی‌گرداند؛ رنگ‌ها همه از متغیرِ CSS می‌آیند
+   تا با عوض شدنِ تم خودشان عوض شوند.
+   ══════════════════════════════════════════════════ */
+function wheel(cx, cy, r){
+  /* چرخِ پنج‌پره: رینگ یک دیسک است و پره‌ها با پنج «پنجره»ی تیره ساخته می‌شوند —
+     خیلی بهتر از کشیدنِ پنج میله روی دیسک. */
+  var i, holes = '';
+  for(i = 0; i < 5; i++){
+    holes += '<ellipse cx="' + cx + '" cy="' + (cy - r * 0.40) + '" rx="' + (r * 0.13) + '" ry="' + (r * 0.22) +
+             '" fill="var(--tire)" transform="rotate(' + (i * 72) + ' ' + cx + ' ' + cy + ')"/>';
+  }
+  return '<g>' +
+    '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="var(--tire)"/>' +
+    '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 0.98) + '" fill="none" stroke="var(--car-line)" stroke-width="1.2" opacity=".25"/>' +
+    '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 0.66) + '" fill="var(--rim)"/>' +
+    holes +
+    '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r * 0.15) + '" fill="var(--car-body-2)"/>' +
+  '</g>';
+}
+
+/* ── نمای جانبی ──────────────────────────────────────────────
+   مقیاس ۰٫۱۷ پیکسل بر میلی‌متر روی ابعادِ واقعی:
+   طول ۴۴۳۰ → ۷۵۳px · فاصله‌ی محورها ۲۴۵۰ → ۴۱۶px · ارتفاع ۱۱۳۰ → ۱۹۲px
+   زمین روی y=۲۸۶ · محورِ جلو x=۲۶۳ · محورِ عقب x=۶۷۹
+   دماغه سمتِ چپ. ترتیبِ کشیدن مهم است: بال بعد از بدنه می‌آید وگرنه
+   پایه‌هایش زیرِ بدنه می‌رود و بال «شناور» دیده می‌شود. */
+function viewSide(){
+  return '' +
+  /* بدنه */
+  '<path d="M96 252 L98 220 C101 196 118 180 152 172 L300 146 ' +
+           'C332 140 352 136 374 131 L470 100 L556 99 ' +
+           'C602 100 642 106 678 116 L804 128 L856 133 ' +
+           'L864 146 L866 214 L862 252 Z" fill="var(--car-body)"/>' +
+  /* نوارِ سایه‌ی پایینِ بدنه — حجم می‌دهد */
+  '<path d="M96 236 L866 236 L866 214 L862 252 L96 252 Z" fill="var(--car-shade)" opacity=".45"/>' +
+  /* شیشه‌ی جلو + سقف */
+  '<path d="M392 130 L474 104 L552 103 L552 130 Z" fill="var(--car-glass)"/>' +
+  /* شیشه‌ی عقب و درِ موتورِ شیب‌دار */
+  '<path d="M560 104 C600 105 636 111 670 120 L700 132 L560 130 Z" fill="var(--car-glass)" opacity=".9"/>' +
+  /* پره‌های درِ موتور */
+  '<g fill="var(--car-shade)" opacity=".75">' +
+    '<rect x="690" y="124" width="104" height="3.6" rx="1.8" transform="rotate(4 690 124)"/>' +
+    '<rect x="694" y="133" width="104" height="3.6" rx="1.8" transform="rotate(4 694 133)"/>' +
+    '<rect x="698" y="142" width="104" height="3.6" rx="1.8" transform="rotate(4 698 142)"/>' +
+  '</g>' +
+  /* ورودیِ هوای کناری (اینترکولر) — جلوی چرخِ عقب */
+  '<path d="M566 158 L648 150 L672 178 L566 180 Z" fill="var(--car-glass)"/>' +
+  '<path d="M566 158 L648 150 L648 156 L566 165 Z" fill="var(--car-line)" opacity=".4"/>' +
+  /* کانالِ ناکا روی در */
+  '<path d="M430 148 L500 142 L508 156 L430 160 Z" fill="var(--car-shade)" opacity=".75"/>' +
+  /* خطِ کمری */
+  '<path d="M120 200 L360 168 L560 168 L850 190" fill="none" stroke="var(--car-line)" stroke-width="2" opacity=".45"/>' +
+  /* شکافِ در */
+  '<path d="M392 134 L392 236 M556 132 L556 236" stroke="var(--car-shade)" stroke-width="2.2" fill="none" opacity=".7"/>' +
+  /* چراغِ جلوی تاشو (بسته) و چراغِ عقب */
+  '<path d="M148 176 L226 168 L226 175 L148 183 Z" fill="var(--car-line)" opacity=".5"/>' +
+  '<rect x="836" y="176" width="28" height="11" rx="4" fill="var(--car-body-2)"/>' +
+  /* آینه */
+  '<path d="M388 126 L368 116 L360 122 L384 132 Z" fill="var(--car-body-2)"/>' +
+  /* قوسِ چرخ‌ها */
+  '<path d="M199 252 A64 64 0 0 1 327 252 Z" fill="var(--car-shade)" opacity=".4"/>' +
+  '<path d="M613 252 A66 66 0 0 1 745 252 Z" fill="var(--car-shade)" opacity=".4"/>' +
+  /* بال — بعد از بدنه، تا پایه‌ها واقعاً روی درِ موتور بنشینند */
+  '<g>' +
+    '<rect x="742" y="96" width="13" height="42" rx="4" fill="var(--car-body-2)"/>' +
+    '<rect x="822" y="96" width="13" height="42" rx="4" fill="var(--car-body-2)"/>' +
+    '<path d="M706 86 L872 86 L872 99 L706 99 Z" fill="var(--car-body)"/>' +
+    '<path d="M706 86 L872 86 L872 90 L706 90 Z" fill="var(--car-line)" opacity=".45"/>' +
+    '<rect x="700" y="80" width="8" height="26" rx="3" fill="var(--car-body-2)"/>' +
+    '<rect x="868" y="80" width="8" height="26" rx="3" fill="var(--car-body-2)"/>' +
+  '</g>' +
+  /* لبِ اسپلیترِ جلو */
+  '<path d="M94 244 L150 244 L150 254 L94 254 Z" fill="var(--car-body-2)"/>' +
+  wheel(263, 232, 54) +
+  wheel(679, 232, 56);
+}
+
+/* ── نمای جلو ──────────────────────────────────────────────
+   عرض ۱۹۷۰ و ارتفاع ۱۱۳۰ میلی‌متر → نسبتِ ۱٫۷۴. عرضِ نقاشی ۵۶۰px. */
+function viewFront(){
+  return '' +
+  /* بال که از پشت پیداست */
+  '<rect x="248" y="60" width="504" height="15" rx="6" fill="var(--car-body-2)"/>' +
+  /* بدنه */
+  '<path d="M222 286 L222 176 C222 152 244 134 282 126 L392 104 ' +
+           'C430 97 570 97 608 104 L718 126 C756 134 778 152 778 176 L778 286 Z" ' +
+        'fill="var(--car-body)"/>' +
+  /* شیشه‌ی جلو */
+  '<path d="M330 128 C400 114 600 114 670 128 L642 108 C580 99 420 99 358 108 Z" fill="var(--car-glass)"/>' +
+  /* برجستگیِ کاپوت */
+  '<path d="M286 150 C380 136 620 136 714 150 L714 158 C620 144 380 144 286 158 Z" fill="var(--car-line)" opacity=".3"/>' +
+  /* چراغ‌های تاشو (بسته) */
+  '<rect x="270" y="164" width="118" height="14" rx="6" fill="var(--car-shade)" opacity=".8"/>' +
+  '<rect x="612" y="164" width="118" height="14" rx="6" fill="var(--car-shade)" opacity=".8"/>' +
+  /* دهانه‌ی بزرگِ هوا و دو دریچه‌ی کناری */
+  '<path d="M330 226 L670 226 L662 268 L338 268 Z" fill="var(--car-glass)"/>' +
+  '<path d="M252 236 L316 236 L316 268 L252 268 Z" fill="var(--car-glass)" opacity=".85"/>' +
+  '<path d="M684 236 L748 236 L748 268 L684 268 Z" fill="var(--car-glass)" opacity=".85"/>' +
+  /* اسپلیتر */
+  '<path d="M214 268 L786 268 L786 286 L214 286 Z" fill="var(--car-body-2)"/>' +
+  /* آینه‌ها */
+  '<path d="M200 138 L222 132 L222 152 L200 156 Z" fill="var(--car-body-2)"/>' +
+  '<path d="M800 138 L778 132 L778 152 L800 156 Z" fill="var(--car-body-2)"/>' +
+  /* لاستیک‌هایی که از دو طرف بیرون‌اند */
+  '<rect x="196" y="212" width="28" height="74" rx="9" fill="var(--tire)"/>' +
+  '<rect x="776" y="212" width="28" height="74" rx="9" fill="var(--tire)"/>';
+}
+
+/* ── نمای عقب ────────────────────────────────────────────── */
+function viewRear(){
+  return '' +
+  /* بال روی دو پایه */
+  '<path d="M232 62 L768 62 L768 78 L232 78 Z" fill="var(--car-body)"/>' +
+  '<path d="M232 62 L768 62 L768 67 L232 67 Z" fill="var(--car-line)" opacity=".45"/>' +
+  '<rect x="336" y="78" width="18" height="46" rx="5" fill="var(--car-body-2)"/>' +
+  '<rect x="646" y="78" width="18" height="46" rx="5" fill="var(--car-body-2)"/>' +
+  /* بدنه */
+  '<path d="M214 286 L214 168 C214 146 236 130 272 124 L390 110 ' +
+           'C440 104 560 104 610 110 L728 124 C764 130 786 146 786 168 L786 286 Z" ' +
+        'fill="var(--car-body)"/>' +
+  /* درِ موتورِ شیاردار */
+  '<g fill="var(--car-shade)" opacity=".8">' +
+    '<rect x="352" y="126" width="296" height="6" rx="3"/>' +
+    '<rect x="346" y="142" width="308" height="6" rx="3"/>' +
+    '<rect x="340" y="158" width="320" height="6" rx="3"/>' +
+    '<rect x="334" y="174" width="332" height="6" rx="3"/>' +
+  '</g>' +
+  /* چهار چراغِ گرد */
+  '<circle cx="264" cy="200" r="16" fill="var(--car-body-2)"/>' +
+  '<circle cx="304" cy="200" r="16" fill="var(--car-body-2)"/>' +
+  '<circle cx="696" cy="200" r="16" fill="var(--car-body-2)"/>' +
+  '<circle cx="736" cy="200" r="16" fill="var(--car-body-2)"/>' +
+  /* دیفیوزرِ پره‌دار */
+  '<path d="M320 226 L680 226 L680 272 L320 272 Z" fill="var(--car-glass)"/>' +
+  '<g fill="var(--car-shade)" opacity=".8">' +
+    '<rect x="340" y="230" width="7" height="42" rx="3"/>' +
+    '<rect x="374" y="230" width="7" height="42" rx="3"/>' +
+    '<rect x="408" y="230" width="7" height="42" rx="3"/>' +
+    '<rect x="585" y="230" width="7" height="42" rx="3"/>' +
+    '<rect x="619" y="230" width="7" height="42" rx="3"/>' +
+    '<rect x="653" y="230" width="7" height="42" rx="3"/>' +
+  '</g>' +
+  /* سه خروجیِ اگزوز */
+  '<circle cx="470" cy="240" r="12" fill="var(--tire)"/>' +
+  '<circle cx="500" cy="240" r="12" fill="var(--tire)"/>' +
+  '<circle cx="530" cy="240" r="12" fill="var(--tire)"/>' +
+  /* لاستیک‌های پهنِ ۳۳۵ عقب */
+  '<rect x="182" y="206" width="34" height="80" rx="10" fill="var(--tire)"/>' +
+  '<rect x="784" y="206" width="34" height="80" rx="10" fill="var(--tire)"/>';
+}
+
+/* ── نمای بالا ──────────────────────────────────────────────
+   ۴۴۳۰ × ۱۹۷۰ → نسبتِ ۲٫۲۵. دماغه سمتِ چپ. */
+function viewTop(){
+  return '' +
+  '<path d="M132 170 C132 142 156 122 196 114 L332 92 C400 82 640 82 708 92 ' +
+           'L844 114 C884 122 908 142 908 170 C908 198 884 218 844 226 ' +
+           'L708 248 C640 258 400 258 332 248 L196 226 C156 218 132 198 132 170 Z" ' +
+        'fill="var(--car-body)"/>' +
+  /* کابین */
+  '<path d="M392 116 C452 108 560 108 620 116 L620 224 C560 232 452 232 392 224 Z" fill="var(--car-glass)"/>' +
+  '<path d="M432 122 C476 117 546 117 590 122 L590 218 C546 223 476 223 432 218 Z" fill="var(--car-line)" opacity=".16"/>' +
+  /* درِ موتورِ شیاردار */
+  '<g fill="var(--car-shade)" opacity=".75">' +
+    '<rect x="656" y="120" width="164" height="7" rx="3"/>' +
+    '<rect x="656" y="138" width="176" height="7" rx="3"/>' +
+    '<rect x="656" y="156" width="182" height="7" rx="3"/>' +
+    '<rect x="656" y="177" width="182" height="7" rx="3"/>' +
+    '<rect x="656" y="195" width="176" height="7" rx="3"/>' +
+    '<rect x="656" y="213" width="164" height="7" rx="3"/>' +
+  '</g>' +
+  /* بالِ عقب که کلِ عرض را می‌گیرد */
+  '<rect x="856" y="86" width="20" height="168" rx="8" fill="var(--car-body-2)"/>' +
+  /* کاپوتِ جلو و دو دریچه */
+  '<path d="M186 130 L364 104 L364 236 L186 210 Z" fill="var(--car-line)" opacity=".18"/>' +
+  '<path d="M214 142 L292 132 L292 168 L214 174 Z" fill="var(--car-glass)" opacity=".7"/>' +
+  '<path d="M214 166 L292 172 L292 208 L214 198 Z" fill="var(--car-glass)" opacity=".7"/>' +
+  /* آینه‌ها */
+  '<rect x="368" y="72" width="38" height="16" rx="7" fill="var(--car-body-2)"/>' +
+  '<rect x="368" y="252" width="38" height="16" rx="7" fill="var(--car-body-2)"/>' +
+  /* خطِ وسط */
+  '<path d="M160 170 L890 170" stroke="var(--car-line)" stroke-width="2" opacity=".22" fill="none"/>';
+}
+
+var VIEWS = [
+  { id:'side',  label:'نمای جانبی', draw:viewSide,
+    cap:'خطِ گوه‌ای، ورودیِ هوای کناری برای اینترکولر، و بالِ بلندِ عقب روی دو پایه.' },
+  { id:'front', label:'نمای جلو', draw:viewFront,
+    cap:'دماغه‌ی پهن و کوتاه با چراغ‌های تاشو و دهانه‌ی بزرگِ هوا در پایین.' },
+  { id:'rear',  label:'نمای عقب', draw:viewRear,
+    cap:'چهار چراغِ گرد، سه خروجیِ اگزوز و دیفیوزرِ پره‌دار زیرِ سپر.' },
+  { id:'top',   label:'نمای بالا', draw:viewTop,
+    cap:'عرضِ نزدیک به دو متر در برابرِ کابینِ باریک — کلِ فضا صرفِ چرخ‌ها و خنک‌کاری شده.' }
+];
+
+var viewGroup = document.getElementById('viewGroup');
+var viewCap   = document.getElementById('viewCap');
+var viewTitle = document.getElementById('viewTitle');
+var viewChips = document.getElementById('viewChips');
+
+function renderView(id){
+  var v = VIEWS[0], i;
+  for(i = 0; i < VIEWS.length; i++){ if(VIEWS[i].id === id) v = VIEWS[i]; }
+  viewGroup.innerHTML = v.draw();
+  viewCap.textContent = v.cap;
+  viewTitle.textContent = v.label + 'ِ فراری F40';
+  var btns = viewChips.querySelectorAll('button'), k;
+  for(k = 0; k < btns.length; k++){
+    btns[k].setAttribute('aria-pressed', btns[k].getAttribute('data-view') === v.id ? 'true' : 'false');
+  }
+}
+VIEWS.forEach(function(v){
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chip';
+  b.setAttribute('data-view', v.id);
+  b.setAttribute('aria-pressed', 'false');
+  b.textContent = v.label;
+  b.addEventListener('click', function(){ renderView(v.id); });
+  viewChips.appendChild(b);
+});
+renderView('side');
+document.getElementById('heroCar').innerHTML = viewSide();
+
+/* ══════════════════ نوارهای موتور ══════════════════ */
+var ENGINE_BARS = [
+  { label:'قدرت',            val:478,  max:520,  fmt:function(v){ return faGroup(v) + ' اسب بخار'; } },
+  { label:'گشتاور',          val:577,  max:700,  fmt:function(v){ return faGroup(v) + ' نیوتن‌متر'; } },
+  { label:'حجمِ موتور',      val:2936, max:5000, fmt:function(v){ return faGroup(v) + ' سی‌سی'; } },
+  { label:'دورِ حداکثر',     val:7750, max:9000, fmt:function(v){ return faGroup(v) + ' دور'; } },
+  { label:'فشارِ توربو',     val:1.1,  max:2,    fmt:function(v){ return faDec(v, 1) + ' بار'; } },
+  { label:'قدرت در هر لیتر', val:163,  max:220,  fmt:function(v){ return faGroup(v) + ' اسب بخار'; } }
+];
+var barsBox = document.getElementById('engineBars');
+ENGINE_BARS.forEach(function(b){
+  var row  = document.createElement('div'); row.className = 'bar-row';
+  var top  = document.createElement('div'); top.className = 'bar-top';
+  var l    = document.createElement('span'); l.textContent = b.label;
+  var r    = document.createElement('span'); r.className = 'num'; r.textContent = b.fmt(b.val);
+  var trk  = document.createElement('div'); trk.className = 'bar-track';
+  var fill = document.createElement('div'); fill.className = 'bar-fill';
+  fill.setAttribute('data-pct', String(Math.round(b.val / b.max * 100)));
+  top.appendChild(l); top.appendChild(r);
+  trk.appendChild(fill);
+  row.appendChild(top); row.appendChild(trk);
+  barsBox.appendChild(row);
+});
+
+/* ══════════════════ نمودارِ مقایسه ══════════════════ */
+var CARS = [
+  { name:'۲۸۸ GTO',  year:'۱۹۸۴', ps:400, kg:1160, s:4.9,  kmh:305, f40:false },
+  { name:'F40',      year:'۱۹۸۷', ps:478, kg:1100, s:4.1,  kmh:324, f40:true  },
+  { name:'F50',      year:'۱۹۹۵', ps:520, kg:1230, s:3.9,  kmh:325, f40:false },
+  { name:'انزو',     year:'۲۰۰۲', ps:660, kg:1365, s:3.65, kmh:350, f40:false },
+  { name:'لافراری',  year:'۲۰۱۳', ps:963, kg:1255, s:2.6,  kmh:350, f40:false }
+];
+var METRICS = [
+  { id:'ps',  label:'قدرت',           get:function(c){ return c.ps; },
+    fmt:function(v){ return faGroup(v) + ' اسب'; }, better:'high',
+    note:'F40 در سالِ ۱۹۸۷ با ۴۷۸ اسب بخار قوی‌ترین فراریِ جاده‌ای بود.' },
+  { id:'ptw', label:'قدرت به وزن',    get:function(c){ return c.ps / (c.kg / 1000); },
+    fmt:function(v){ return faGroup(v) + ' اسب/تن'; }, better:'high',
+    note:'نسبتِ قدرت به وزن — معیارِ واقعیِ چابکی. F40 با ۱۱۰۰ کیلوگرم اینجا از F50 هم جلو می‌زند.' },
+  { id:'kg',  label:'وزن',            get:function(c){ return c.kg; },
+    fmt:function(v){ return faGroup(v) + ' کیلوگرم'; }, better:'low',
+    note:'وزنِ خشک. F40 سبک‌ترینِ این جمع است و این هدفِ اصلیِ طراحی‌اش بود.' },
+  { id:'s',   label:'صفر تا ۱۰۰',     get:function(c){ return c.s; },
+    fmt:function(v){ return faDec(v, 2).replace(/٫۰۰$/, '') + ' ثانیه'; }, better:'low',
+    note:'ارقامِ اعلامیِ کارخانه. کمتر بهتر است.' },
+  { id:'kmh', label:'سرعتِ نهایی',    get:function(c){ return c.kmh; },
+    fmt:function(v){ return faGroup(v) + ' کیلومتر'; }, better:'high',
+    note:'F40 اولین فراریِ جاده‌ای بود که از مرزِ ۳۲۰ کیلومتر بر ساعت عبور کرد.' }
+];
+
+var chartBox = document.getElementById('chart');
+var chartNote = document.getElementById('chartNote');
+var segBox   = document.getElementById('metricSeg');
+var curMetric = 'ps';
+
+function drawChart(mid){
+  var m = METRICS[0], i;
+  for(i = 0; i < METRICS.length; i++){ if(METRICS[i].id === mid) m = METRICS[i]; }
+  curMetric = m.id;
+
+  var vals = CARS.map(m.get);
+  var max = Math.max.apply(null, vals);
+  var min = Math.min.apply(null, vals);
+
+  chartBox.textContent = '';
+  CARS.forEach(function(c, idx){
+    var v = vals[idx];
+    /* «کمتر بهتر» را وارونه نشان می‌دهیم تا نوارِ بلندتر همیشه یعنی بهتر */
+    var pct = (m.better === 'low')
+      ? (min / v) * 100
+      : (v / max) * 100;
+    pct = Math.max(16, Math.min(100, pct));
+
+    var row = document.createElement('div');
+    row.className = 'chart-row' + (c.f40 ? ' is-f40' : '');
+
+    var nm = document.createElement('div');
+    nm.className = 'chart-name';
+    var strong = document.createElement('b');
+    strong.textContent = c.name;
+    nm.appendChild(strong);
+    nm.appendChild(document.createTextNode(c.year));
+
+    var bar = document.createElement('div');
+    bar.className = 'chart-bar';
+    var fill = document.createElement('div');
+    fill.className = 'chart-fill';
+    var val = document.createElement('div');
+    val.className = 'chart-val num';
+    val.textContent = m.fmt(v);
+    bar.appendChild(fill);
+    bar.appendChild(val);
+
+    row.appendChild(nm);
+    row.appendChild(bar);
+    chartBox.appendChild(row);
+
+    /* عرض را یک فریم بعد می‌گذاریم تا انیمیشن دیده شود */
+    if(REDUCED){ fill.style.inlineSize = pct + '%'; }
+    else { window.setTimeout(function(){ fill.style.inlineSize = pct + '%'; }, 30 + idx * 60); }
+  });
+
+  chartNote.textContent = m.note;
+
+  var btns = segBox.querySelectorAll('button'), k;
+  for(k = 0; k < btns.length; k++){
+    btns[k].setAttribute('aria-pressed', btns[k].getAttribute('data-metric') === m.id ? 'true' : 'false');
+  }
+}
+METRICS.forEach(function(m){
+  var b = document.createElement('button');
+  b.type = 'button';
+  b.setAttribute('data-metric', m.id);
+  b.setAttribute('aria-pressed', 'false');
+  b.textContent = m.label;
+  b.addEventListener('click', function(){ drawChart(m.id); });
+  segBox.appendChild(b);
+});
+drawChart(curMetric);
+
+/* ══════════════════ ظهور + شمارنده + نوارها ══════════════════ */
+function runCounter(el){
+  if(el.getAttribute('data-done') === '1') return;
+  el.setAttribute('data-done', '1');
+  var target = parseFloat(el.getAttribute('data-count'));
+  var dec = el.getAttribute('data-decimal') ? parseInt(el.getAttribute('data-decimal'), 10) : 0;
+  var show = function(v){ el.textContent = dec ? faDec(v / Math.pow(10, dec), dec) : faGroup(v); };
+  if(REDUCED){ show(target); return; }
+  var t0 = 0, DUR = 1100;
+  var step = function(ts){
+    if(!t0) t0 = ts;
+    var p = Math.min(1, (ts - t0) / DUR);
+    var e = 1 - Math.pow(1 - p, 3);
+    show(target * e);
+    if(p < 1) requestAnimationFrame(step); else show(target);
+  };
+  requestAnimationFrame(step);
+}
+
+function fillBars(){
+  var fills = document.querySelectorAll('#engineBars .bar-fill'), i;
+  for(i = 0; i < fills.length; i++){
+    fills[i].style.inlineSize = fills[i].getAttribute('data-pct') + '%';
+  }
+}
+
+if('IntersectionObserver' in window){
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(!en.isIntersecting) return;
+      var el = en.target;
+      el.classList.add('in');
+      var nums = el.querySelectorAll('[data-count]'), i;
+      for(i = 0; i < nums.length; i++) runCounter(nums[i]);
+      if(el.getAttribute('data-count') != null) runCounter(el);
+      if(el.id === 'engine') fillBars();
+      io.unobserve(el);
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+
+  var watched = document.querySelectorAll('.reveal, .hstat b, #engine');
+  Array.prototype.forEach.call(watched, function(el){ io.observe(el); });
+} else {
+  /* بدونِ IntersectionObserver همه‌چیز فوراً نشان داده شود، نه اینکه نامرئی بماند */
+  Array.prototype.forEach.call(document.querySelectorAll('.reveal'), function(el){ el.classList.add('in'); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-count]'), runCounter);
+  fillBars();
+}
+
+/* ══════════════════ نشان دادنِ بخشِ فعلی در فهرست ══════════════════ */
+var navLinks = document.querySelectorAll('.mainnav a, .drawer a');
+var sections = [];
+Array.prototype.forEach.call(navLinks, function(a){
+  var id = a.getAttribute('href').slice(1);
+  var el = document.getElementById(id);
+  if(el && sections.indexOf(el) === -1) sections.push(el);
+});
+function markCurrent(){
+  var y = window.scrollY + 120, cur = null, i;
+  for(i = 0; i < sections.length; i++){
+    if(sections[i].offsetTop <= y) cur = sections[i].id;
+  }
+  Array.prototype.forEach.call(navLinks, function(a){
+    if(a.getAttribute('href') === '#' + cur) a.setAttribute('aria-current', 'true');
+    else a.removeAttribute('aria-current');
+  });
+}
+var ticking = false;
+window.addEventListener('scroll', function(){
+  if(ticking) return;
+  ticking = true;
+  requestAnimationFrame(function(){ markCurrent(); ticking = false; });
+}, { passive: true });
+markCurrent();
+
+/* ══════════════════ قلابِ تست ══════════════════
+   بازرس از این‌ها استفاده می‌کند تا به‌جای صدا زدنِ توابعِ داخلی،
+   وضعیتِ واقعیِ صفحه را بخواند.
+   ══════════════════════════════════════════════ */
+window.F40 = {
+  theme:      function(){ return document.documentElement.getAttribute('data-theme'); },
+  setTheme:   applyTheme,
+  view:       function(id){ renderView(id); return 0; },
+  metric:     function(id){ drawChart(id); return 0; },
+  curMetric:  function(){ return curMetric; },
+  openMenu:   function(){ menuOpen();  return 0; },
+  closeMenu:  function(){ menuClose(); return 0; },
+  menuIsOpen: function(){ return drawer.classList.contains('open'); },
+  revealAll:  function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.reveal'), function(el){ el.classList.add('in'); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-count]'), runCounter);
+    fillBars();
+    return 0;
+  },
+  faGroup: faGroup,
+  faDec: faDec
+};
+})();
+</script>
+</body>
+</html>
