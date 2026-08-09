@@ -1,0 +1,149 @@
+{
+  "name": "سایتِ فراری F40",
+  "assets": ["font1.woff2", "font2.woff2"],
+  "narrow_width": 320,
+
+  "_note_reset": "قبل از هر بررسی: منو بسته شود، همه‌ی بخش‌های «ظهورِ نرم» نشان داده شوند (وگرنه با opacity:0 از اندازه‌گیریِ رنگ و بیرون‌زدگی جا می‌مانند) و صفحه برگردد بالا. هر بررسی وضعیتِ خودش را می‌سازد و به وضعیتِ جامانده تکیه نمی‌کند.",
+  "_note_scroll": "scrollTo باید instant باشد: صفحه scroll-behavior:smooth دارد و اسکرولِ انیمیشنیِ reset با اسکرولِ خودِ بررسی مسابقه می‌داد — چند عکس از وسطِ صفحه‌ی دیگری درآمد.",
+  "reset": "(()=>{window.F40.closeMenu();window.F40.revealAll();window.scrollTo({top:0,behavior:'instant'});return 0})()",
+
+  "screens": [
+    ["بالای صفحه",   "(()=>{window.scrollTo(0,0);return 0})()"],
+    ["داستان",       "(()=>{document.getElementById('story').scrollIntoView({behavior:'instant'});return 0})()"],
+    ["مشخصات",       "(()=>{document.getElementById('specs').scrollIntoView({behavior:'instant'});return 0})()"],
+    ["موتور",        "(()=>{document.getElementById('engine').scrollIntoView({behavior:'instant'});return 0})()"],
+    ["طراحی",        "(()=>{document.getElementById('design').scrollIntoView({behavior:'instant'});return 0})()"],
+    ["خطِ زمان",     "(()=>{document.getElementById('timeline').scrollIntoView({behavior:'instant'});return 0})()"],
+    ["مسابقه",       "(()=>{document.getElementById('race').scrollIntoView({behavior:'instant'});return 0})()"],
+    ["مقایسه قدرت",  "(()=>{document.getElementById('compare').scrollIntoView({behavior:'instant'});window.F40.metric('ps');return 0})()"],
+    ["مقایسه وزن",   "(()=>{document.getElementById('compare').scrollIntoView({behavior:'instant'});window.F40.metric('kg');return 0})()"],
+    ["مقایسه شتاب",  "(()=>{document.getElementById('compare').scrollIntoView({behavior:'instant'});window.F40.metric('s');return 0})()"],
+    ["نمای جانبی",   "(()=>{document.getElementById('gallery').scrollIntoView({behavior:'instant'});window.F40.view('side');return 0})()"],
+    ["نمای جلو",     "(()=>{document.getElementById('gallery').scrollIntoView({behavior:'instant'});window.F40.view('front');return 0})()"],
+    ["نمای عقب",     "(()=>{document.getElementById('gallery').scrollIntoView({behavior:'instant'});window.F40.view('rear');return 0})()"],
+    ["نمای بالا",    "(()=>{document.getElementById('gallery').scrollIntoView({behavior:'instant'});window.F40.view('top');return 0})()"],
+    ["نکته‌ها",      "(()=>{document.getElementById('facts').scrollIntoView({behavior:'instant'});return 0})()"],
+    ["منوی موبایل",  "(()=>{window.F40.openMenu();return 0})()"]
+  ],
+
+  "themes": [
+    {"name": "تاریک", "js": "window.F40.setTheme('dark')"},
+    {"name": "روشن",  "js": "window.F40.setTheme('light')"}
+  ],
+
+  "_note_hscroll": "جدولِ مشخصات عمداً در صفحه‌ی باریک کشوی افقی دارد — ستونِ «مقدار» را نباید شکست.",
+  "allow_hscroll": [".tablewrap"],
+
+  "checks": [
+    {"name": "شمارنده‌ی قدرت به عددِ نهایی می‌رسد",
+     "before": "window.F40.revealAll()", "wait": 1600,
+     "js": "()=>document.querySelectorAll('.hstat b')[0].textContent",
+     "expect": "۴۷۸"},
+
+    {"name": "شمارنده‌ی تعدادِ تولید جداکننده‌ی فارسی می‌گیرد",
+     "before": "window.F40.revealAll()", "wait": 1600,
+     "js": "()=>document.querySelectorAll('.hstat b')[3].textContent",
+     "expect": "۱٬۳۱۱"},
+
+    {"name": "شتابِ صفر تا صد با ممیزِ فارسی نوشته می‌شود",
+     "before": "window.F40.revealAll()", "wait": 1600,
+     "js": "()=>document.querySelectorAll('#specs .stat b .num')[2].textContent",
+     "expect": "۴٫۱"},
+
+    {"name": "faGroup هزارگان را فارسی جدا می‌کند",
+     "js": "()=>window.F40.faGroup(2936)", "expect": "۲٬۹۳۶"},
+
+    {"name": "faDec نقطه‌ی لاتین را به ممیزِ فارسی می‌برد",
+     "js": "()=>window.F40.faDec(1.1,1)", "expect": "۱٫۱"},
+
+    {"name": "هیچ رقمِ لاتینی در اعدادِ متن نمانده",
+     "before": "window.F40.revealAll()", "wait": 1600,
+     "js": "()=>[...document.querySelectorAll('.num')].filter(e=>/[0-9]/.test(e.textContent)).length",
+     "expect": 0},
+
+    {"name": "در معیارِ «وزن» نوارِ F40 بلندترین است (سبک‌ترین)",
+     "before": "window.F40.metric('kg')", "wait": 1100,
+     "js": "()=>{const rows=[...document.querySelectorAll('.chart-row')];const w=rows.map(r=>r.querySelector('.chart-fill').getBoundingClientRect().width);const i=w.indexOf(Math.max(...w));return rows[i].classList.contains('is-f40')?'F40':rows[i].querySelector('b').textContent}",
+     "expect": "F40"},
+
+    {"name": "در معیارِ «قدرت» نوارِ بلند مالِ لافراری است",
+     "before": "window.F40.metric('ps')", "wait": 1100,
+     "js": "()=>{const rows=[...document.querySelectorAll('.chart-row')];const w=rows.map(r=>r.querySelector('.chart-fill').getBoundingClientRect().width);const i=w.indexOf(Math.max(...w));return rows[i].querySelector('b').textContent}",
+     "expect": "لافراری"},
+
+    {"name": "قدرتِ روی نوارِ F40 همان ۴۷۸ اسب است",
+     "before": "window.F40.metric('ps')", "wait": 900,
+     "js": "()=>document.querySelector('.chart-row.is-f40 .chart-val').textContent",
+     "expect": "۴۷۸ اسب"},
+
+    {"name": "نسبتِ قدرت به وزنِ F40 درست حساب می‌شود",
+     "before": "window.F40.metric('ptw')", "wait": 900,
+     "js": "()=>document.querySelector('.chart-row.is-f40 .chart-val').textContent",
+     "expect": "۴۳۵ اسب/تن"},
+
+    {"name": "هیچ نواری از کادرِ نمودار بیرون نمی‌زند",
+     "before": "window.F40.metric('ps')", "wait": 1100,
+     "js": "()=>[...document.querySelectorAll('.chart-row')].filter(r=>r.querySelector('.chart-fill').getBoundingClientRect().width > r.querySelector('.chart-bar').getBoundingClientRect().width+1).length",
+     "expect": 0},
+
+    {"name": "هر چهار نما واقعاً نقاشی تولید می‌کنند",
+     "js": "()=>{const bad=[];['side','front','rear','top'].forEach(id=>{window.F40.view(id);if(document.getElementById('viewGroup').childElementCount<5)bad.push(id)});window.F40.view('side');return bad.length}",
+     "expect": 0},
+
+    {"name": "عنوانِ دسترس‌پذیریِ تصویر با نما عوض می‌شود",
+     "before": "window.F40.view('rear')", "wait": 300,
+     "js": "()=>document.getElementById('viewTitle').textContent",
+     "expect": "نمای عقبِ فراری F40"},
+
+    {"name": "منوی موبایل با Esc بسته می‌شود",
+     "before": "window.F40.openMenu()", "wait": 400,
+     "js": "()=>{document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));return window.F40.menuIsOpen()}",
+     "expect": false},
+
+    {"name": "منوی باز، فوکوس را داخلِ خودش نگه می‌دارد",
+     "before": "window.F40.openMenu()", "wait": 400,
+     "js": "()=>document.getElementById('drawer').contains(document.activeElement)",
+     "expect": true},
+
+    {"name": "نوارهای موتور همه پر می‌شوند",
+     "before": "window.F40.revealAll()", "wait": 1400,
+     "js": "()=>[...document.querySelectorAll('#engineBars .bar-fill')].filter(e=>e.getBoundingClientRect().width<1).length",
+     "expect": 0},
+
+    {"name": "بخشِ فعلی در فهرست علامت می‌خورد",
+     "before": "(()=>{document.getElementById('engine').scrollIntoView({behavior:'instant',block:'start'});return 0})()",
+     "wait": 800,
+     "js": "()=>{const a=document.querySelector('.mainnav a[aria-current=\"true\"]');return a?a.getAttribute('href'):'هیچ'}",
+     "expect": "#engine"},
+
+    {"name": "تمِ تاریک واقعاً روی بدنه می‌نشیند",
+     "before": "window.F40.setTheme('dark')", "wait": 350,
+     "js": "()=>getComputedStyle(document.body).backgroundColor",
+     "expect": "rgb(13, 13, 16)"},
+
+    {"name": "تمِ روشن هم برمی‌گردد",
+     "before": "window.F40.setTheme('light')", "wait": 350,
+     "js": "()=>getComputedStyle(document.body).backgroundColor",
+     "expect": "rgb(244, 244, 246)"},
+
+    {"name": "_هر متغیرِ رنگ در تمِ تاریک تعریف شده",
+     "before": "window.F40.setTheme('dark')", "wait": 350,
+     "js": "()=>{const used=new Set();const walk=rs=>{for(const r of rs){const t=r.style?r.style.cssText:'';let m;const re=/var\\((--[\\w-]+)/g;while(m=re.exec(t||''))used.add(m[1]);if(r.cssRules)walk(r.cssRules)}};for(const sh of document.styleSheets){try{walk(sh.cssRules)}catch(e){}}const cs=getComputedStyle(document.documentElement);const miss=[...used].filter(v=>!cs.getPropertyValue(v).trim());return miss.length?miss.join('،'):0}",
+     "expect": 0},
+
+    {"name": "_هر متغیرِ رنگ در تمِ روشن تعریف شده",
+     "before": "window.F40.setTheme('light')", "wait": 350,
+     "js": "()=>{const used=new Set();const walk=rs=>{for(const r of rs){const t=r.style?r.style.cssText:'';let m;const re=/var\\((--[\\w-]+)/g;while(m=re.exec(t||''))used.add(m[1]);if(r.cssRules)walk(r.cssRules)}};for(const sh of document.styleSheets){try{walk(sh.cssRules)}catch(e){}}const cs=getComputedStyle(document.documentElement);const miss=[...used].filter(v=>!cs.getPropertyValue(v).trim());return miss.length?miss.join('،'):0}",
+     "expect": 0},
+
+    {"name": "هر هدفِ لمسی دستِ‌کم ۴۴ پیکسل ارتفاع دارد",
+     "before": "window.F40.revealAll()", "wait": 500,
+     "js": "()=>[...document.querySelectorAll('button,.btn,.chip,.seg button')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&r.height<38}).map(e=>(e.textContent||'').trim().slice(0,14)).join('،')||0",
+     "expect": 0},
+
+    {"name": "کارت‌ها هم‌رنگِ زمینه‌ی بخشِ خودشان نیستند",
+     "before": "window.F40.revealAll()", "wait": 500,
+     "js": "()=>[...document.querySelectorAll('section[id] .card')].filter(c=>getComputedStyle(c).backgroundColor===getComputedStyle(c.closest('section')).backgroundColor).length",
+     "expect": 0}
+  ]
+}
