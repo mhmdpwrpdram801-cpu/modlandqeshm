@@ -50,7 +50,11 @@ MUTANTS = [
 
  dict(id="M05", file=PANEL, rule="UI-08", count=1,
       desc="نوارِ به‌روزرسانی دوباره z-index:9999 می‌گیرد",
-      find="#updBar{position:fixed;", repl="#updBar{z-index:9999;position:fixed;"),
+      find="left:12px;right:12px;bottom:calc(var(--nav-h) + 10px);z-index:50;",
+      repl="left:12px;right:12px;bottom:calc(var(--nav-h) + 10px);z-index:9999;"),
+      # نکته: درجِ z-index:9999 در ابتدای همین قاعده هیچ اثری ندارد — اعلانِ
+      # z-index:50 که بعدش می‌آید برنده می‌شود. جهشِ اول دقیقاً همین بود و دو بار
+      # «سوراخ» گزارش شد تا معلوم شد اصلاً مقدار عوض نمی‌شده.
 
  dict(id="M06", file=PANEL, rule="SEC-04", count=1,
       desc="نامِ کالا بدونِ esc() داخلِ innerHTML می‌رود",
@@ -94,16 +98,16 @@ MUTANTS = [
       find="function jLeap(jy){ return jalCal(jy).leap===0; }",
       repl="function jLeap(jy){ return jalCal(jy).leap===1; }"),
 
- dict(id="M15", file=EXPENSES, rule="UI-10/UI-02", count=1,
+ dict(equiv="showModal خودش اولین عنصرِ فوکوس‌پذیر را فوکوس می‌کند و اینجا اولی همان «بی‌خیال» است — پس autofocus حشو است و برداشتنش رفتار را عوض نمی‌کند. (در پنل ترتیب برعکس است و آنجا واقعاً مهم است — M03.)", id="M15", file=EXPENSES, rule="UI-10/UI-02", count=1,
       desc="autofocusِ «بی‌خیال» برداشته می‌شود؛ Enter یعنی حذف",
       find=' autofocus', repl=''),
 
- dict(id="M16", file=EXPENSES, rule="DATA-03", count=1,
+ dict(equiv="هر رشته‌ای که از ^\\d{1,15}$ رد شود عددِ صحیح است، پس parseInt و parseFloat یک جواب می‌دهند.", id="M16", file=EXPENSES, rule="DATA-03", count=1,
       desc="پول با اعشار خوانده می‌شود (parseFloat به‌جای عددِ صحیح)",
       find="return parseInt(s,10);\n}\nfunction esc(s){",
       repl="return parseFloat(s);\n}\nfunction esc(s){"),
 
- dict(id="M17", file=EXPENSES, rule="UI-01", count=1,
+ dict(equiv="اندازه‌گیری شد: ارتفاعِ طبیعیِ متنِ ۱۶ پیکسلی با padding از ۴۴ رد می‌شود، پس پایین آوردنِ min-height هیچ دکمه‌ای را کوچک نمی‌کند.", id="M17", file=EXPENSES, rule="UI-01", count=1,
       desc="هدفِ لمسیِ دکمه‌ها از ۴۴ به ۱۸ پیکسل می‌افتد",
       find=".btn{\n  min-height:44px; min-width:44px;",
       repl=".btn{\n  min-height:18px; min-width:18px;"),
@@ -117,7 +121,7 @@ MUTANTS = [
       find='<html lang="fa" dir="rtl" data-theme="light">',
       repl='<html data-theme="light">'),
 
- dict(id="M20", file=EXPENSES, rule="OPS-03", count=1,
+ dict(equiv="load() همان پرچم را از راهِ probe می‌زند؛ این خط در آن مسیر اصلاً به کار نمی‌آید.", id="M20", file=EXPENSES, rule="OPS-03", count=1,
       desc="خطای نوشتن در حافظه بی‌صدا بلعیده می‌شود (هشدار نشان داده نمی‌شود)",
       find="if(!okw) MEM=true;", repl="if(!okw) MEM=false;"),
 ]
@@ -182,6 +186,8 @@ def main():
             results.append(dict(m, verdict="گرفت" if caught else "در رفت",
                                 detail="؛ ".join(fails[:2]) if fails else ""))
             mark = "✅ گرفت" if caught else "❌ در رفت"
+            if m.get("equiv") and caught:
+                mark += "  ⚠️ هم‌ارز فرض شده بود ولی گرفته شد — فرض را بازبین کن"
             print(f"\n  [{i}/{len(sel)}] {m['id']} ({m['rule']}) {mark}  ({secs}s)")
             print(f"       {m['desc']}")
             if fails:
@@ -191,13 +197,19 @@ def main():
         for f, src in originals.items():
             open(os.path.join(ROOT, f), "w", encoding="utf-8").write(src)
 
-    ran = [r for r in results if r["verdict"] != "نخورد"]
+    ran = [r for r in results if r["verdict"] != "نخورد" and not r.get("equiv")]
+    equivs = [r for r in results if r.get("equiv") and r["verdict"] != "نخورد"]
     caught = [r for r in ran if r["verdict"] == "گرفت"]
     missed = [r for r in ran if r["verdict"] == "در رفت"]
     skipped = [r for r in results if r["verdict"] == "نخورد"]
 
     print("\n" + "═" * 60)
     print(f"  نرخِ گرفتن: {len(caught)}/{len(ran)}")
+    if equivs:
+        print(f"\n  ({len(equivs)} جهشِ هم‌ارز از شمارش کنار گذاشته شد — رفتاری را عوض نمی‌کنند،")
+        print("   پس نه قوّتِ دروازه را ثابت می‌کنند نه ضعفش را:)")
+        for r in equivs:
+            print(f"     · {r['id']}: {r['equiv'][:88]}")
     if missed:
         print(f"\n  ❌ {len(missed)} باگ از زیرِ دستِ بازرس در رفت — اینجا بررسی لازم است:")
         for r in missed:
