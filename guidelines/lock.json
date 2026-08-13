@@ -18,6 +18,11 @@
       "name": "بازرسِ ابزارِ خرج",
       "cmd": "python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json",
       "note": "دروازه‌ی ابزارِ تک‌فایلِ ثبتِ خرج (expenses/). کدِ خروجی ۰ یعنی آماده."
+    },
+    {
+      "name": "بازرسِ سمتِ سرور",
+      "cmd": "python3 auditor/server_audit.py --db <خروجیِ auditor/db_invariants.sql>",
+      "note": "ربات و ثابت‌های دیتابیس. بدونِ --db بخشِ دیتابیس رد می‌شود، نه اینکه پاس شود."
     }
   ],
   "areas": {
@@ -29,7 +34,7 @@
     "bot/": {
       "version": "2026.08.8",
       "kind": "کدِ موجود",
-      "note": "کپیِ مرجعِ Edge Function. قبل از تغییر bot/README.md خوانده شود."
+      "note": "کپیِ مرجعِ Edge Function. قبل از تغییر bot/README.md خوانده شود. دروازه‌اش auditor/server_audit.py است."
     },
     "auditor/": {
       "version": "2026.08.8",
