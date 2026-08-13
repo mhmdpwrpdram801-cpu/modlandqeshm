@@ -1,0 +1,223 @@
+{
+  "name": "خرجِ مغازه",
+  "assets": [],
+  "narrow_width": 320,
+
+  "_note_login": "ورودی ندارد، ولی همین «آماده شدن» را می‌سنجیم: اگر boot نرسیده باشد، هر بررسیِ محتوایی صفر برمی‌گرداند و ده‌ها باگِ جعلی می‌سازد.",
+  "login_done": "()=>{try{return !!window.EXP && document.getElementById('mLabel').textContent!=='…'}catch(e){return false}}",
+
+  "_note_reset": "قبل از هر بررسی: پنجره و پیام بسته شود، ویرایش لغو شود، و همان پنج ردیفِ نمونه از نو نوشته شود. هر بررسی وضعیتِ خودش را می‌سازد و به جامانده‌ی قبلی تکیه نمی‌کند. ردیفِ e5 عمداً نامِ بلند و بدقواره دارد (گیومه، <b>، &، ویرگول) و مبلغِ بزرگ — نامِ کوتاه همه‌چیز را سالم نشان می‌دهد. e4 در تیر است تا مرزِ ماه سنجیده شود، e1 اولِ ماه و e3 آخرین روزِ مرداد (۳۱).",
+  "reset": "(()=>{window.EXP.closeAll();window.EXP.replaceAll([{id:'e1',ts:1,jdate:'1405/05/01',note:'کرایه‌ی حملِ بار',amount:1200000},{id:'e2',ts:2,jdate:'1405/05/22',note:'قبضِ برق مغازه',amount:830000},{id:'e3',ts:3,jdate:'1405/05/31',note:'ناهارِ کارگرها',amount:450000},{id:'e4',ts:4,jdate:'1405/04/31',note:'خریدِ نایلون بسته‌بندی',amount:2000000},{id:'e5',ts:5,jdate:'1405/05/15',note:'کرایه‌ی «حملِ بار» با <b>وانت</b> & باربری از اسکله‌ی قشم تا مغازه, ۳ سرویس',amount:99000000}]);window.EXP.gotoMonth(1405,5);return 0})()",
+
+  "screens": [
+    ["ماهِ جاری",        "(()=>{window.EXP.gotoMonth(1405,5);return 0})()"],
+    ["ماهِ قبل",         "(()=>{window.EXP.gotoMonth(1405,4);return 0})()"],
+    ["ماهِ خالی",        "(()=>{window.EXP.gotoMonth(1405,7);return 0})()"],
+    ["بدونِ هیچ داده",   "(()=>{window.EXP.replaceAll([]);return 0})()"],
+    ["خطای فرم",         "(()=>{document.getElementById('submitBtn').click();return 0})()"],
+    ["ویرایشِ ردیف",     "(()=>{window.EXP.startEdit('e2');return 0})()"],
+    ["پرسشِ حذف",        "(()=>{window.EXP.askDelete('e2');return 0})()"],
+    ["پیامِ برگرداندن",  "(()=>{window.EXP.removeRow('e2');return 0})()"],
+    ["بازگردانیِ پشتیبان","(()=>{document.getElementById('toolsBtn').click();return 0})()"],
+    ["هشدارِ حافظه",     "(()=>{document.getElementById('storeWarn').hidden=false;return 0})()"],
+    ["ماهِ پرشمار",      "(()=>{window.EXP.replaceAll(Array.from({length:120},(_,i)=>({id:'m'+i,ts:i+1,jdate:'1405/05/'+String((i%31)+1).padStart(2,'0'),note:'قلم شماره '+(i+1),amount:1000})));return 0})()"]
+  ],
+
+  "themes": [
+    {"name": "تاریک", "js": "window.EXP.setTheme('dark')"},
+    {"name": "روشن",  "js": "window.EXP.setTheme('light')"}
+  ],
+
+  "_note_click": "کلیکِ واقعی، نه صدا زدنِ تابع. فیلدِ تاریخ خالی می‌شود تا «امروز» و «دیروز» هم تغییرِ دیدنی بسازند، وگرنه دکمه‌ای که همان مقدارِ فعلی را می‌نویسد «بی‌اثر» گزارش می‌شد.",
+  "click_test": {
+    "selector": "#toolsCard button, .monthnav button, #submitBtn, #todayBtn, #yesterBtn",
+    "before": "(()=>{const d=document.getElementById('fDate');d.value='';d.dispatchEvent(new Event('input'));return 0})()",
+    "wait": 300,
+    "settle": 400
+  },
+
+  "checks": [
+    {"name": "۸۵۰٬۰۰۰ به سه شکل خوانده می‌شود",
+     "js": "()=>[window.EXP.parseNum('850.000'),window.EXP.parseNum('۸۵۰٬۰۰۰'),window.EXP.parseNum('850,000')].join('/')",
+     "expect": "850000/850000/850000"},
+
+    {"name": "ورودیِ نامعتبر NaN می‌دهد، نه صفرِ خاموش",
+     "js": "()=>[window.EXP.parseNum('abc'),window.EXP.parseNum(''),window.EXP.parseNum('۱۲٫۵'),window.EXP.parseNum('-۵۰۰')].map(v=>Number.isNaN(v)?'NaN':v).join('/')",
+     "expect": "NaN/NaN/NaN/NaN"},
+
+    {"name": "تبدیلِ تاریخ با تقویمِ خودِ مرورگر مقابله می‌شود (هر دو جهت)",
+     "needs": "(()=>{try{return new Intl.DateTimeFormat('en-u-ca-persian').resolvedOptions().calendar==='persian'}catch(e){return false}})()",
+     "js": "()=>{const f=new Intl.DateTimeFormat('en-u-ca-persian-nu-latn',{year:'numeric',month:'numeric',day:'numeric',timeZone:'UTC'});const oracle=ms=>{const g={};for(const p of f.formatToParts(new Date(ms)))g[p.type]=p.value;return (+g.year)+'/'+String(+g.month).padStart(2,'0')+'/'+String(+g.day).padStart(2,'0')};const A=Date.UTC(2026,7,13),a=window.EXP.j2d(1405,5,22);let n=0,c=0,ex='';for(let t=Date.UTC(2020,0,1);t<Date.UTC(2026,0,1);t+=86400000){n++;const mine=window.EXP.jKey(window.EXP.d2j(a+Math.round((t-A)/86400000)));const want=oracle(t);if(mine!==want){c++;if(!ex)ex=' — مثال: '+new Date(t).toISOString().slice(0,10)+' → '+mine+' ≠ '+want}}return c?(c+' اختلاف'+ex):('۰ اختلاف در '+n+' روز')}",
+     "expect": "۰ اختلاف در 2192 روز"},
+
+    {"name": "طولِ ماه‌های جلالی و کبیسه",
+     "js": "()=>[window.EXP.jMonthLen(1403,12),window.EXP.jMonthLen(1404,12),window.EXP.jMonthLen(1408,12),window.EXP.jMonthLen(1405,5),window.EXP.jMonthLen(1405,7)].join('/')",
+     "expect": "30/29/30/31/30"},
+
+    {"name": "تاریخِ نامعتبر پذیرفته نمی‌شود",
+     "js": "()=>[window.EXP.parseJ('1404/12/30'),window.EXP.parseJ('1403/12/30'),window.EXP.parseJ('1405/13/01'),window.EXP.parseJ('1405/05/00'),window.EXP.parseJ('۱۴۰۵/۰۵/۲۲'),window.EXP.parseJ('2026-08-13')].map(v=>v?'ok':'رد').join('/')",
+     "expect": "رد/ok/رد/رد/ok/رد"},
+
+    {"name": "جمعِ ماه با عددِ دستی‌حساب‌شده می‌خواند",
+     "js": "()=>document.getElementById('mTotal').textContent+' | '+document.getElementById('mCount').textContent+' | '+document.getElementById('mWords').textContent",
+     "expect": "۱۰۱٬۴۸۰٬۰۰۰ | ۴ قلم | صد و یک میلیون و چهارصد و هشتاد هزار تومان"},
+
+    {"name": "اولین و آخرین روزِ ماه داخلِ ماه حساب می‌شوند",
+     "js": "()=>window.EXP.rowsOfMonth(1405,5).map(r=>r.jdate.slice(8)).sort().join(',')+' | '+window.EXP.sumOf(window.EXP.rowsOfMonth(1405,5))",
+     "expect": "01,15,22,31 | 101480000"},
+
+    {"name": "خرجِ ماهِ دیگر در جمعِ این ماه نمی‌آید",
+     "before": "window.EXP.gotoMonth(1405,4)",
+     "js": "()=>document.getElementById('mTotal').textContent+' | '+document.getElementById('mCount').textContent",
+     "expect": "۲٬۰۰۰٬۰۰۰ | ۱ قلم"},
+
+    {"name": "ماهِ خالی «همه‌چی مرتبه» نمی‌گوید",
+     "before": "window.EXP.gotoMonth(1405,7)",
+     "js": "()=>document.getElementById('mTotal').textContent+' | '+document.querySelector('#list .empty').textContent",
+     "expect": "۰ | در مهر ۱۴۰۵ خرجی ثبت نشده."},
+
+    {"name": "حالتِ «هیچ داده‌ای نیست» پیامِ راهنما دارد",
+     "before": "window.EXP.replaceAll([])",
+     "js": "()=>document.querySelector('#list .empty').textContent+' | '+document.getElementById('mTotal').textContent",
+     "expect": "هنوز چیزی ثبت نشده — اولین خرج را بالا وارد کن. | ۰"},
+
+    {"name": "۱۲۰ ردیف: جمع درست و لیستِ کامل",
+     "before": "window.EXP.replaceAll(Array.from({length:120},(_,i)=>({id:'m'+i,ts:i+1,jdate:'1405/05/'+String((i%31)+1).padStart(2,'0'),note:'قلم شماره '+(i+1),amount:1000})))",
+     "js": "()=>document.getElementById('mTotal').textContent+' | '+document.querySelectorAll('#list li').length",
+     "expect": "۱۲۰٬۰۰۰ | 120"},
+
+    {"name": "نامِ کالا با <b> و & متن می‌مانَد، HTML نمی‌شود",
+     "js": "()=>{const n=[...document.querySelectorAll('#list .rnote')].find(x=>x.textContent.indexOf('وانت')>=0);return document.querySelectorAll('#list .rnote b').length+' | '+(!n?'ردیف نیست':(n.textContent.indexOf('<b>وانت</b>')>=0&&n.textContent.indexOf('&')>=0?'متنِ خام':'دست‌خورده'))}",
+     "expect": "0 | متنِ خام"},
+
+    {"name": "مبلغ‌به‌حروف زیرِ فیلد، برای گرفتنِ صفرِ اضافه",
+     "before": "(()=>{const a=document.getElementById('fAmount');a.value='۲٬۵۰۰٬۰۰۰';a.dispatchEvent(new Event('input'));return 0})()",
+     "js": "()=>document.getElementById('amountHint').textContent",
+     "expect": "۲٬۵۰۰٬۰۰۰ تومان — دو میلیون و پانصد هزار تومان"},
+
+    {"name": "تاریخ با رقمِ لاتین هم خوانده و جلالی نشان داده می‌شود",
+     "before": "(()=>{const d=document.getElementById('fDate');d.value='1405/5/9';d.dispatchEvent(new Event('input'));return 0})()",
+     "js": "()=>document.getElementById('dateHint').textContent",
+     "expect": "۹ مرداد ۱۴۰۵ — جمعه"},
+
+    {"name": "فرمِ خالی ثبت نمی‌شود و می‌گوید چرا",
+     "js": "()=>{document.getElementById('submitBtn').click();return window.EXP.rows().length+' | '+document.getElementById('formErr').textContent}",
+     "expect": "5 | مبلغ را درست وارد کن (عددِ بزرگ‌تر از صفر)."},
+
+    {"name": "بابتِ خالی هم رد می‌شود",
+     "before": "(()=>{const a=document.getElementById('fAmount');a.value='۵۰۰٬۰۰۰';a.dispatchEvent(new Event('input'));return 0})()",
+     "js": "()=>{document.getElementById('submitBtn').click();return window.EXP.rows().length+' | '+document.getElementById('formErr').textContent}",
+     "expect": "5 | بابتِ خرج را بنویس."},
+
+    {"name": "دو بارِ سریعِ دکمه یک ردیف می‌سازد، نه دو",
+     "js": "()=>{const q=(i,v)=>{const e=document.getElementById(i);e.value=v;e.dispatchEvent(new Event('input'))};q('fAmount','۵۰۰٬۰۰۰');q('fNote','چای و قند');q('fDate','۱۴۰۵/۰۵/۱۰');const b=document.getElementById('submitBtn');b.click();b.click();return window.EXP.rows().length+' | '+document.getElementById('mTotal').textContent}",
+     "expect": "6 | ۱۰۱٬۹۸۰٬۰۰۰"},
+
+    {"name": "ویرایش جانشین می‌شود، ردیفِ تازه نمی‌سازد",
+     "js": "()=>{window.EXP.startEdit('e2');const a=document.getElementById('fAmount');a.value='۹۰۰٬۰۰۰';a.dispatchEvent(new Event('input'));document.getElementById('submitBtn').click();const r=window.EXP.rows().filter(x=>x.id==='e2')[0];return window.EXP.rows().length+' | '+r.amount+' | '+document.getElementById('mTotal').textContent}",
+     "expect": "5 | 900000 | ۱۰۱٬۵۵۰٬۰۰۰"},
+
+    {"name": "حذف بدونِ تأییدِ جدا انجام نمی‌شود",
+     "js": "()=>{const d=document.getElementById('ask');window.EXP.askDelete('e2');return new Promise(r=>{setTimeout(()=>{const o=d.open;d.querySelector('button[value=no]').click();setTimeout(()=>r(o+' | '+window.EXP.rows().length),150)},200)})}",
+     "expect": "true | 5"},
+
+    {"name": "حذفِ تأییدشده انجام می‌شود و «برگردان» دارد",
+     "js": "()=>{const d=document.getElementById('ask');window.EXP.askDelete('e2');return new Promise(r=>{setTimeout(()=>{document.getElementById('askYes').click();setTimeout(()=>{const a=window.EXP.rows().length,t=document.getElementById('toastAct').textContent;window.EXP.undoDelete();r(a+' | '+t+' | '+window.EXP.rows().length)},200)},200)})}",
+     "expect": "4 | برگردان | 5"},
+
+    {"name": "دکمه‌ی امنِ پنجره فوکوس دارد، نه دکمه‌ی خطرناک",
+     "js": "()=>{window.EXP.askDelete('e2');return new Promise(r=>setTimeout(()=>{const a=document.activeElement;r((a?a.getAttribute('value'):'هیچ')+' | '+(a===document.getElementById('askYes')?'خطرناک':'امن'))},250))}",
+     "expect": "no | امن"},
+
+    {"name": "داده روی خودِ گوشی ذخیره می‌شود (منبعِ حقیقت localStorage است)",
+     "js": "()=>{const d=JSON.parse(localStorage.getItem(window.EXP.storageKey));return d.rows.length+' | '+d.rows.reduce((s,r)=>s+r.amount,0)}",
+     "expect": "5 | 103480000"},
+
+    {"name": "هیچ درخواستِ شبکه‌ای به بیرون نمی‌رود",
+     "js": "()=>{const s=[...document.querySelectorAll('script,link,img,iframe,source')].filter(e=>e.getAttribute('src')||e.getAttribute('href'));return s.length+' منبعِ بیرونی'}",
+     "expect": "0 منبعِ بیرونی"},
+
+    {"name": "خروجیِ CSV دقیقاً همان چیزی است که اکسل می‌خواهد",
+     "before": "window.EXP.replaceAll([{id:'c1',ts:1,jdate:'1405/05/03',note:'نایلون, بسته‌بندی',amount:150000},{id:'c2',ts:2,jdate:'1405/05/01',note:'قبض «برق» و \"آب\"',amount:2350000}])",
+     "js": "()=>window.EXP.buildCSV(window.EXP.rowsOfMonth(1405,5)).replace(/\\r\\n/g,'⏎')",
+     "expect": "تاریخ,بابت,مبلغ (تومان)⏎1405/05/01,\"قبض «برق» و \"\"آب\"\"\",2350000⏎1405/05/03,\"نایلون, بسته‌بندی\",150000⏎جمع,,2500000⏎"},
+
+    {"name": "متنی که اکسل فرمول می‌بیند بی‌خطر می‌شود",
+     "js": "()=>window.EXP.buildCSV([{id:'f1',ts:1,jdate:'1405/05/02',note:'=SUM(A1:A9)',amount:5000}]).replace(/\\r\\n/g,'⏎')",
+     "expect": "تاریخ,بابت,مبلغ (تومان)⏎1405/05/02,'=SUM(A1:A9),5000⏎جمع,,5000⏎"},
+
+    {"_note": "بایت را بخوان نه متن را: Blob.text() خودش BOM را می‌بلعد و بررسیِ اول همین‌طور هشدارِ نادرست داد.",
+     "name": "فایلِ خروجی BOM دارد وگرنه اکسلِ ویندوز فارسی را به‌هم می‌ریزد",
+     "js": "()=>{const o=URL.createObjectURL;let cap=null;URL.createObjectURL=b=>{cap=b;return o.call(URL,b)};const okk=window.EXP.exportCSV();URL.createObjectURL=o;if(!cap)return 'فایلی ساخته نشد';return cap.arrayBuffer().then(a=>{const u=new Uint8Array(a);return okk+' | '+(u[0]===0xEF&&u[1]===0xBB&&u[2]===0xBF?'BOM':'بی‌BOM ('+u[0]+','+u[1]+','+u[2]+')')+' | '+cap.type})}",
+     "expect": "true | BOM | text/csv;charset=utf-8"},
+
+    {"name": "ماهِ خالی خروجیِ الکی نمی‌سازد",
+     "before": "window.EXP.gotoMonth(1405,9)",
+     "js": "()=>{const o=URL.createObjectURL;let n=0;URL.createObjectURL=b=>{n++;return o.call(URL,b)};const r=window.EXP.exportCSV();URL.createObjectURL=o;return r+' | '+n+' | '+document.getElementById('toastMsg').textContent}",
+     "expect": "false | 0 | این ماه چیزی برای خروجی گرفتن ندارد."},
+
+    {"name": "بازگرداندنِ پشتیبان ردیفِ تکراری نمی‌سازد",
+     "js": "()=>{const r=window.EXP.applyBackup(window.EXP.buildBackup());return r.added+' | '+r.skipped+' | '+window.EXP.rows().length}",
+     "expect": "0 | 5 | 5"},
+
+    {"name": "بازگرداندن ردیفِ تازه را اضافه می‌کند و قدیمی را نگه می‌دارد",
+     "js": "()=>{const b=JSON.parse(window.EXP.buildBackup());b.rows.push({id:'zz',ts:9,jdate:'1405/06/02',note:'کارتنِ بسته‌بندی',amount:75000});const r=window.EXP.applyBackup(JSON.stringify(b));window.EXP.gotoMonth(1405,6);return r.added+' | '+r.skipped+' | '+window.EXP.rows().length+' | '+document.getElementById('mTotal').textContent}",
+     "expect": "1 | 5 | 6 | ۷۵٬۰۰۰"},
+
+    {"name": "ردیفِ ناسالمِ پشتیبان شمرده می‌شود، بی‌صدا قبول نمی‌شود",
+     "js": "()=>{const r=window.EXP.applyBackup(JSON.stringify({app:'mlq-expenses',rows:[{id:'b1',jdate:'1405/13/01',note:'ماهِ بی‌معنی',amount:100},{id:'b2',jdate:'1405/06/01',note:'',amount:100},{id:'b3',jdate:'1405/06/01',note:'مبلغِ صفر',amount:0},{id:'b4',jdate:'1405/06/01',note:'ردیفِ درست',amount:100}]}));return r.added+' | '+r.broken+' | '+window.EXP.rows().length}",
+     "expect": "1 | 3 | 6"},
+
+    {"name": "پشتیبانِ خراب پیامِ روشن می‌دهد، خطای خاموش نه",
+     "js": "()=>{const m=[];for(const t of ['{oops','{\"app\":\"other-tool\",\"rows\":[]}','{\"app\":\"mlq-expenses\"}'])try{window.EXP.applyBackup(t);m.push('خطا نداد!')}catch(e){m.push(e.message)}return m.join(' | ')}",
+     "expect": "این فایل JSONِ سالم نیست. | این پشتیبانِ ابزارِ دیگری است. | ساختارِ فایل پشتیبانِ این ابزار نیست."},
+
+    {"name": "هیچ رقمِ لاتینی در متنِ دیده‌شدنی نیست",
+     "js": "()=>{const t=[...document.querySelectorAll('body *:not(script):not(style)')].filter(e=>e.children.length===0&&e.getClientRects().length>0).map(e=>e.textContent).join(' ');const m=t.match(/\\S*[0-9]\\S*/);return m?('رقمِ لاتین در «'+m[0].slice(0,40)+'»'):'بدونِ رقمِ لاتین'}",
+     "expect": "بدونِ رقمِ لاتین"},
+
+    {"name": "جمعِ ماه در خودِ نشانه‌گذاری «—» است، نه صفرِ دروغ",
+     "js": "()=>fetch(location.href).then(r=>r.text()).then(s=>(/id=\"mTotal\"[^>]*>—</.test(s)?'—':'چیزِ دیگر')+' | '+(/<noscript>/.test(s)?'noscript دارد':'بی‌noscript'))",
+     "expect": "— | noscript دارد"},
+
+    {"name": "انتخابِ تم ذخیره می‌شود و رنگِ نوارِ مرورگر هم عوض می‌شود",
+     "js": "()=>{window.EXP.setTheme('dark');const a=document.documentElement.getAttribute('data-theme'),s=localStorage.getItem('mlq_expenses_theme'),m=document.querySelector('meta[name=theme-color]').getAttribute('content');window.EXP.setTheme('light');return a+' | '+s+' | '+m+' | '+document.querySelector('meta[name=theme-color]').getAttribute('content')}",
+     "expect": "dark | dark | #0f1216 | #f4f5f7"},
+
+    {"name": "کنتراستِ متن‌های کلیدی در تمِ تاریک",
+     "before": "(()=>{window.EXP.setTheme('dark');document.getElementById('storeWarn').hidden=false;window.EXP.startEdit('e2');return 0})()",
+     "wait": 350,
+     "js": "()=>{const P=c=>(String(c).match(/[\\d.]+/g)||['0','0','0']).map(Number);const lin=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};const lum=p=>0.2126*lin(p[0])+0.7152*lin(p[1])+0.0722*lin(p[2]);const bgOf=el=>{const st=[];let e=el;while(e){const p=P(getComputedStyle(e).backgroundColor),a=p.length>3?p[3]:1;if(a>0)st.push([p[0],p[1],p[2],a]);if(a>=0.999)break;e=e.parentElement}let b=[255,255,255];for(let i=st.length-1;i>=0;i--){const c=st[i];b=[0,1,2].map(k=>c[3]*c[k]+(1-c[3])*b[k])}return b};const SEL=['#mTotal','.total .lbl','#mWords','#mLabel','#list .rdate','#list .ramt','.rowmain .rnote','#submitBtn','#storeWarn','.del','#editNote','#dateHint','#toolsCard .muted','#formCard label'];const bad=[];for(const s of SEL){const el=document.querySelector(s);if(!el){bad.push(s+':نیست');continue}const f=P(getComputedStyle(el).color),b=bgOf(el),fa=f.length>3?f[3]:1;const fc=[0,1,2].map(k=>fa*f[k]+(1-fa)*b[k]);const l1=lum(fc),l2=lum(b),r=(Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);if(r<4.5)bad.push(s+':'+r.toFixed(2))}return bad.length?bad.join('، '):('هر '+window.EXP.faDigits(SEL.length)+' مورد بالای ۴٫۵')}",
+     "expect": "هر ۱۴ مورد بالای ۴٫۵"},
+
+    {"name": "کنتراستِ متن‌های کلیدی در تمِ روشن",
+     "before": "(()=>{window.EXP.setTheme('light');document.getElementById('storeWarn').hidden=false;window.EXP.startEdit('e2');return 0})()",
+     "wait": 350,
+     "js": "()=>{const P=c=>(String(c).match(/[\\d.]+/g)||['0','0','0']).map(Number);const lin=v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};const lum=p=>0.2126*lin(p[0])+0.7152*lin(p[1])+0.0722*lin(p[2]);const bgOf=el=>{const st=[];let e=el;while(e){const p=P(getComputedStyle(e).backgroundColor),a=p.length>3?p[3]:1;if(a>0)st.push([p[0],p[1],p[2],a]);if(a>=0.999)break;e=e.parentElement}let b=[255,255,255];for(let i=st.length-1;i>=0;i--){const c=st[i];b=[0,1,2].map(k=>c[3]*c[k]+(1-c[3])*b[k])}return b};const SEL=['#mTotal','.total .lbl','#mWords','#mLabel','#list .rdate','#list .ramt','.rowmain .rnote','#submitBtn','#storeWarn','.del','#editNote','#dateHint','#toolsCard .muted','#formCard label'];const bad=[];for(const s of SEL){const el=document.querySelector(s);if(!el){bad.push(s+':نیست');continue}const f=P(getComputedStyle(el).color),b=bgOf(el),fa=f.length>3?f[3]:1;const fc=[0,1,2].map(k=>fa*f[k]+(1-fa)*b[k]);const l1=lum(fc),l2=lum(b),r=(Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);if(r<4.5)bad.push(s+':'+r.toFixed(2))}return bad.length?bad.join('، '):('هر '+window.EXP.faDigits(SEL.length)+' مورد بالای ۴٫۵')}",
+     "expect": "هر ۱۴ مورد بالای ۴٫۵"},
+
+    {"name": "هدفِ لمسیِ هر دکمه دستِ‌کم ۴۴ پیکسل است",
+     "js": "()=>{const bad=[];document.querySelectorAll('button,.btn').forEach(b=>{if(!b.getClientRects().length)return;const r=b.getBoundingClientRect();if(r.height<44||r.width<44)bad.push((b.id||b.textContent.trim().slice(0,10))+':'+Math.round(r.width)+'×'+Math.round(r.height))});return bad.length?bad.join('، '):'همه ۴۴ پیکسل یا بیشتر'}",
+     "expect": "همه ۴۴ پیکسل یا بیشتر"},
+
+    {"_note": "با چشم روی عکسِ بازرس پیدا شد: .btn خودش display دارد و صفتِ hidden را می‌بلعید، پس «بی‌خیالِ ویرایش» همیشه دیده می‌شد.",
+     "name": "دکمه‌ی «بی‌خیالِ ویرایش» بیرون از حالتِ ویرایش دیده نمی‌شود",
+     "js": "()=>{const b=document.getElementById('cancelEditBtn'),a=b.getClientRects().length;window.EXP.startEdit('e2');const c=b.getClientRects().length;window.EXP.stopEdit();return a+' | '+c+' | '+b.getClientRects().length}",
+     "expect": "0 | 1 | 0"},
+
+    {"_note": "باز هم از عکس: scrollIntoView کارتِ فرم را زیرِ نوارِ چسبیده می‌بُرد و فیلدِ مبلغ نامرئی می‌شد.",
+     "name": "ویرایش، فرم را زیرِ نوارِ بالا پنهان نمی‌کند",
+     "js": "async()=>{const nap=ms=>new Promise(r=>setTimeout(r,ms));window.scrollTo(0,9999);await nap(250);window.EXP.startEdit('e2');await nap(350);const h=document.querySelector('header').getBoundingClientRect().bottom;const f=document.getElementById('formCard').getBoundingClientRect().top;const a=document.getElementById('fAmount').getBoundingClientRect().top;return f>=h-1&&a>=h?'کاملاً دیده می‌شود':'زیرِ نوار افتاده — کارت '+Math.round(f)+'، مبلغ '+Math.round(a)+'، نوار '+Math.round(h)}",
+     "expect": "کاملاً دیده می‌شود"},
+
+    {"_note": "دکمه‌ی input[type=file] «Choose File» انگلیسی نشان می‌داد و با چشم روی عکس پیدا شد. نامِ قالبِ فایل (JSON/CSV) عمداً مجاز است.",
+     "name": "متنِ انگلیسیِ جامانده در رابط نیست",
+     "before": "(()=>{document.getElementById('toolsBtn').click();document.getElementById('storeWarn').hidden=false;return 0})()",
+     "js": "()=>{const t=[...document.querySelectorAll('body *:not(script):not(style)')].filter(e=>e.children.length===0&&e.getClientRects().length>0).map(e=>e.textContent).join(' ').replace(/JSON|CSV/g,'');const m=t.match(/[A-Za-z]{3,}/);return m?('متنِ انگلیسی: '+m[0]):'بدونِ متنِ انگلیسی'}",
+     "expect": "بدونِ متنِ انگلیسی"},
+
+    {"name": "هر ورودی لیبلِ وصل‌شده دارد",
+     "js": "()=>{const bad=[];document.querySelectorAll('input').forEach(i=>{const l=i.id&&document.querySelector('label[for=\"'+i.id+'\"]');if(!l&&!i.getAttribute('aria-label'))bad.push(i.id||i.type)});return bad.length?bad.join('، '):'همه‌ی ورودی‌ها لیبل دارند'}",
+     "expect": "همه‌ی ورودی‌ها لیبل دارند"}
+  ]
+}

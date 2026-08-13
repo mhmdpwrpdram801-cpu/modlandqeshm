@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4f5f7">
+<title>خرجِ مغازه</title>
+
+<!--
+  خرجِ روزانه‌ی مغازه — یک فایل، بدونِ سرور، بدونِ وابستگی.
+  داده فقط روی همین گوشی می‌مانَد (localStorage). هیچ درخواستِ شبکه‌ای نمی‌رود.
+  بازرس: python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json
+-->
+<script>
+/* تم را قبل از رنگ‌آمیزیِ اول تنظیم کن تا صفحه یک‌بار سفید نزند */
+try{
+  var _t=localStorage.getItem('mlq_expenses_theme');
+  if(!_t) _t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';
+  document.documentElement.setAttribute('data-theme',_t);
+  if(_t==='dark') document.querySelector('meta[name=theme-color]').setAttribute('content','#0f1216');
+}catch(e){/* حافظه‌ی مسدود: تمِ روشنِ پیش‌فرض می‌مانَد و برنامه پیامش را خودش می‌دهد */}
+</script>
+
+<style>
+/* ─────────── رنگ‌ها: همه‌جا متغیر، هیچ رنگِ ثابتی در کد ─────────── */
+:root{
+  --bg:#f4f5f7; --card:#ffffff; --ink:#15181d; --ink2:#4c5462; --line:#dfe3e9;
+  --brand:#0f56c3; --brand-ink:#ffffff; --brand-soft:#e8f0fd;
+  --danger:#bf2323; --danger-soft:#fdeaea; --ok:#15703a;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 14px rgba(16,24,40,.07);
+  --z-head:30; --z-toast:50; --z-dialog:60;
+}
+html[data-theme="dark"]{
+  --bg:#0f1216; --card:#181c22; --ink:#eef1f6; --ink2:#a9b3c1; --line:#2a313b;
+  --brand:#9cc2ff; --brand-ink:#0b1220; --brand-soft:#1b2634;
+  --danger:#ff9a9a; --danger-soft:#331d1d; --ok:#7ad79f;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+/* .btn خودش display دارد و بی این خط، صفتِ hidden را می‌بلعد — قاعده‌ی نویسنده
+   همیشه از شیوه‌نامه‌ی خودِ مرورگر جلو می‌زند. یک بار «بی‌خیالِ ویرایش» همیشه دیده می‌شد. */
+[hidden]{display:none!important}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:Vazirmatn,Vazir,"IRANSansX","Segoe UI",Tahoma,system-ui,sans-serif;
+  font-size:16px; line-height:1.7; -webkit-text-size-adjust:100%;
+  padding-block-end:24px;
+}
+h1,h2,h3{margin:0;font-size:1rem;font-weight:700}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px;border-radius:8px}
+
+/* ─────────── چیدمان ─────────── */
+.wrap{max-width:560px;margin-inline:auto;padding-inline:12px}
+header{
+  position:sticky; top:0; z-index:var(--z-head);
+  background:var(--card); border-block-end:1px solid var(--line);
+}
+.head{display:flex;align-items:center;gap:8px;padding-block:10px}
+.head h1{font-size:1.05rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:14px; margin-block-start:12px; box-shadow:var(--shadow);
+}
+.card>h2{margin-block-end:10px;font-size:.95rem;color:var(--ink2)}
+
+/* ─────────── دکمه‌ها: هدفِ لمسیِ ۴۴ پیکسل ─────────── */
+.btn{
+  min-height:44px; min-width:44px; padding:8px 14px; border-radius:11px;
+  border:1px solid var(--line); background:var(--card); cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:transparent;font-weight:700}
+.btn.danger{background:var(--danger-soft);color:var(--danger);border-color:var(--danger)}
+.btn.wide{width:100%}
+.btn.ghost{background:transparent}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 46%}
+
+/* ─────────── فرم ─────────── */
+.field{margin-block-end:12px}
+.field label{display:block;font-size:.87rem;color:var(--ink2);margin-block-end:5px}
+.field input{
+  width:100%; min-height:48px; padding:10px 12px; font-size:16px;
+  background:var(--bg); color:var(--ink);
+  border:1px solid var(--line); border-radius:11px;
+}
+.field input:disabled{opacity:.6}
+.hint{font-size:.82rem;color:var(--ink2);margin:5px 2px 0;min-height:1.4em}
+.hint b{color:var(--ink);font-weight:700}
+.err{font-size:.85rem;color:var(--danger);margin:5px 2px 0;font-weight:700}
+.err:empty{display:none}
+.datebtns{display:flex;gap:6px;margin-block-start:6px}
+.datebtns .btn{padding:6px 12px;min-height:44px;font-size:.85rem}
+.editing{border:1px solid var(--brand)!important}
+#editNote{display:none;font-size:.85rem;color:var(--brand);font-weight:700;margin-block-end:8px}
+body.is-editing #editNote{display:block}
+
+/* ─────────── ماه و جمع ─────────── */
+.monthnav{display:flex;align-items:center;gap:6px}
+.monthnav .btn{min-height:44px;min-width:44px;padding:6px 10px}
+.monthnav .mlabel{flex:1;text-align:center;font-weight:700}
+.total{
+  margin-block-start:12px; padding:12px; border-radius:12px;
+  background:var(--brand-soft); display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+}
+.total .amtwrap{display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap}
+.total .num{font-size:1.5rem;font-weight:800;letter-spacing:.5px}
+.total .lbl{color:var(--ink2);font-size:.87rem}
+.total .cnt{margin-inline-start:auto;color:var(--ink2);font-size:.85rem}
+
+/* ─────────── لیست ─────────── */
+ul#list{list-style:none;margin:0;padding:0}
+ul#list li{border-block-start:1px solid var(--line);display:flex;align-items:stretch;gap:4px}
+ul#list li:first-child{border-block-start:0}
+/* نامِ بلند نباید مبلغ را پایین یا بیرون بیندازد: نام و تاریخ در یک ستون
+   می‌نشینند و مبلغ ستونِ خودش را دارد. */
+.rowmain{
+  flex:1; min-width:0; text-align:start; background:transparent; border:0;
+  padding:11px 4px; cursor:pointer;
+  display:grid; grid-template-columns:1fr auto; gap:0 10px; align-items:start;
+}
+.rnote{grid-column:1;grid-row:1;min-width:0;overflow-wrap:anywhere}
+.rdate{grid-column:1;grid-row:2;color:var(--ink2);font-size:.8rem}
+.ramt{grid-column:2;grid-row:1/span 2;align-self:center;font-weight:700;white-space:nowrap}
+.del{
+  background:transparent;border:0;cursor:pointer;min-width:44px;min-height:44px;
+  align-self:center;border-radius:10px;color:var(--danger);font-size:1.05rem;
+}
+.empty{color:var(--ink2);text-align:center;padding:18px 6px}
+.banner{
+  margin-block-start:12px;padding:11px 12px;border-radius:12px;
+  background:var(--danger-soft);color:var(--danger);border:1px solid var(--danger);font-size:.88rem;
+}
+.banner[hidden]{display:none}
+#restoreBox{display:none;margin-block-start:10px}
+body.tools-open #restoreBox{display:block}
+/* input پنهان است ولی حلقه‌ی فوکوس روی label نشان داده می‌شود تا با صفحه‌کلید گم نشود */
+.filein{position:absolute;inline-size:1px;block-size:1px;opacity:0;overflow:hidden}
+.filein:focus-visible + .filelabel{outline:3px solid var(--brand);outline-offset:2px}
+.filelabel{margin-block-start:6px}
+.muted{color:var(--ink2);font-size:.82rem;margin:8px 2px 0}
+
+/* ─────────── پیامِ شناور و پنجره ─────────── */
+#toast{
+  position:fixed; inset-inline:12px; bottom:14px; z-index:var(--z-toast);
+  max-width:536px; margin-inline:auto;
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  box-shadow:var(--shadow); padding:10px 12px; display:flex; align-items:center; gap:10px;
+}
+#toast.hidden{display:none}
+#toast span{flex:1}
+#toast .btn{min-height:38px;padding:4px 12px;font-size:.85rem}
+dialog{
+  border:1px solid var(--line); border-radius:16px; padding:0; max-width:min(92vw,380px);
+  background:var(--card); color:var(--ink); box-shadow:var(--shadow); z-index:var(--z-dialog);
+}
+dialog::backdrop{background:rgba(8,10,14,.55)}
+.askcard{padding:16px;margin:0}
+.askcard p{margin:0 0 14px;white-space:pre-line}
+.askcard .lead{font-weight:800;color:var(--danger);margin-block-end:8px}
+.askbtns{display:flex;gap:8px}
+.askbtns .btn{flex:1}
+@media (max-width:340px){ .total .num{font-size:1.25rem} .btnrow .btn{flex:1 1 100%} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap head">
+    <h1>خرجِ مغازه</h1>
+    <button class="btn ghost" id="themeBtn" type="button" aria-label="تغییرِ تمِ روشن و تاریک">🌗</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="banner" id="storeWarn" hidden role="alert">
+    حافظه‌ی این مرورگر در دسترس نیست (حالتِ ناشناس؟) — ثبت کار می‌کند ولی با بستنِ صفحه پاک می‌شود.
+  </div>
+
+  <!-- ثبتِ خرج -->
+  <section class="card" id="formCard">
+    <h2>ثبتِ خرجِ تازه</h2>
+    <p id="editNote">داری یک خرجِ ثبت‌شده را ویرایش می‌کنی.</p>
+
+    <div class="field">
+      <label for="fAmount">مبلغ (تومان)</label>
+      <input id="fAmount" type="text" inputmode="numeric" autocomplete="off"
+             placeholder="مثلاً ۸۵۰٬۰۰۰" aria-describedby="amountHint">
+      <p class="hint" id="amountHint">—</p>
+    </div>
+
+    <div class="field">
+      <label for="fNote">بابتِ چه؟</label>
+      <input id="fNote" type="text" autocomplete="off" maxlength="120" placeholder="مثلاً کرایه‌ی حملِ بار">
+    </div>
+
+    <div class="field">
+      <label for="fDate">تاریخ</label>
+      <input id="fDate" type="text" inputmode="numeric" maxlength="10" placeholder="۱۴۰۵/۰۵/۲۲"
+             aria-describedby="dateHint">
+      <p class="hint" id="dateHint">—</p>
+      <div class="datebtns">
+        <button class="btn" type="button" id="todayBtn">امروز</button>
+        <button class="btn" type="button" id="yesterBtn">دیروز</button>
+      </div>
+    </div>
+
+    <p class="err" id="formErr" role="alert"></p>
+    <div class="btnrow">
+      <button class="btn primary wide" type="button" id="submitBtn">ثبتِ خرج</button>
+      <button class="btn ghost wide" type="button" id="cancelEditBtn" hidden>بی‌خیالِ ویرایش</button>
+    </div>
+  </section>
+
+  <!-- ماه -->
+  <section class="card">
+    <div class="monthnav">
+      <button class="btn" type="button" id="prevM" aria-label="ماهِ قبل">›</button>
+      <span class="mlabel" id="mLabel">…</span>
+      <button class="btn" type="button" id="nextM" aria-label="ماهِ بعد">‹</button>
+    </div>
+    <div class="total">
+      <span class="lbl">جمعِ این ماه</span>
+      <!-- عدد و «تومان» با هم می‌مانند: در ۳۲۰ پیکسل جدا می‌افتادند -->
+      <span class="amtwrap"><span class="num" id="mTotal">—</span> <span class="lbl">تومان</span></span>
+      <span class="cnt" id="mCount"></span>
+    </div>
+    <p class="hint" id="mWords">—</p>
+  </section>
+
+  <!-- لیست -->
+  <section class="card">
+    <h2 id="listTitle">خرج‌های این ماه</h2>
+    <ul id="list"><li class="empty" id="listEmpty">…</li></ul>
+  </section>
+
+  <!-- خروجی و پشتیبان -->
+  <section class="card" id="toolsCard">
+    <h2>خروجی و پشتیبان</h2>
+    <div class="btnrow">
+      <button class="btn" type="button" id="csvBtn">خروجیِ اکسل</button>
+      <button class="btn" type="button" id="jsonBtn">پشتیبانِ کامل</button>
+    </div>
+    <p class="muted">«خروجیِ اکسل» فقط همان ماهی را می‌دهد که بالا نشان داده شده.
+      داده‌ها فقط روی همین گوشی‌اند؛ اگر گوشی عوض شد یا مرورگر پاک شد، بدونِ پشتیبان
+      همه‌چیز می‌رود — هر چند وقت یک‌بار «پشتیبانِ کامل» را بگیر و جایی نگه دار.</p>
+    <div class="btnrow" style="margin-block-start:10px">
+      <button class="btn ghost wide" type="button" id="toolsBtn"
+              aria-expanded="false" aria-controls="restoreBox">بازگرداندنِ پشتیبان…</button>
+    </div>
+    <div id="restoreBox">
+      <p class="muted" id="restoreHelp">ردیف‌های تازه اضافه می‌شوند و چیزی پاک نمی‌شود.</p>
+      <!-- دکمه‌ی خودِ input متنِ انگلیسیِ مرورگر را نشان می‌دهد و با CSS عوض نمی‌شود؛
+           پس input پشتِ صحنه می‌رود و همین label کارش را می‌کند. -->
+      <input type="file" id="restoreFile" accept=".json,application/json"
+             class="filein" aria-describedby="restoreHelp">
+      <label class="btn wide filelabel" for="restoreFile">انتخابِ فایلِ پشتیبان (JSON)</label>
+      <p class="err" id="restoreErr" role="alert"></p>
+    </div>
+  </section>
+
+  <noscript><p class="banner">این ابزار برای کار کردن به جاوااسکریپت نیاز دارد.</p></noscript>
+</main>
+
+<div id="toast" class="hidden" role="status" aria-live="polite">
+  <span id="toastMsg"></span>
+  <button class="btn" type="button" id="toastAct" hidden></button>
+</div>
+
+<dialog id="ask">
+  <form class="askcard" method="dialog">
+    <p id="askMsg"></p>
+    <div class="askbtns">
+      <button class="btn" value="no" type="submit" autofocus>بی‌خیال</button>
+      <button class="btn danger" value="yes" type="submit" id="askYes">آره</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+'use strict';
+(function(){
+
+/* ══════════════ ۱) عدد و متن ══════════════ */
+var FA='۰۱۲۳۴۵۶۷۸۹';
+function faDigits(s){ return String(s).replace(/[0-9]/g,function(d){return FA[+d]}); }
+function faNum(n){
+  n=Math.trunc(Number(n)||0);
+  var neg=n<0; n=Math.abs(n);
+  return (neg?'−':'')+faDigits(String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'٬'));
+}
+function toAscii(s){
+  return String(s==null?'':s)
+    .replace(/[۰-۹]/g,function(d){return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))})
+    .replace(/[٠-٩]/g,function(d){return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))});
+}
+/* پول = عددِ صحیحِ تومان. نقطه و ویرگول و ٬ همه «جداکننده‌ی هزار»اند، نه اعشار
+   (۸۵۰.۰۰۰ یعنی هشتصدوپنجاه هزار). ورودیِ نامعتبر NaN می‌دهد، نه صفرِ خاموش. */
+function parseNum(v){
+  var s=toAscii(v).replace(/[\s‌‏'`]/g,'').replace(/[٬,.]/g,'');
+  if(!/^\d{1,15}$/.test(s)) return NaN;
+  return parseInt(s,10);
+}
+function esc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+var W1=['','یک','دو','سه','چهار','پنج','شش','هفت','هشت','نه'];
+var W10=['','ده','بیست','سی','چهل','پنجاه','شصت','هفتاد','هشتاد','نود'];
+var W11=['ده','یازده','دوازده','سیزده','چهارده','پانزده','شانزده','هفده','هجده','نوزده'];
+var W100=['','صد','دویست','سیصد','چهارصد','پانصد','ششصد','هفتصد','هشتصد','نهصد'];
+var WSC=['','هزار','میلیون','میلیارد','هزار میلیارد'];
+function words3(n){
+  var p=[], h=Math.trunc(n/100), r=n%100;
+  if(h) p.push(W100[h]);
+  if(r>=10&&r<=19) p.push(W11[r-10]);
+  else { var d=Math.trunc(r/10), u=r%10; if(d)p.push(W10[d]); if(u)p.push(W1[u]); }
+  return p.join(' و ');
+}
+/* مبلغ‌به‌حروف فقط زیرِ فیلدی که داری عدد تویش تایپ می‌کنی — برای گرفتنِ صفرِ اضافه */
+function numWords(n){
+  n=Math.trunc(Number(n)||0);
+  if(n===0) return 'صفر';
+  if(n<0) return 'منهای '+numWords(-n);
+  var out=[], i=0;
+  while(n>0 && i<WSC.length){
+    var g=n%1000;
+    if(g) out.unshift(words3(g)+(WSC[i]?' '+WSC[i]:''));
+    n=Math.trunc(n/1000); i++;
+  }
+  return out.join(' و ');
+}
+
+/* ══════════════ ۲) تاریخِ جلالی (بدونِ کتابخانه) ══════════════
+   الگوریتمِ شناخته‌شده‌ی jalaali (بیرکنی). درستی‌اش در بازرس با
+   Intl('fa-IR-u-ca-persian') روی چند تاریخِ مرزی مقابله می‌شود.        */
+var BREAKS=[-61,9,38,199,426,686,756,818,1111,1181,1210,1635,2060,2097,2192,2262,2324,2394,2456,3178];
+function div(a,b){return Math.trunc(a/b)}
+function mod(a,b){return a-Math.trunc(a/b)*b}
+function jalCal(jy){
+  var gy=jy+621, leapJ=-14, jp=BREAKS[0], jump=0, i, jm;
+  for(i=1;i<BREAKS.length;i++){
+    jm=BREAKS[i]; jump=jm-jp;
+    if(jy<jm) break;
+    leapJ+=div(jump,33)*8+div(mod(jump,33),4); jp=jm;
+  }
+  var n=jy-jp;
+  leapJ+=div(n,33)*8+div(mod(n,33)+3,4);
+  if(mod(jump,33)===4 && jump-n===4) leapJ+=1;
+  var leapG=div(gy,4)-div((div(gy,100)+1)*3,4)-150;
+  var march=20+leapJ-leapG;
+  if(jump-n<6) n=n-jump+div(jump+4,33)*33;
+  var leap=mod(mod(n+1,33)-1,4);
+  if(leap===-1) leap=4;
+  return {leap:leap, gy:gy, march:march};
+}
+function g2d(gy,gm,gd){
+  var d=div((gy+div(gm-8,6)+100100)*1461,4)+div(153*mod(gm+9,12)+2,5)+gd-34840408;
+  return d-div(div(gy+100100+div(gm-8,6),100)*3,4)+752;
+}
+function d2g(jdn){
+  var j=4*jdn+139361631;
+  j=j+div(div(4*jdn+183187720,146097)*3,4)*4-3908;
+  var i=div(mod(j,1461),4)*5+308;
+  var gd=div(mod(i,153),5)+1, gm=mod(div(i,153),12)+1, gy=div(j,1461)-100100+div(8-gm,6);
+  return {gy:gy,gm:gm,gd:gd};
+}
+function j2d(jy,jm,jd){
+  var r=jalCal(jy);
+  return g2d(r.gy,3,r.march)+(jm-1)*31-div(jm,7)*(jm-7)+jd-1;
+}
+function d2j(jdn){
+  var g=d2g(jdn), jy=g.gy-621, r=jalCal(jy), k=jdn-g2d(g.gy,3,r.march), jm, jd;
+  if(k>=0){
+    if(k<=185){ jm=1+div(k,31); jd=mod(k,31)+1; return {jy:jy,jm:jm,jd:jd}; }
+    k-=186;
+  }else{ jy-=1; k+=179; if(r.leap===1) k+=1; }
+  jm=7+div(k,30); jd=mod(k,30)+1;
+  return {jy:jy,jm:jm,jd:jd};
+}
+function jLeap(jy){ return jalCal(jy).leap===0; }
+function jMonthLen(jy,jm){ return jm<=6?31:(jm<=11?30:(jLeap(jy)?30:29)); }
+var MON=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+var DOW=['یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنج‌شنبه','جمعه','شنبه'];
+function todayJ(){
+  var n=new Date();
+  return d2j(g2d(n.getFullYear(),n.getMonth()+1,n.getDate()));
+}
+function jShift(j,days){ return d2j(j2d(j.jy,j.jm,j.jd)+days); }
+function jKey(j){ return j.jy+'/'+pad2(j.jm)+'/'+pad2(j.jd); }
+function pad2(n){ return (n<10?'0':'')+n; }
+/* '۱۴۰۵/۰۵/۲۲' یا '1405-5-9' → {jy,jm,jd} معتبر، وگرنه null */
+function parseJ(s){
+  var m=toAscii(s).trim().replace(/[.\-–]/g,'/').match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if(!m) return null;
+  var jy=+m[1], jm=+m[2], jd=+m[3];
+  if(jy<1300||jy>1500||jm<1||jm>12||jd<1||jd>jMonthLen(jy,jm)) return null;
+  return {jy:jy,jm:jm,jd:jd};
+}
+function jDow(j){ var g=d2g(j2d(j.jy,j.jm,j.jd)); return new Date(Date.UTC(g.gy,g.gm-1,g.gd)).getUTCDay(); }
+function jHuman(j){ return faDigits(j.jd)+' '+MON[j.jm-1]+' '+faDigits(j.jy); }
+function jShort(j){ return faDigits(j.jd)+' '+MON[j.jm-1]; }
+
+/* ══════════════ ۳) داده ══════════════ */
+var KEY='mlq_expenses_v1', THKEY='mlq_expenses_theme';
+var ROWS=[], MEM=false, VIEW=todayJ(), EDITING=null, LASTDEL=null, TOASTT=0;
+
+function storeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function storeSet(k,v){ try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } }
+
+function validRow(r){
+  if(!r||typeof r!=='object') return null;
+  var amount=parseNum(r.amount), note=String(r.note==null?'':r.note).trim(), j=parseJ(r.jdate);
+  if(!(amount>0)||!note||!j) return null;
+  return {
+    id:String(r.id||newId()).slice(0,40),
+    amount:amount, note:note.slice(0,120), jdate:jKey(j),
+    ts:Number(r.ts)>0?Number(r.ts):Date.now()
+  };
+}
+function newId(){
+  return 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+}
+function load(){
+  var raw=storeGet(KEY);
+  if(raw===null){
+    /* یک بار بسنج که نوشتن هم ممکن است؛ حالتِ ناشناسِ سافاری فقط سرِ نوشتن خطا می‌دهد */
+    MEM=!storeSet(KEY+'_probe','1');
+    try{ localStorage.removeItem(KEY+'_probe'); }catch(e){ MEM=true; }
+    ROWS=[]; return;
+  }
+  var parsed=null;
+  try{ parsed=JSON.parse(raw); }catch(e){ parsed=null; }
+  if(!parsed||!Array.isArray(parsed.rows)){
+    /* داده‌ی خراب را پاک نکن — کنار بگذار و به کاربر بگو */
+    storeSet(KEY+'_broken_'+Date.now(), raw);
+    ROWS=[]; toast('داده‌ی ذخیره‌شده خوانده نشد؛ یک نسخه‌ی خام کنار گذاشته شد.');
+    return;
+  }
+  ROWS=parsed.rows.map(validRow).filter(Boolean);
+}
+function save(){
+  var okw=storeSet(KEY,JSON.stringify({app:'mlq-expenses',v:1,rows:ROWS}));
+  if(!okw) MEM=true;
+  el('storeWarn').hidden=!MEM;
+}
+function rowsOfMonth(jy,jm){
+  var p=jy+'/'+pad2(jm)+'/';
+  return ROWS.filter(function(r){ return r.jdate.indexOf(p)===0; });
+}
+function sumOf(rows){
+  var t=0;
+  for(var i=0;i<rows.length;i++) t+=rows[i].amount;
+  return t;
+}
+function byDateDesc(a,b){ return a.jdate<b.jdate?1:(a.jdate>b.jdate?-1:b.ts-a.ts); }
+function byDateAsc(a,b){ return a.jdate>b.jdate?1:(a.jdate<b.jdate?-1:a.ts-b.ts); }
+
+/* ══════════════ ۴) خروجی ══════════════ */
+function csvCell(v){
+  var s=String(v==null?'':v);
+  if(/^[=+\-@\t\r]/.test(s)) s="'"+s;            /* اکسل متنِ =… را فرمول می‌بیند */
+  if(/[",;\n\r]/.test(s)) s='"'+s.replace(/"/g,'""')+'"';
+  return s;
+}
+/* ارقامِ لاتین و تاریخِ ASCII عمدی است: این فایل را اکسل باید بخواند، نه آدم */
+function buildCSV(rows){
+  var out=[['تاریخ','بابت','مبلغ (تومان)'].join(',')];
+  rows.slice().sort(byDateAsc).forEach(function(r){
+    out.push([csvCell(r.jdate),csvCell(r.note),csvCell(r.amount)].join(','));
+  });
+  out.push([csvCell('جمع'),'',csvCell(sumOf(rows))].join(','));
+  return out.join('\r\n')+'\r\n';
+}
+function buildBackup(){
+  return JSON.stringify({
+    app:'mlq-expenses', v:1,
+    exported_at:new Date().toISOString(),
+    count:ROWS.length, total_toman:sumOf(ROWS),
+    rows:ROWS.slice().sort(byDateAsc)
+  },null,1);
+}
+/* بازگرداندن = افزودن، نه جانشینی. ردیفی که شناسه‌اش هست دست نمی‌خورد. */
+function applyBackup(text){
+  var d=null;
+  try{ d=JSON.parse(text); }catch(e){ throw new Error('این فایل JSONِ سالم نیست.'); }
+  if(!d||typeof d!=='object'||!Array.isArray(d.rows)) throw new Error('ساختارِ فایل پشتیبانِ این ابزار نیست.');
+  if(d.app && d.app!=='mlq-expenses') throw new Error('این پشتیبانِ ابزارِ دیگری است.');
+  var have={}, i;
+  for(i=0;i<ROWS.length;i++) have[ROWS[i].id]=true;
+  var added=0, skipped=0, broken=0;
+  for(i=0;i<d.rows.length;i++){
+    var r=validRow(d.rows[i]);
+    if(!r){ broken++; continue; }
+    if(have[r.id]){ skipped++; continue; }
+    have[r.id]=true; ROWS.push(r); added++;
+  }
+  save();
+  return {added:added, skipped:skipped, broken:broken};
+}
+function replaceAll(rows){
+  ROWS=(rows||[]).map(validRow).filter(Boolean);
+  save(); render();
+  return ROWS.length;
+}
+function dlText(name,text,mime){
+  var b=new Blob([text],{type:mime+';charset=utf-8'});
+  var u=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=u; a.download=name; a.rel='noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(u); },4000);
+}
+
+/* ══════════════ ۵) پنجره‌ی پرسش (به‌جای confirm) ══════════════ */
+var askChain=Promise.resolve();
+function ask(msg,yesLabel){
+  /* یک <dialog> داریم؛ دو پرسشِ هم‌زمان همدیگر را خراب می‌کنند — پس صف */
+  var run=function(){
+    return new Promise(function(res){
+      var dlg=el('ask'), box=el('askMsg'), lines=String(msg).split('\n');
+      box.innerHTML='';
+      if(lines[0].indexOf('⚠️')===0 && lines[1]===''){
+        var b=document.createElement('span'); b.className='lead'; b.textContent=lines[0];
+        box.appendChild(b); box.appendChild(document.createElement('br'));
+        box.appendChild(document.createTextNode(lines.slice(2).join('\n')));
+      }else box.textContent=msg;
+      el('askYes').textContent=yesLabel||'آره';
+      var done=function(){ dlg.removeEventListener('close',done); res(dlg.returnValue==='yes'); };
+      dlg.addEventListener('close',done);
+      dlg.returnValue='no';
+      if(dlg.open) try{ dlg.close(); }catch(e){}
+      dlg.showModal();
+    });
+  };
+  askChain=askChain.then(run,run);
+  return askChain;
+}
+
+/* ══════════════ ۶) پیامِ شناور ══════════════ */
+function toast(msg,actLabel,actFn,ms){
+  var t=el('toast'), a=el('toastAct');
+  el('toastMsg').textContent=msg;
+  a.hidden=!actLabel;
+  if(actLabel){ a.textContent=actLabel; a.onclick=function(){ hideToast(); actFn(); }; }
+  else a.onclick=null;
+  t.classList.remove('hidden');
+  clearTimeout(TOASTT);
+  TOASTT=setTimeout(hideToast,ms||(actLabel?7000:3000));
+}
+function hideToast(){ el('toast').classList.add('hidden'); }
+
+/* ══════════════ ۷) نمایش ══════════════ */
+function el(id){ return document.getElementById(id); }
+
+function render(){
+  var rows=rowsOfMonth(VIEW.jy,VIEW.jm).sort(byDateDesc), total=sumOf(rows);
+  el('mLabel').textContent=MON[VIEW.jm-1]+' '+faDigits(VIEW.jy);
+  el('mTotal').textContent=faNum(total);
+  el('mCount').textContent=rows.length?faDigits(rows.length)+' قلم':'';
+  el('mWords').textContent=rows.length?numWords(total)+' تومان':'این ماه خرجی ثبت نشده.';
+
+  var box=el('list');
+  if(!rows.length){
+    box.innerHTML='<li class="empty">'+(ROWS.length
+      ? 'در '+MON[VIEW.jm-1]+' '+faDigits(VIEW.jy)+' خرجی ثبت نشده.'
+      : 'هنوز چیزی ثبت نشده — اولین خرج را بالا وارد کن.')+'</li>';
+    return;
+  }
+  var h='';
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i], j=parseJ(r.jdate);
+    h+='<li>'
+     +  '<button class="rowmain" type="button" data-act="edit" data-id="'+esc(r.id)+'">'
+     +    '<span class="rnote">'+esc(r.note)+'</span>'
+     +    '<span class="rdate">'+jShort(j)+'</span>'
+     +    '<span class="ramt">'+faNum(r.amount)+'</span>'
+     +  '</button>'
+     +  '<button class="del" type="button" data-act="del" data-id="'+esc(r.id)+'"'
+     +   ' aria-label="حذفِ '+esc(r.note)+'">🗑</button>'
+     +'</li>';
+  }
+  box.innerHTML=h;
+}
+function renderAmountHint(){
+  var v=el('fAmount').value.trim(), n=parseNum(v);
+  var h=el('amountHint');
+  if(!v){ h.innerHTML='—'; return; }
+  if(!(n>0)){ h.innerHTML='عددِ درست وارد کن.'; return; }
+  h.innerHTML='<b>'+faNum(n)+'</b> تومان — '+esc(numWords(n))+' تومان';
+}
+function renderDateHint(){
+  var j=parseJ(el('fDate').value), h=el('dateHint');
+  h.textContent=j? jHuman(j)+' — '+DOW[jDow(j)] : 'تاریخ را مثلِ ۱۴۰۵/۰۵/۲۲ بنویس.';
+}
+function setDate(j){ el('fDate').value=faDigits(jKey(j)); renderDateHint(); }
+
+/* ══════════════ ۸) کارها ══════════════ */
+function submitForm(){
+  var amount=parseNum(el('fAmount').value);
+  var note=el('fNote').value.trim();
+  var j=parseJ(el('fDate').value);
+  var e=el('formErr');
+  if(!(amount>0)){ e.textContent='مبلغ را درست وارد کن (عددِ بزرگ‌تر از صفر).'; el('fAmount').focus(); return false; }
+  if(!note){ e.textContent='بابتِ خرج را بنویس.'; el('fNote').focus(); return false; }
+  if(!j){ e.textContent='تاریخ درست نیست — مثلِ ۱۴۰۵/۰۵/۲۲.'; el('fDate').focus(); return false; }
+  e.textContent='';
+
+  if(EDITING){
+    var found=false;
+    for(var i=0;i<ROWS.length;i++) if(ROWS[i].id===EDITING){
+      ROWS[i].amount=amount; ROWS[i].note=note.slice(0,120); ROWS[i].jdate=jKey(j); found=true;
+    }
+    if(!found){ e.textContent='این ردیف پیدا نشد؛ شاید حذف شده.'; stopEdit(); return false; }
+    save(); VIEW={jy:j.jy,jm:j.jm,jd:j.jd}; stopEdit(); render();
+    toast('ویرایش ذخیره شد.');
+  }else{
+    ROWS.push({id:newId(),amount:amount,note:note.slice(0,120),jdate:jKey(j),ts:Date.now()});
+    save(); VIEW={jy:j.jy,jm:j.jm,jd:j.jd}; render();
+    toast(faNum(amount)+' تومان ثبت شد.');
+    el('fAmount').value=''; el('fNote').value=''; renderAmountHint();
+  }
+  return true;
+}
+function startEdit(id){
+  var r=null;
+  for(var i=0;i<ROWS.length;i++) if(ROWS[i].id===id) r=ROWS[i];
+  if(!r) return false;
+  EDITING=id;
+  document.body.classList.add('is-editing');
+  el('formCard').classList.add('editing');
+  el('fAmount').value=faNum(r.amount); el('fNote').value=r.note;
+  setDate(parseJ(r.jdate)); renderAmountHint();
+  el('formErr').textContent='';
+  el('submitBtn').textContent='ذخیره‌ی ویرایش';
+  el('cancelEditBtn').hidden=false;
+  /* فرم بالای صفحه است؛ scrollIntoView کارتِ فرم را زیرِ نوارِ چسبیده‌ی بالا
+     می‌بُرد و فیلدِ مبلغ دیده نمی‌شد. رفتن به سرِ صفحه هم درست است هم بی‌شرط. */
+  window.scrollTo(0,0);
+  el('fAmount').focus();
+  return true;
+}
+function stopEdit(){
+  EDITING=null;
+  document.body.classList.remove('is-editing');
+  el('formCard').classList.remove('editing');
+  el('submitBtn').textContent='ثبتِ خرج';
+  el('cancelEditBtn').hidden=true;
+  el('fAmount').value=''; el('fNote').value='';
+  el('formErr').textContent=''; renderAmountHint();
+  setDate(todayJ());
+}
+function removeRow(id){
+  for(var i=0;i<ROWS.length;i++) if(ROWS[i].id===id){
+    LASTDEL=ROWS[i]; ROWS.splice(i,1); save();
+    if(EDITING===id) stopEdit();
+    render();
+    toast('«'+LASTDEL.note.slice(0,18)+'» حذف شد.','برگردان',undoDelete);
+    return true;
+  }
+  return false;
+}
+function askDelete(id){
+  var r=null;
+  for(var i=0;i<ROWS.length;i++) if(ROWS[i].id===id) r=ROWS[i];
+  if(!r) return Promise.resolve(false);
+  return ask('⚠️ حذفِ خرج\n\n'+r.note+'\n'+faNum(r.amount)+' تومان — '+jHuman(parseJ(r.jdate)),'حذف')
+    .then(function(yes){ if(yes) removeRow(r.id); return yes; });
+}
+function undoDelete(){
+  if(!LASTDEL) return false;
+  ROWS.push(LASTDEL); LASTDEL=null; save(); render();
+  toast('برگشت.');
+  return true;
+}
+function gotoMonth(jy,jm){
+  while(jm<1){ jm+=12; jy--; }
+  while(jm>12){ jm-=12; jy++; }
+  VIEW={jy:jy,jm:jm,jd:1}; render();
+}
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  storeSet(THKEY,t);
+  document.querySelector('meta[name=theme-color]')
+    .setAttribute('content',t==='dark'?'#0f1216':'#f4f5f7');
+}
+function exportCSV(){
+  var rows=rowsOfMonth(VIEW.jy,VIEW.jm);
+  if(!rows.length){ toast('این ماه چیزی برای خروجی گرفتن ندارد.'); return false; }
+  /* BOM لازم است وگرنه اکسلِ ویندوز فارسی را به‌هم‌ریخته نشان می‌دهد */
+  dlText('kharj-'+VIEW.jy+'-'+pad2(VIEW.jm)+'.csv','﻿'+buildCSV(rows),'text/csv');
+  toast('فایلِ اکسلِ '+MON[VIEW.jm-1]+' ساخته شد.');
+  return true;
+}
+function exportJSON(){
+  if(!ROWS.length){ toast('چیزی برای پشتیبان‌گیری نیست.'); return false; }
+  dlText('kharj-backup-'+jKey(todayJ()).replace(/\//g,'-')+'.json',buildBackup(),'application/json');
+  toast('پشتیبانِ '+faDigits(ROWS.length)+' ردیف ساخته شد.');
+  return true;
+}
+/* برچسبِ دکمه از همان کلاسی خوانده می‌شود که کشو را باز می‌کند. دو منبعِ حقیقت
+   نداشته باشیم، وگرنه دکمه «بستنِ…» می‌نویسد درحالی‌که کشو بسته است. */
+function syncTools(){
+  var open=document.body.classList.contains('tools-open');
+  el('toolsBtn').textContent=open?'بستنِ بازگردانی':'بازگرداندنِ پشتیبان…';
+  el('toolsBtn').setAttribute('aria-expanded',open?'true':'false');
+}
+function toggleTools(){ document.body.classList.toggle('tools-open'); syncTools(); }
+function closeAll(){
+  var d=el('ask');
+  if(d.open) try{ d.close(); }catch(e){}
+  hideToast();
+  document.body.classList.remove('tools-open');
+  syncTools();
+  el('restoreErr').textContent='';
+  el('formErr').textContent='';
+  stopEdit();
+}
+
+/* ══════════════ ۹) اتصالِ رویدادها ══════════════ */
+function boot(){
+  load();
+  el('storeWarn').hidden=!MEM;
+  VIEW=todayJ();
+  setDate(todayJ());
+  renderAmountHint();
+  render();
+
+  el('submitBtn').addEventListener('click',submitForm);
+  el('cancelEditBtn').addEventListener('click',stopEdit);
+  el('fAmount').addEventListener('input',renderAmountHint);
+  el('fDate').addEventListener('input',renderDateHint);
+  el('todayBtn').addEventListener('click',function(){ setDate(todayJ()); });
+  el('yesterBtn').addEventListener('click',function(){ setDate(jShift(todayJ(),-1)); });
+  /* Enter در فیلدها = ثبت (روی گوشی دکمه‌ی «برو» صفحه‌کلید) */
+  ['fAmount','fNote','fDate'].forEach(function(id){
+    el(id).addEventListener('keydown',function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); submitForm(); } });
+  });
+
+  el('prevM').addEventListener('click',function(){ gotoMonth(VIEW.jy,VIEW.jm-1); });
+  el('nextM').addEventListener('click',function(){ gotoMonth(VIEW.jy,VIEW.jm+1); });
+
+  el('list').addEventListener('click',function(ev){
+    var b=ev.target.closest('[data-act]');
+    if(!b) return;
+    if(b.getAttribute('data-act')==='del') askDelete(b.getAttribute('data-id'));
+    else startEdit(b.getAttribute('data-id'));
+  });
+
+  el('csvBtn').addEventListener('click',exportCSV);
+  el('jsonBtn').addEventListener('click',exportJSON);
+  el('toolsBtn').addEventListener('click',toggleTools);
+  syncTools();
+  el('restoreFile').addEventListener('change',function(ev){
+    var f=ev.target.files&&ev.target.files[0];
+    el('restoreErr').textContent='';
+    if(!f) return;
+    if(f.size>4*1024*1024){ el('restoreErr').textContent='فایل خیلی بزرگ است.'; ev.target.value=''; return; }
+    var fr=new FileReader();
+    fr.onerror=function(){ el('restoreErr').textContent='فایل خوانده نشد.'; };
+    fr.onload=function(){
+      try{
+        var r=applyBackup(String(fr.result));
+        render();
+        toast(faDigits(r.added)+' ردیف اضافه شد'+(r.skipped?'، '+faDigits(r.skipped)+' تکراری':'')
+              +(r.broken?'، '+faDigits(r.broken)+' ناسالم':'')+'.');
+      }catch(err){ el('restoreErr').textContent=err.message; }
+      ev.target.value='';
+    };
+    fr.readAsText(f);
+  });
+
+  el('themeBtn').addEventListener('click',function(){
+    setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+  });
+
+  /* لیبل‌های وصل‌نشده و ردیف‌های کلیک‌پذیرِ بی‌نقش را نگذار از دست برود */
+  document.querySelectorAll('label[for]').forEach(function(l){
+    if(!document.getElementById(l.getAttribute('for'))) l.removeAttribute('for');
+  });
+}
+
+/* رابطِ آزمون و ابزار — همان مسیرهایی که خودِ برنامه استفاده می‌کند */
+window.EXP={
+  parseNum:parseNum, faNum:faNum, faDigits:faDigits, numWords:numWords, esc:esc,
+  parseJ:parseJ, jKey:jKey, jMonthLen:jMonthLen, jLeap:jLeap, todayJ:todayJ, jHuman:jHuman,
+  j2d:j2d, d2j:d2j, jDow:jDow,
+  rows:function(){ return ROWS.slice(); }, rowsOfMonth:rowsOfMonth, sumOf:sumOf,
+  buildCSV:buildCSV, buildBackup:buildBackup, applyBackup:applyBackup, replaceAll:replaceAll,
+  submitForm:submitForm, startEdit:startEdit, stopEdit:stopEdit, askDelete:askDelete,
+  removeRow:removeRow, undoDelete:undoDelete, gotoMonth:gotoMonth, render:render,
+  exportCSV:exportCSV, exportJSON:exportJSON, setTheme:setTheme, closeAll:closeAll,
+  view:function(){ return {jy:VIEW.jy,jm:VIEW.jm}; }, editing:function(){ return EDITING; },
+  storageKey:KEY
+};
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+else boot();
+
+})();
+</script>
+</body>
+</html>

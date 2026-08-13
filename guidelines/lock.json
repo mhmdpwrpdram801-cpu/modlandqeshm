@@ -13,6 +13,11 @@
       "name": "خودوارسیِ دستورالعمل",
       "cmd": "python3 guidelines/self-check.py",
       "note": "سازگاریِ درونیِ خودِ دستورالعمل و فایل‌های کنارش."
+    },
+    {
+      "name": "بازرسِ ابزارِ خرج",
+      "cmd": "python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json",
+      "note": "دروازه‌ی ابزارِ تک‌فایلِ ثبتِ خرج (expenses/). کدِ خروجی ۰ یعنی آماده."
     }
   ],
   "areas": {
@@ -35,6 +40,11 @@
       "version": "2026.08.7",
       "kind": "خودِ دستورالعمل",
       "note": ""
+    },
+    "expenses/": {
+      "version": "2026.08.7",
+      "kind": "کدِ تازه",
+      "note": "ابزارِ تک‌فایلِ ثبتِ خرجِ روزانه. داده روی localStorageِ خودِ گوشی؛ نه سرور دارد نه به Supabase می‌نویسد. waiverِ expenses-single-file."
     }
   },
   "waivers": [
@@ -71,6 +81,21 @@
       "reason": "کلیدِ anonِ Supabase عمداً در کلاینت است — همین‌طور هم طراحی شده. دسترسیِ واقعی باید با RLS روی دیتابیس بسته باشد (DATA-06)، نه با پنهان‌کردنِ کلید.",
       "approved_by": "owner",
       "date": "2026-08-08",
+      "expires": null
+    },
+    {
+      "id": "expenses-single-file",
+      "rules": [
+        "STACK-01",
+        "STACK-02",
+        "PREC-02",
+        "SEC-05",
+        "ARCH-02"
+      ],
+      "scope": "expenses/",
+      "reason": "خواستِ صریحِ مالک: «یک ابزارِ تک‌فایل… دیتا روی خودِ گوشی بماند». پس نه build، نه فریم‌ورک، نه سرور — و بدونِ سرور، CSPِ بدونِ unsafe-inline و اعتبارسنجیِ سمتِ سرور بی‌معنی است. جبران: هیچ منبعِ بیرونی بار نمی‌شود، هر خروجی از esc() رد می‌شود، و ورودی در همان مرزِ ذخیره‌سازی با validRow اعتبارسنجی می‌شود (بررسیِ خودکار دارد).",
+      "approved_by": "owner",
+      "date": "2026-08-13",
       "expires": null
     }
   ],
