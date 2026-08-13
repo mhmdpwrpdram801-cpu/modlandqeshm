@@ -21,8 +21,8 @@
     },
     {
       "name": "بازرسِ سمتِ سرور",
-      "cmd": "python3 auditor/server_audit.py --db <خروجیِ auditor/db_invariants.sql>",
-      "note": "ربات و ثابت‌های دیتابیس. بدونِ --db بخشِ دیتابیس رد می‌شود، نه اینکه پاس شود."
+      "cmd": "python3 auditor/server_audit.py",
+      "note": "ربات و ثابت‌های دیتابیس. برای بخشِ دیتابیس، خروجیِ auditor/db_invariants.sql را بگیر و با سوئیچِ --db بده؛ بدونِ آن، آن بخش رد می‌شود و همان را هم می‌گوید — «رد شد» با «پاس شد» یکی نیست."
     }
   ],
   "areas": {
