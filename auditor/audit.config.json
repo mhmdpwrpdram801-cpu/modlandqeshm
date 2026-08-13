@@ -512,6 +512,74 @@
       "name": "عنصرهای ساخته‌شده با کد هم از مقیاسِ z-index بیرون نمی‌زنند",
       "js": "()=>{const made=[];if(typeof showUpdateBar==='function'&&!document.getElementById('updBar')){showUpdateBar(function(){});made.push('updBar')}const bad=[];document.querySelectorAll('body *').forEach(e=>{const cs=getComputedStyle(e);const z=cs.zIndex;if(!z||z==='auto')return;const n=+z;if(!(n>60))return;if(cs.pointerEvents==='none')return;if(!e.querySelector('button,a,input,select,textarea'))return;bad.push((e.id||String(e.className)).slice(0,20)+':'+n)});made.forEach(id=>{const el=document.getElementById(id);if(el)el.remove()});return bad.length?('بالاتر از ۶۰ و دکمه دارد: '+bad.join('، ')):'همه در مقیاس'}",
       "expect": "همه در مقیاس"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: recalc دو جهشِ زنده داشت (dm==='p'&&disc>0 که || شد، و nDiscMode||{} که && شد) و هیچ بررسی‌ای صدایش درنیامد، چون فقط حالتِ تومانی سنجیده می‌شد. اینجا هر دو حالت با عددِ دستی مقابله می‌شوند: ۳×۸۵۰٬۰۰۰=۲٬۵۵۰٬۰۰۰؛ تومانی ۵۰٬۰۰۰ → ۲٬۵۰۰٬۰۰۰؛ درصدی ۱۰٪ → ۲٬۲۹۵٬۰۰۰. ردیفِ تخفیف هم فقط در حالتِ درصدی دیده می‌شود.",
+      "name": "تخفیف در هر دو حالت با حسابِ دستی می‌خواند",
+      "_before_removed": "همه‌ی وضعیت داخلِ js ساخته می‌شود (TEST-03)"
+      , "before": "nav('new')",
+      "js": "()=>{const g=id=>document.getElementById(id);g('itemsWrap').innerHTML='';addItemRow();const r=document.querySelector('.itemrow'),sel=r.querySelector('.ir-prod');sel.value='p1';onPickProduct(sel);r.querySelector('.ir-qty').value='۳';const unit=(PRODUCTS.find(x=>x.id==='p1')||{}).price;const set=(m,v)=>{g('nDiscMode').value=m;g('nDiscount').value=v;recalc();};const vis=()=>{const e=g('tDiscRow');return e?getComputedStyle(e).display!=='none':false};set('t','50,000');const items=g('tItems').textContent,a=g('tFinal').textContent,av=vis();set('p','10');const b=g('tFinal').textContent,bv=vis();set('t','0');const c=g('tFinal').textContent;const want=unit*3;const fa=n=>String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,'٬').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[+d]);const got=[items,a,av?'ردیف':'بی‌ردیف',b,bv?'ردیف':'بی‌ردیف',c].join('/');const exp=[fa(want),fa(want-50000),'بی‌ردیف',fa(Math.round(want*0.9)),'ردیف',fa(want)].join('/');return got===exp?'درست':('دیده شد '+got+' ≠ حسابِ دستی '+exp)}",
+      "expect": "درست"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: renderDashboard بیشترین جهشِ زنده را داشت (۳ تا) چون هیچ‌چیز عددش را با جای دیگری مقابله نمی‌کرد. داشبورد و گزارش دو مسیرِ محاسباتیِ **مستقل**اند روی همان داده؛ اگر عددشان فرق کند یکی خراب است. این بررسی هیچ عددی را حفظ نمی‌کند، فقط سازگاری را می‌سنجد — پس با عوض شدنِ داده‌ی شبیه‌ساز نمی‌شکند.",
+      "name": "فروشِ داشبورد و فروشِ گزارش یک عدد می‌دهند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const num=t=>{const m=String(t||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[,٬]/g,'').match(/\\d+/g);return m?+m[m.length-1]:null};const after=(txt,re)=>{const L=txt.split('\\n').map(x=>x.trim());const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i;j<Math.min(L.length,i+3);j++){if(j>i&&/[۰-۹\\d]/.test(L[j]))return num(L[j]);}return null};await nav('dashboard');await w(900);const dt=(document.getElementById('dashStats')||document.body).innerText;const d=after(dt,/فروش این ماه/);await openReport();await w(1200);const rb=document.getElementById('repBody');if(!rb)return 'گزارش رندر نشد';const r=after(rb.innerText,/^فروش/);if(d===null||r===null)return 'عدد پیدا نشد (داشبورد '+d+' | گزارش '+r+')';return d===r?'یکی':('اختلاف: داشبورد '+d+' ≠ گزارش '+r)}",
+      "expect": "یکی"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: حذفِ esc() از data-pid در openInvoiceReturn زنده ماند، چون بررسیِ فرار فقط جست‌وجوی سراسری را می‌دید. شبیه‌ساز عمداً کالایی با <b> و & و گیومه دارد؛ اینجا هر صفحه‌ای که در screens هست بعد از رندر گشته می‌شود. صفت‌ها هم شمرده می‌شوند چون گیومه‌ی نافرار همان‌جا دستور می‌سازد (SEC-04).",
+      "name": "هیچ صفحه‌ای نامِ بدقواره را به HTML تبدیل نمی‌کند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const scr=['dashboard','invoices','products','customers'];const bad=[];for(const s of scr){await nav(s);await w(650);document.querySelectorAll('#scr-'+s+' b, #scr-'+s+' i, #scr-'+s+' img, #scr-'+s+' script').forEach(e=>{if(/۲۰۲۶|2026/.test(e.textContent||''))bad.push(s+':'+e.tagName)});}await nav('dashboard');await w(400);return bad.length?('تگِ ساخته‌شده → '+bad.slice(0,4).join('، ')):'همه‌جا متن مانْد'}",
+      "expect": "همه‌جا متن مانْد"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: insRetQty دو جهشِ زنده داشت و هیچ‌چیز عددش را نمی‌سنجید. این تابع تفکیکِ «مرجوعیِ روی فاکتور» از «مرجوعیِ مستقل» را نگه می‌دارد — همان تفکیکی که README می‌گوید به‌هم نزنید، چون یکی از قبل از فروش کم شده و دیگری نه. اینجا با دادهٔ ساختگیِ خودش سنجیده می‌شود (TEST-03) و عدد دستی حساب شده: مستقل‌ها ۳+۷=۱۰، و با بازه فقط ۳.",
+      "name": "شمارشِ مرجوعیِ مستقل در بینش‌ها با حسابِ دستی می‌خواند",
+      "js": "()=>{const keep=window.INS;const now=Date.now();const iso=ms=>new Date(ms).toISOString();window.INS={rets:[{invoice_id:'i1',created_at:iso(now-1000),items:[{product_id:'p1',quantity:5}]},{invoice_id:null,created_at:iso(now-1000),items:[{product_id:'p1',quantity:3}]},{invoice_id:null,created_at:iso(now-100000),items:[{product_id:'p1',quantity:7}]},{invoice_id:null,created_at:iso(now-1000),items:[{product_id:'p2',quantity:9}]}]};let out;try{out=insRetQty('p1',0)+'/'+insRetQty('p1',now-50000)+'/'+insRetQty('p2',0)}finally{window.INS=keep}return out}",
+      "expect": "10/3/9"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: saveProduct دو جهشِ زنده داشت. یکی مرزِ قیمت را از «بیشتر از صفر» به «بیشتر از یک» می‌بُرد، دیگری size_infoِ خالی را به‌جای null رشته‌ی خالی می‌فرستاد — هر دو بی‌صدا. اینجا خودِ باری که به سرور می‌رود سنجیده می‌شود، نه ظاهرِ فرم.",
+      "name": "بارِ ذخیره‌ی کالا: مرزِ قیمت و size_infoِ خالی",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const g=id=>document.getElementById(id);const f=window.fetch;let sent=null;window.fetch=function(u,o){const s=String(u);if(s.indexOf('/rest/v1/products')>=0&&o&&o.method==='POST'){try{sent=JSON.parse(o.body)}catch(e){sent=o.body}}return f.apply(this,arguments)};const trial=async(price)=>{sent=null;openProductForm();await w(350);g('pName').value='کالای آزمایشی';g('pPrice').value=String(price);g('pSize').value='';await saveProduct();await w(500);return sent};try{const zero=await trial(0);const one=await trial(1);const si=one?(Array.isArray(one)?one[0]:one).size_info:undefined;return (zero===null?'صفر رد شد':'صفر پذیرفته شد')+'/'+(one?'یک پذیرفته شد':'یک رد شد')+'/size_info='+(si===null?'null':JSON.stringify(si))}finally{window.fetch=f;if(typeof closeProductForm==='function')closeProductForm();}}",
+      "expect": "صفر رد شد/یک پذیرفته شد/size_info=null"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: شرطِ «اقلامِ فاکتور شناسه ندارند؟» با || به جای && همیشه درست می‌شد و فرمِ مرجوعی هر بار اقلام را دوباره از سرور می‌گرفت. هیچ خطایی نمی‌داد، فقط یک درخواستِ اضافه روی اینترنتِ کند. شمارشِ درخواست تنها راهِ دیدنش است.",
+      "name": "فرمِ مرجوعی وقتی اقلام شناسه دارند دوباره از سرور نمی‌گیرد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;let n=0;window.fetch=function(u){const s=String(u);if(s.indexOf('invoice_items?select=id,product_id')>=0)n++;return f.apply(this,arguments)};try{await openInvoiceById('i1');await w(700);n=0;await openInvoiceReturn();await w(800);return n===0?'بدونِ درخواستِ اضافه':('درخواستِ اضافه: '+n)}finally{window.fetch=f;if(typeof closeInvoice==='function')closeInvoice();}}",
+      "expect": "بدونِ درخواستِ اضافه"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: در sbUpdate و sbDelete شرطِ !r.ok وارونه شد و هیچ بررسی‌ای نفهمید. وارونه‌اش یعنی نوشتنِ موفق «خطا» گزارش می‌شود و — بدتر — خطای واقعیِ سرور بی‌صدا «موفق» حساب می‌شود. هر دو حالت اینجا با پاسخِ ساختگی سنجیده می‌شوند.",
+      "name": "لایه‌ی داده موفقیت و شکست را وارونه گزارش نمی‌کند",
+      "js": "async()=>{const f=window.fetch;const mk=ok=>function(u,o){const s=String(u);if(s.indexOf('/rest/v1/customers')<0)return f.apply(this,arguments);return Promise.resolve(new Response(ok?'[{\"id\":\"c1\"}]':'{\"message\":\"boom\"}',{status:ok?200:400,headers:{'Content-Type':'application/json'}}))};const out=[];try{window.fetch=mk(true);try{await sbUpdate('customers','c1',{name:'x'});out.push('به‌روزرسانیِ موفق سالم')}catch(e){out.push('به‌روزرسانیِ موفق خطا داد: '+e.message)}try{await sbDelete('customers','c1');out.push('حذفِ موفق سالم')}catch(e){out.push('حذفِ موفق خطا داد: '+e.message)}window.fetch=mk(false);try{await sbUpdate('customers','c1',{name:'x'});out.push('خطای سرور بی‌صدا رد شد')}catch(e){out.push('خطای سرور گرفته شد')}try{await sbDelete('customers','c1');out.push('خطای سرور بی‌صدا رد شد')}catch(e){out.push('خطای سرور گرفته شد')}}finally{window.fetch=f}return out.join(' | ')}",
+      "expect": "به‌روزرسانیِ موفق سالم | حذفِ موفق سالم | خطای سرور گرفته شد | خطای سرور گرفته شد"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: حذفِ await از ask() در ابطالِ فاکتور. Promise همیشه truthy است، پس شرطِ «اگر تأیید نکرد برگرد» بی‌اثر می‌شود و فاکتور **بدونِ تأیید** باطل می‌شود. برگشت‌ناپذیر است و هیچ خطایی هم نمی‌دهد. اینجا ask به «نه» وادار می‌شود و باید هیچ درخواستِ نوشتنی نرود (UI-10).",
+      "name": "ابطالِ فاکتور بدونِ تأیید انجام نمی‌شود",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch,ok=window.ask;let writes=0;window.fetch=function(u,o){const m=(o&&o.method)||'GET';if(m!=='GET')writes++;return f.apply(this,arguments)};window.ask=async()=>false;try{await openInvoiceById('i1');await w(700);writes=0;await voidCurrentInvoice();await w(600);return writes===0?'بدونِ تأیید چیزی نوشته نشد':('با «نه» باز هم '+writes+' نوشتن رفت')}finally{window.fetch=f;window.ask=ok;if(typeof closeInvoice==='function')closeInvoice()}}",
+      "expect": "بدونِ تأیید چیزی نوشته نشد"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: شرطِ «حداقل یک کالا» در submitInvoice وارونه شد و هیچ‌چیز نگرفتش. وارونه‌اش یعنی فاکتورِ خالی ثبت می‌شود و فاکتورِ درست رد. اینجا هر دو سمتِ مرز سنجیده می‌شود. انتظارِ ثابت بعد از ثبت لرزان بود (با -r 3 دو نتیجه‌ی متفاوت داد)؛ حالا تا دیدنِ خودِ درخواست صبر می‌کند، نه یک عددِ میلی‌ثانیه (TEST-07/TEST-08).",
+      "name": "فاکتورِ خالی ثبت نمی‌شود و فاکتورِ درست رد نمی‌شود",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const g=id=>document.getElementById(id);const f=window.fetch;let posts=0;window.fetch=function(u,o){if(String(u).indexOf('/rest/v1/')>=0&&o&&o.method==='POST')posts++;return f.apply(this,arguments)};const until=async(ms)=>{const t0=Date.now();while(Date.now()-t0<ms){if(posts>0)return true;await w(60)}return false};try{await nav('new');await w(600);g('nName').value='خریدارِ آزمایشی';g('itemsWrap').innerHTML='';addItemRow();posts=0;await submitInvoice();await w(800);const empty=posts;g('nName').value='خریدارِ آزمایشی';g('itemsWrap').innerHTML='';addItemRow();const r=document.querySelector('.itemrow'),sel=r.querySelector('.ir-prod');sel.value='p1';onPickProduct(sel);r.querySelector('.ir-qty').value='۲';recalc();await w(200);posts=0;const pr=submitInvoice();await until(4000);try{await pr}catch(e){}await until(1500);const full=posts;const m=[...document.querySelectorAll('#scr-new .msg')].map(e=>e.textContent.trim()).filter(Boolean).join('؛');return (empty===0?'خالی رد شد':'خالی ثبت شد')+'/'+(full>0?'درست ثبت شد':'درست رد شد — پیام: '+(m||'هیچ'))}finally{window.fetch=f}}",
+      "expect": "خالی رد شد/درست ثبت شد"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: numToFaWords جهشِ زنده داشت و هیچ بررسی‌ای عددش را نمی‌سنجید، با اینکه مبلغ‌به‌حروف روی خودِ فاکتور چاپ می‌شود و کارش جلوگیری از جعل است. مقادیرِ مرزی دستی حساب شده‌اند.",
+      "name": "مبلغ‌به‌حروف روی مقادیرِ مرزی درست است",
+      "js": "()=>[0,1,10,11,19,20,100,101,1000,1100,850000,2550000,1000000000].map(n=>numToFaWords(n)).join('|')",
+      "expect": "صفر|یک|ده|یازده|نوزده|بیست|صد|صد و یک|یک هزار|یک هزار و صد|هشتصد و پنجاه هزار|دو میلیون و پانصد و پنجاه هزار|یک میلیارد"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: در renderDashboard و insDebt عددِ پیش‌فرضِ صفر به یک تبدیل شد (`Number(x||0)` شد `||1`) و کسی نفهمید، چون شبیه‌ساز همیشه عددِ ناصفر دارد. حالتِ «هنوز چیزی فروخته نشده» باید صفر نشان بدهد نه یک — عددِ کوچکِ غلط از عددِ بزرگِ غلط خطرناک‌تر است چون باورپذیر است.",
+      "name": "وقتی فروشی نیست، داشبورد صفر نشان می‌دهد نه یک",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;window.fetch=function(u,o){const s=String(u);if(s.indexOf('dashboard_stats')>=0)return Promise.resolve(new Response(JSON.stringify([{sales_today:0,sales_month:0,count_today:0,count_month:0,debt_total:0}]),{headers:{'Content-Type':'application/json'}}));if(s.indexOf('/rest/v1/invoices')>=0||s.indexOf('/rest/v1/returns')>=0)return Promise.resolve(new Response('[]',{headers:{'Content-Type':'application/json'}}));return f.apply(this,arguments)};try{await nav('dashboard');await w(1200);const t=(document.getElementById('dashStats')||document.body).innerText;const L=t.split('\\n').map(x=>x.trim());const grab=re=>{const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i+1;j<Math.min(L.length,i+3);j++)if(/[۰-۹\\d]/.test(L[j]))return L[j].replace(/[^۰-۹\\d]/g,'');return null};const a=grab(/فروش امروز/),b=grab(/فروش این ماه/);if(a===null||b===null)return 'برچسب پیدا نشد';return (a==='۰'&&b==='۰')?'هر دو صفر':('امروز '+a+'، این ماه '+b)}finally{window.fetch=f;await nav('dashboard');await w(400)}}",
+      "expect": "هر دو صفر"
     }
   ],
   "click_test": {

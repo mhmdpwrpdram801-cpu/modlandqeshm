@@ -9,9 +9,14 @@
 خروجی: کدِ ۰ یعنی آماده‌ی تحویل، ۱ یعنی ایراد دارد.
 """
 import sys, os, re, json, argparse, subprocess, threading, functools
+import tempfile, shutil, atexit
 import http.server, socketserver
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+# هر اجرا پوشه‌ی موقتِ خودش را دارد (اجرای موازی)
+_RUNDIR = tempfile.mkdtemp(prefix='audit_')
+atexit.register(lambda: shutil.rmtree(_RUNDIR, ignore_errors=True))
 FAILS, WARNS, PASSES = [], [], []
 
 def ok(m):   PASSES.append(m); print("  ✅ " + m)
@@ -72,7 +77,7 @@ def static_checks(html_path, cfg):
         warn("هیچ اسکریپتِ درون‌خطی نیست — بررسی‌های کد رد شد")
     bad_syntax = []
     for i, b in enumerate(blocks):
-        p = f'/tmp/_audit_{i}.js'
+        p = os.path.join(_RUNDIR, f'chk_{i}.js')
         open(p, 'w', encoding='utf-8').write(b)
         r = subprocess.run(['node', '--check', p], capture_output=True, text=True)
         if r.returncode != 0:
@@ -259,7 +264,10 @@ LIGHT_BOX_SCAN = """()=>{
 
 # ───────────────────────────── سرورِ محلی
 def serve(html_path, extra):
-    root = '/tmp/_audit_srv'
+    # مسیرِ یکتا به‌ازای هر اجرا: با مسیرِ ثابت، دو بازرسِ هم‌زمان فایل‌های
+    # همدیگر را رونویسی می‌کردند و نتیجه‌ی هر دو بی‌معنی می‌شد (تستِ جهشی
+    # دقیقاً به همین برخورد و مجبور شد پشتِ‌سرِهم اجرا کند).
+    root = os.path.join(_RUNDIR, 'srv')
     os.makedirs(root, exist_ok=True)
     import shutil
     shutil.copy(html_path, os.path.join(root, 'index.html'))
@@ -289,7 +297,10 @@ def runtime_checks(url, cfg, html_path, engine='chromium', repeat=1):
         if not fixture: warn("فایلِ شبیه‌ساز پیدا نشد: " + cfg['fixture'])
 
     errs, netfail = [], []
-    shots = '/tmp/audit_shots'; os.makedirs(shots, exist_ok=True)
+    # پیش‌فرض همان مسیرِ آشناست تا مستندها نشکنند؛ برای اجرای موازی
+    # با AUDIT_SHOTS عوضش کن.
+    shots = os.environ.get('AUDIT_SHOTS', '/tmp/audit_shots')
+    os.makedirs(shots, exist_ok=True)
     for f in os.listdir(shots):
         try: os.remove(os.path.join(shots, f))
         except Exception: pass
