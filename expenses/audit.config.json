@@ -228,6 +228,11 @@
     {"_note": "مکملِ بررسیِ بالا: سخت‌گیریِ تازه نباید پشتیبانِ سالم را هم رد کند.",
      "name": "پشتیبانِ سالم بی‌کم‌وکاست برمی‌گردد",
      "js": "()=>{window.EXP.replaceAll([{id:'ok1',amount:850000,note:'حمل',jdate:'1405/05/22',ts:1},{id:'ok2',amount:1,note:'مرزی',jdate:'1405/05/22',ts:2}]);const b=window.EXP.buildBackup();window.EXP.replaceAll([]);const r=window.EXP.applyBackup(b);return r.added+'/'+r.broken+'/'+window.EXP.sumOf(window.EXP.rowsOfMonth(1405,5))}",
-     "expect": "2/0/850001"}
+     "expect": "2/0/850001"},
+
+    {"_note": "با کاشتنِ باگِ عمدی پیدا شد (auditor/mutants.py، جهشِ M19): برداشتنِ dir و lang از <html> کلِ برنامه‌ی فارسی را چپ‌به‌راست می‌کرد و هر ۷۰ بررسی سبز می‌ماند. قاعده‌اش (UI-11) بود ولی مجری نداشت. متنِ خامِ فایل خوانده می‌شود نه DOM — چون اسکریپت می‌تواند بعداً صفت را بگذارد و DOM را گول بزند، و همان حالت است که قاعده منعش می‌کند.",
+     "name": "جهت و زبان در خودِ نشانه‌گذاری‌اند، نه با اسکریپت",
+     "js": "async()=>{const t=await (await fetch(location.href,{cache:'no-store'})).text();const m=(t.match(/<html[^>]*>/i)||[''])[0];const inMarkup=/\\blang\\s*=/.test(m)&&/\\bdir\\s*=/.test(m);const live=getComputedStyle(document.body).direction;return (inMarkup&&live==='rtl')?'در نشانه‌گذاری و rtl':('ایراد → تگ: '+m.slice(0,48)+' | جهتِ زنده: '+live)}",
+     "expect": "در نشانه‌گذاری و rtl"}
   ]
 }

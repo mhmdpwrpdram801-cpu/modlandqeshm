@@ -481,6 +481,37 @@
       "name": "یادداشت و نشانِ پیش‌فاکتور در هر دو تم کنتراستِ کافی دارند",
       "js": "()=>{const f=window.fetch;window.fetch=function(u){const s=String(u);if(s.indexOf('quotes?select=*&id=eq.qCON')>=0)return Promise.resolve(new Response(JSON.stringify([{id:'qCON',buyer_name:'حاج رضا',note:'تسویه تا آخر ماه',items:[{product_id:'p1',product_name:'شلوار جین آبی',quantity:3,unit_price:850000}],items_total:2550000,discount:50000,created_at:'2026-08-06T09:00:00Z'}]),{headers:{'Content-Type':'application/json'}}));return f.apply(this,arguments);};document.getElementById('quotesView').classList.remove('hidden');return openQuoteView('qCON').then(()=>new Promise(r=>setTimeout(r,300))).then(()=>{window.fetch=f;const P=(c)=>{const m=(c||'').match(/[\\d.]+/g)||[0,0,0];return [+m[0],+m[1],+m[2],m.length>3?+m[3]:1];};const over=(f,b)=>[0,1,2].map(i=>f[3]*f[i]+(1-f[3])*b[i]);const lin=(v)=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);};const L=(c)=>0.2126*lin(c[0])+0.7152*lin(c[1])+0.0722*lin(c[2]);const solid=(el)=>{let n=el,acc=null;while(n&&n!==document.documentElement){const p=P(getComputedStyle(n).backgroundColor);if(p[3]>0){acc=acc?over(acc.concat([1]),p.slice(0,3)):null;if(p[3]>=1)return acc||p.slice(0,3);}n=n.parentElement;}return [255,255,255];};const ratio=(el)=>{const fg=P(getComputedStyle(el).color).slice(0,3);const own=P(getComputedStyle(el).backgroundColor);const base=solid(el.parentElement);const bg=own[3]>0?over(own,base):base;const a=L(fg),b=L(bg);return Math.round(((Math.max(a,b)+0.05)/(Math.min(a,b)+0.05))*100)/100;};const out=[];document.querySelectorAll('#quoteRender .inv-note').forEach(e=>out.push(ratio(e)));const bd=document.querySelector('#quoteRender .inv-badge');if(bd)out.push(ratio(bd));document.getElementById('quotesView').classList.add('hidden');if(out.length!==3)return 'انتظارِ ۳ عنصر، '+out.length+' تا آمد';const bad=out.filter(r=>r<4.5);return bad.length?('کم‌کنتراست: '+bad.join(', ')+' از '+out.join(', ')):'هر ۳ بالای ۴٫۵';});}",
       "expect": "هر ۳ بالای ۴٫۵"
+    },
+    {
+      "_note": "با کاشتنِ باگِ عمدی پیدا شد (mutants.py M01): --danger فقط از تمِ روشن برداشته شد و بررسیِ قبلی پاس داد، چون getComputedStyle فقط تمِ فعال را می‌بیند. از styleSheets خوانده می‌شود نه fetch — شبیه‌ساز window.fetch را عوض می‌کند و راهِ عبور برای خودِ سند ندارد، پس fetch(location.href) اینجا فایل را برنمی‌گرداند (خودش یک بار همین بررسی را الکی قرمز کرد). دو تمِ کامل باید دقیقاً یک مجموعه متغیر داشته باشند. --nav-h استثناست: اندازه است نه رنگ. (.force-light و بلوکِ چاپ عمداً کمترند چون متغیرهای نوار و گزارش آنجا به کار نمی‌آیند.)",
+      "name": "هر متغیرِ رنگ در هر دو تم تعریف شده",
+      "js": "()=>{const rules=[].concat.apply([],[].map.call(document.styleSheets,s=>{try{return [].slice.call(s.cssRules)}catch(e){return []}}));const txt=(sel)=>rules.filter(r=>r.selectorText===sel).map(r=>r.cssText).join(' ');const vs=(b)=>new Set((b.match(/--[a-z0-9-]+\\s*:/g)||[]).map(x=>x.replace(/\\s*:$/,'')));const R=vs(txt(':root')),D=vs(txt('html[data-theme=\"dark\"]'));if(!R.size||!D.size)return 'بلوکِ تم پیدا نشد (روشن '+R.size+'، تیره '+D.size+')';const skip=new Set(['--nav-h']);const only=(a,b)=>[...a].filter(v=>!b.has(v)&&!skip.has(v)).sort();const a=only(R,D),b=only(D,R);return (a.length||b.length)?('ناهمتا → فقط روشن: '+(a.join(',')||'—')+' | فقط تیره: '+(b.join(',')||'—')):'هر دو تم یک مجموعه دارند'}",
+      "expect": "هر دو تم یک مجموعه دارند"
+    },
+    {
+      "_note": "با کاشتنِ باگِ عمدی پیدا شد (M06): پنل هیچ بررسیِ فرارِ HTML نداشت — از ۵۵ بررسی صفر. شبیه‌ساز عمداً کالایی با <b> و & و گیومه دارد؛ اگر esc() از یک مسیرِ رندر بیفتد همان‌جا تگِ واقعی ساخته می‌شود (SEC-04).",
+      "name": "نامِ کالا در نتیجه‌ی جست‌وجو متن می‌مانَد، HTML نمی‌شود",
+      "js": "()=>{const w=(ms)=>new Promise(r=>setTimeout(r,ms));const body=document.getElementById('searchBody');document.getElementById('searchView').classList.remove('hidden');document.getElementById('gsInput').value='شلوار';gsRun();return w(700).then(()=>{const tags=body.querySelectorAll('b,i,img,script').length;const txt=body.textContent;const raw=txt.indexOf('<b>')>=0;document.getElementById('searchView').classList.add('hidden');document.getElementById('gsInput').value='';if(!/شلوار/.test(txt))return 'نتیجه‌ای رندر نشد — بررسی بی‌اثر است';return (tags===0&&raw)?'متنِ خام':('تگِ ساخته‌شده: '+tags+' | متنِ خام دیده شد: '+raw)})}",
+      "expect": "متنِ خام"
+    },
+    {
+      "_note": "با کاشتنِ باگِ عمدی پیدا شد (M07): افزودنِ viewport-fit=cover نوارِ پایین را زیرِ نوارِ خانه‌ی آیفون می‌بَرد. روی پلی‌رایت ناحیه‌ی امن صفر است پس زمانِ اجرا دیده نمی‌شود؛ متنِ خامِ فایل تنها راهِ گرفتنش است.",
+      "name": "viewport-fit=cover به متای viewport اضافه نشده",
+      "js": "()=>{const m=document.querySelector('meta[name=viewport]');if(!m)return 'متای viewport نیست';return /viewport-fit\\s*=\\s*cover/i.test(m.content)?('اضافه شده → '+m.content.slice(0,80)):'ندارد'}",
+      "expect": "ندارد"
+    },
+    {
+      "_note": "با کاشتنِ باگِ عمدی پیدا شد (M10): برداشتنِ شرطِ hadController باعث می‌شود بارِ اولی که سرویس‌ورکر کنترل را می‌گیرد صفحه رفرش شود و هرچه کاربر تایپ کرده (ایمیل و رمز) برود. اندازه‌گیری شد: سالم navigate، جهش reload. شرطِ controller لازم است وگرنه اگر سرویس‌ورکر بالا نیامده باشد بررسی بی‌خود سبز می‌مانَد.",
+      "name": "گرفتنِ کنترل توسطِ سرویس‌ورکر صفحه را رفرش نمی‌کند",
+      "needs": "'serviceWorker' in navigator",
+      "js": "()=>{const n=performance.getEntriesByType('navigation')[0];const t=n?n.type:'?';if(!navigator.serviceWorker.controller)return 'سرویس‌ورکر کنترل را نگرفت — بررسی بی‌اثر است';return t==='reload'?'صفحه خودش را رفرش کرد':'بدونِ رفرش'}",
+      "expect": "بدونِ رفرش"
+    },
+    {
+      "_note": "با کاشتنِ باگِ عمدی پیدا شد (M05): بررسیِ نردبان فقط عنصرهای موجود را می‌شمارد و #updBar با کد ساخته می‌شود، پس روی کرومیوم دیده نمی‌شد. اینجا اول ساخته می‌شود بعد سنجیده. سقف ۶۰ است: چیزی که دکمه دارد حق ندارد بالاتر بنشیند.",
+      "name": "عنصرهای ساخته‌شده با کد هم از مقیاسِ z-index بیرون نمی‌زنند",
+      "js": "()=>{const made=[];if(typeof showUpdateBar==='function'&&!document.getElementById('updBar')){showUpdateBar(function(){});made.push('updBar')}const bad=[];document.querySelectorAll('body *').forEach(e=>{const cs=getComputedStyle(e);const z=cs.zIndex;if(!z||z==='auto')return;const n=+z;if(!(n>60))return;if(cs.pointerEvents==='none')return;if(!e.querySelector('button,a,input,select,textarea'))return;bad.push((e.id||String(e.className)).slice(0,20)+':'+n)});made.forEach(id=>{const el=document.getElementById(id);if(el)el.remove()});return bad.length?('بالاتر از ۶۰ و دکمه دارد: '+bad.join('، ')):'همه در مقیاس'}",
+      "expect": "همه در مقیاس"
     }
   ],
   "click_test": {
