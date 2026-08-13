@@ -356,6 +356,10 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
 .inv-policy .pl{font-size:10.5px;color:var(--gold-lt);font-weight:700;margin-bottom:7px}
 .inv-policy .pb{font-size:12.5px;font-weight:700;background:var(--panel);border:1px solid var(--line);border-right:3px solid var(--gold);border-radius:9px;padding:11px 13px;line-height:1.6}
 .inv-cancel{margin-top:12px;text-align:center;color:var(--credit);font-weight:700;font-size:13px;border:1.5px dashed var(--credit);border-radius:10px;padding:8px}
+/* عمداً --gold-dp و نه --gold-lt: با gold-lt کنتراست روی پس‌زمینه‌ی --panel به ۴٫۱۸
+   می‌افتد (زیرِ ۴٫۵ لازمِ WCAG AA) و متنِ ۱۲٫۵ پیکسلیِ توپُر «متنِ درشت» حساب نمی‌شود
+   که سقفش پایین‌تر باشد. اندازه‌گیری شد: gold-dp روی روشن ۶٫۲۶/۵٫۸۰ و روی تیره ۶٫۵۰/۶٫۰۰. */
+.inv-note{margin-top:12px;text-align:center;color:var(--gold-dp);font-weight:700;font-size:12.5px;line-height:1.9;border:1.5px dashed var(--gold);border-radius:10px;padding:9px 11px}
 
 @media print{
   body *{visibility:hidden}
@@ -1941,7 +1945,12 @@ function resetInvoiceForm(){
 /* INVOICE RENDER */
 const STATUS_FA={paid:'پرداخت‌شده',partial:'پرداخت جزئی',credit:'نسیه',cancelled:'باطل شده'};
 function safeStatus(st){ return ['paid','partial','credit','cancelled'].includes(st)?st:'credit'; }
-function buildInvoiceHTML(d){
+/* یک سازنده برای هر دو سند. پیش‌فاکتور را کپیِ جداگانه نساز — دو نسخه‌ی موازی
+   بالاخره از هم جدا می‌افتند و آن‌وقت چیزی که دستِ مشتری می‌رسد با فاکتور فرق دارد.
+   فرقِ پیش‌فاکتور با فاکتور فقط چهار چیز است: عنوان، نداشتنِ شماره، نداشتنِ
+   وضعیتِ پرداخت/مانده، و یک یادداشتِ روشن که این سند هنوز قطعی نیست. */
+function buildInvoiceHTML(d, opts){
+  const O=opts||{}, isQuote=O.doc==='quote';
   const S=SETTINGS||{};
   const shop=S.shop_name||'مدلند قشم', sub=S.subtitle||'پخش عمده پوشاک', addr=S.address||'قشم، درگهان، پشت هتل سینگو، پلاک ۳۷', ig=S.instagram||'modland.qeshm', tg=S.telegram||'modlandqeshm', policy=S.return_policy||'هزینه مرجوعی جنس با خریدار است', phone=S.phone||'', phone2=S.phone2||'';
   const rows=d.items.map((it,i)=>`<tr><td>${faNum(i+1)}</td><td class="d">${esc(it.name)}</td><td>${faNum(it.quantity)}</td><td class="n">${faNum(it.unit_price)}</td><td style="font-weight:700">${faNum(it.quantity*it.unit_price)}</td></tr>`).join('');
@@ -1950,13 +1959,20 @@ function buildInvoiceHTML(d){
   const stB=st==='paid'?'rgba(46,139,87,.1)':st==='partial'?'rgba(181,134,11,.12)':st==='cancelled'?'rgba(120,120,120,.13)':'rgba(192,57,43,.1)';
   const _diff=(Number(d.total_amount)||0)-(Number(d.paid_amount)||0);
   const bal=Math.max(0,_diff); const credit=Math.max(0,-_diff);
+  // پیش‌فاکتور پرداخت ندارد، پس «پرداخت‌شده / مانده حساب» رویش دروغ است.
+  const payLines = isQuote ? '' : (
+    (d.paid_amount?`<div class="tr" style="margin-top:4px"><span>پرداخت‌شده</span><b>${faNum(d.paid_amount)}</b></div>`:'')
+    + (bal>0?`<div class="tr"><span style="color:var(--credit);font-weight:700">مانده حساب</span><b style="color:var(--credit)">${faNum(bal)} تومان</b></div>`:'')
+    + (credit>0?`<div class="tr"><span style="color:var(--paid);font-weight:700">قابلِ برگشت به مشتری</span><b style="color:var(--paid)">${faNum(credit)} تومان</b></div>`:''));
   return `<div class="invoice"><div class="ring"></div><div class="inv-pad">
     <div class="inv-head"><div class="inv-brand"><div class="inv-logo"><img src="img4.png" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block"></div><div><h2>${esc(shop)}</h2><div class="s1">${esc(sub)}</div><div class="s2">واردکننده مستقیم پوشاک بنگلادش</div></div></div>
-    <div class="inv-meta"><div class="t">فاکتور فروش</div><div class="r">شماره: <b>${faNum(d.invoice_number)}</b></div><div class="r">تاریخ: <b>${esc(d.date||'')}</b></div><div class="inv-badge" style="color:${stC};background:${stB}">${STATUS_FA[st]}</div></div></div>
+    <div class="inv-meta"><div class="t">${isQuote?'پیش‌فاکتور':'فاکتور فروش'}</div>${isQuote?'':`<div class="r">شماره: <b>${faNum(d.invoice_number)}</b></div>`}<div class="r">تاریخ: <b>${esc(d.date||'')}</b></div><div class="inv-badge" style="${isQuote?'color:var(--gold-dp);background:rgba(192,144,28,.13)':'color:'+stC+';background:'+stB}">${isQuote?'هنوز فاکتور نشده':STATUS_FA[st]}</div></div></div>
     <div class="inv-buyer"><div class="bf"><div class="k">نام خریدار</div><div class="v">${esc(d.buyer_name||'—')}</div></div>${d.buyer_phone?`<div class="bf"><div class="k">تماس</div><div class="v" dir="ltr">${esc(d.buyer_phone)}</div></div>`:''}${d.buyer_city?`<div class="bf"><div class="k">شهر</div><div class="v">${esc(d.buyer_city)}</div></div>`:''}</div>
     <table class="inv-tbl"><thead><tr><th>#</th><th class="d">شرح کالا</th><th>تعداد</th><th>قیمت واحد</th><th>قیمت کل</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="inv-tot"><div class="box"><div class="tr"><span>جمع کل اقلام</span><b>${faNum(d.items_total)}</b></div>${d.discount?`<div class="tr"><span>تخفیف</span><b style="color:var(--credit)">− ${faNum(d.discount)}</b></div>`:''}<div class="grand"><span class="gl">مبلغ نهایی</span><span class="gv">${faNum(d.total_amount)} <span style="font-size:11px;color:var(--muted)">تومان</span></span></div><div style="font-size:11px;color:var(--gold-lt);font-weight:700;text-align:right;margin-top:4px;padding:2px 2px 0">به حروف: ${numToFaWords(d.total_amount)} تومان</div>${d.paid_amount?`<div class="tr" style="margin-top:4px"><span>پرداخت‌شده</span><b>${faNum(d.paid_amount)}</b></div>`:''}${bal>0?`<div class="tr"><span style="color:var(--credit);font-weight:700">مانده حساب</span><b style="color:var(--credit)">${faNum(bal)} تومان</b></div>`:''}${credit>0?`<div class="tr"><span style="color:var(--paid);font-weight:700">قابلِ برگشت به مشتری</span><b style="color:var(--paid)">${faNum(credit)} تومان</b></div>`:''}</div></div>
-    ${st==='cancelled'?'<div class="inv-cancel">⛔ این فاکتور باطل شده است<br><button class="btn sm" style="margin-top:8px;background:var(--paid);color:#fff" onclick="restoreCurrentInvoice()">↺ برگرداندنِ فاکتور</button></div>':''}
+    <div class="inv-tot"><div class="box"><div class="tr"><span>جمع کل اقلام</span><b>${faNum(d.items_total)}</b></div>${d.discount?`<div class="tr"><span>تخفیف</span><b style="color:var(--credit)">− ${faNum(d.discount)}</b></div>`:''}<div class="grand"><span class="gl">مبلغ نهایی</span><span class="gv">${faNum(d.total_amount)} <span style="font-size:11px;color:var(--muted)">تومان</span></span></div><div style="font-size:11px;color:var(--gold-lt);font-weight:700;text-align:right;margin-top:4px;padding:2px 2px 0">به حروف: ${numToFaWords(d.total_amount)} تومان</div>${payLines}</div></div>
+    ${(!isQuote&&st==='cancelled')?'<div class="inv-cancel">⛔ این فاکتور باطل شده است<br><button class="btn sm" style="margin-top:8px;background:var(--paid);color:#fff" onclick="restoreCurrentInvoice()">↺ برگرداندنِ فاکتور</button></div>':''}
+    ${isQuote?`<div class="inv-note">📋 این <b>پیش‌فاکتور</b> است، نه سندِ فروش — هنوز پرداختی روی آن ثبت نشده و قیمت‌ها مالِ تاریخِ بالاست.<br>اگر تأیید می‌کنی یا می‌خواهی چیزی کم و زیاد شود، از راه‌های تماسِ پایین خبر بده.</div>`:''}
+    ${(isQuote&&d.note)?`<div class="inv-note" style="border-style:solid;background:var(--panel)">📝 ${esc(d.note)}</div>`:''}
     <div class="inv-foot"><div><div class="inv-qrs"><div class="inv-qr"><img src="${QR_TG}" alt="بارکدِ تلگرامِ فروشگاه" width="78" height="78"><div class="c">تلگرام</div></div><div class="inv-qr"><img src="${QR_IG}" alt="بارکدِ اینستاگرامِ فروشگاه" width="78" height="78"><div class="c">اینستاگرام</div></div></div><div class="inv-addr">${esc(addr)}${phone?`<br><span style="white-space:nowrap">تماس: <b dir="ltr">${esc(phone)}</b></span>${phone2?` · <span style="white-space:nowrap"><b dir="ltr">${esc(phone2)}</b></span>`:''}`:(phone2?`<br>تماس: <b dir="ltr">${esc(phone2)}</b>`:'')}<br><span style="white-space:nowrap">اینستاگرام: <b dir="ltr">${esc(ig)}@</b></span> · <span style="white-space:nowrap">تلگرام: <b dir="ltr">${esc(tg)}@</b></span></div></div>
     <div class="inv-policy"><div class="pl">شرایط مرجوعی</div><div class="pb">${esc(policy)}</div></div></div>
   </div></div>`;
@@ -3032,6 +3048,40 @@ async function editQuote(id){
   setQuoteBanner('✏️ در حالِ <b>ویرایشِ پیش‌فاکتور</b> — تغییرات را با دکمه‌ی «💾 ذخیره به‌عنوان پیش‌فاکتور» ثبت کن.');
   toast('پیش‌فاکتور در فرم باز شد — بعدِ تغییر، «💾 ذخیره…» رو بزن');
 }
+/* ردیفِ quotes را به شکلی درمی‌آورد که سازنده‌ی سند می‌فهمد.
+   دو نکته که اگر رعایت نشود سندِ دستِ مشتری غلط می‌شود:
+   ۱. قیمتِ واحد از خودِ ردیفِ ذخیره‌شده خوانده می‌شود، نه از PRODUCTS — همان قیمتی
+      که به مشتری قول داده شده. گران‌شدنِ کالا نباید پیش‌فاکتورِ داده‌شده را عوض کند.
+   ۲. `created_at` میلادیِ ISO است؛ خام چاپش نکن، از jDate رد کن. */
+function quoteDocData(q){
+  const items=asArray(q.items).map(it=>({
+    name: it.product_name||it.name||((PRODUCTS.find(x=>String(x.id)===String(it.product_id))||{}).name)||'کالا',
+    quantity: Number(it.quantity)||0,
+    unit_price: Math.round(Number(it.unit_price)||0)
+  }));
+  const tot=Math.round(Number(q.items_total||items.reduce((s,it)=>s+it.quantity*it.unit_price,0)));
+  const disc=Math.round(Number(q.discount)||0);
+  return { date:jDate(q.created_at), buyer_name:q.buyer_name, buyer_phone:q.buyer_phone,
+           buyer_city:q.buyer_city, note:q.note, items,
+           items_total:tot, discount:disc, total_amount:Math.max(0,tot-disc), paid_amount:0 };
+}
+async function shareQuoteImage(target){
+  const el=document.querySelector('#quoteRender .invoice');
+  if(!el){ toast('اول پیش‌فاکتور رو باز کن'); return; }
+  if(!(await ensureH2C())){ toast('ابزارِ عکس بارگذاری نشد — اینترنتت رو چک کن 🙏'); return; }
+  const appName=target==='telegram'?'تلگرام':target==='whatsapp'?'واتساپ':'';
+  toast('در حال ساخت عکس…');
+  const caption=((SETTINGS&&SETTINGS.shop_name)||'مدلند قشم')+' — پیش‌فاکتور';
+  try{
+    el.classList.add('force-light');
+    const canvas=await renderToCanvas(el,{useCORS:true}).finally(()=>el.classList.remove('force-light'));
+    canvas.toBlob(async(blob)=>{
+      if(!blob){ toast('خطا در ساخت عکس'); return; }
+      await shareOrDownload(blob,'pishfactor-modland.png',{text:caption,title:'پیش‌فاکتور مدلند'},
+        appName?('عکس ذخیره شد ✅ حالا در '+appName+' بفرستش'):'عکسِ پیش‌فاکتور دانلود شد ✅');
+    },'image/png');
+  }catch(e){ toast('خطا در ساخت عکس'); }
+}
 async function openQuoteView(id){
   // دو پیش‌فاکتور را پشتِ سرِ هم باز کنی و پاسخِ اولی دیرتر برسد، اولی روی دومی
   // می‌نشیند — و دکمه‌های «تبدیل به فاکتور» و «حذف» شناسه‌ی همان را در خود دارند.
@@ -3041,26 +3091,11 @@ async function openQuoteView(id){
   const q=await _getQuote(id);
   if(seqStale('quotesBody',_q))return;
   if(!q){ toast('یافت نشد'); return; }
-  const items=asArray(q.items); const tot=Number(q.items_total||items.reduce((s,it)=>s+Number(it.quantity||0)*Number(it.unit_price||0),0)); const disc=Number(q.discount||0); const net=Math.max(0,tot-disc);
-  const pn=(it)=>it.product_name||it.name||((PRODUCTS.find(x=>String(x.id)===String(it.product_id))||{}).name)||'کالا';
-  const rows=items.map(it=>`<div class="netrow"><span>${esc(pn(it))} <span style="color:var(--muted)">× ${faNum(it.quantity||0)}</span></span><b class="num">${faNum(Number(it.quantity||0)*Number(it.unit_price||0))}</b></div>`).join('');
-  body.innerHTML=`<div class="ov-sheet">
+  body.innerHTML=`<div class="ov-sheet" style="background:transparent;box-shadow:none;padding:0">
     <button class="btn sm sec" style="margin-bottom:12px" onclick="renderQuotes()">‹ برگشت به لیست</button>
-    <div style="font-size:18px;font-weight:700;margin-bottom:2px">🧾 پیش‌فاکتور</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${esc(jDate(q.created_at))}</div>
-    <div class="card" style="padding:14px;margin-bottom:12px">
-      <div style="font-weight:700;font-size:16px">${esc(q.buyer_name||'بدون نام')}</div>
-      ${q.buyer_phone?`<div style="font-size:13px;color:var(--muted);margin-top:3px" dir="ltr">${esc(q.buyer_phone)}</div>`:''}
-      ${q.buyer_city?`<div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(q.buyer_city)}</div>`:''}
-      ${q.note?`<div style="font-size:13px;margin-top:6px">📝 ${esc(q.note)}</div>`:''}
-    </div>
-    <div class="card" style="padding:14px;margin-bottom:12px">
-      ${rows||'<div class="empty">بدون قلم</div>'}
-      <div class="netrow" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>جمعِ کل</span><b class="num">${faNum(tot)}</b></div>
-      ${disc>0?`<div class="netrow"><span>تخفیف</span><b class="num" style="color:var(--credit)">− ${faNum(disc)}</b></div>`:''}
-      <div class="netrow net" style="font-size:16px"><span>مبلغِ نهایی</span><div style="text-align:left"><b class="num">${faNum(net)} ت</b>${moneyWords(net)}</div></div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div id="quoteRender">${buildInvoiceHTML(quoteDocData(q),{doc:'quote'})}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      <button class="btn sm" style="flex:1 0 100%;background:var(--paid);color:#fff" onclick="shareQuoteImage('whatsapp')">📲 فرستادن برای مشتری<span style="display:block;font-size:11px;font-weight:400;opacity:.85">همین سند به‌صورتِ عکس می‌رود</span></button>
       <button class="btn sm" style="flex:1;min-width:120px" onclick="editQuote('${q.id}')">✏️ ویرایش</button>
       <button class="btn sm" style="flex:1;min-width:120px" onclick="convertQuote('${q.id}')">✅ تبدیل به فاکتور</button>
       <button class="btn sm red" style="flex:1;min-width:90px" onclick="deleteQuote('${q.id}')">🗑 حذف</button>
