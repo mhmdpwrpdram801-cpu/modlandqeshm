@@ -413,9 +413,22 @@ var ROWS=[], MEM=false, VIEW=todayJ(), EDITING=null, LASTDEL=null, TOASTT=0;
 function storeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function storeSet(k,v){ try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } }
 
+/* مبلغی که از فایل یا حافظه می‌آید ماشین‌نوشته است، نه تایپِ آدم — و این دو قرارداد
+   فرق دارند: در ورودیِ تایپ‌شده «.» جداکننده‌ی هزار است (۸۵۰.۰۰۰ یعنی هشتصدوپنجاه
+   هزار)، ولی در JSON ممیز است. با گذراندنِ عددِ JSON از parseNum، ۱۲٫۵ می‌شد ۱۲۵ و
+   ۸۵۰٫۷۵ می‌شد ۸۵٬۰۷۵ — بی‌صدا، بدونِ خطا، و «سالم» شمرده شده. پول عددِ صحیحِ تومان
+   است؛ هر چیزِ دیگری داده‌ی خراب است و باید رد شود تا کاربر ببیندش، نه ده برابر شود.
+   بررسیِ خودکارش در audit.config.json هست. */
+function amountOf(v){
+  if(typeof v==='number') return Number.isSafeInteger(v)?v:NaN;
+  if(typeof v!=='string') return NaN;
+  /* رشته را می‌پذیریم ولی فقط با جداکننده‌ی هزارِ بی‌ابهام؛ «.» اینجا ممیز است و رد می‌شود */
+  var s=toAscii(v).replace(/[\s‌‏'`]/g,'').replace(/[٬,]/g,'');
+  return /^\d{1,15}$/.test(s)?parseInt(s,10):NaN;
+}
 function validRow(r){
   if(!r||typeof r!=='object') return null;
-  var amount=parseNum(r.amount), note=String(r.note==null?'':r.note).trim(), j=parseJ(r.jdate);
+  var amount=amountOf(r.amount), note=String(r.note==null?'':r.note).trim(), j=parseJ(r.jdate);
   if(!(amount>0)||!note||!j) return null;
   return {
     id:String(r.id||newId()).slice(0,40),
@@ -437,8 +450,10 @@ function load(){
   var parsed=null;
   try{ parsed=JSON.parse(raw); }catch(e){ parsed=null; }
   if(!parsed||!Array.isArray(parsed.rows)){
-    /* داده‌ی خراب را پاک نکن — کنار بگذار و به کاربر بگو */
-    storeSet(KEY+'_broken_'+Date.now(), raw);
+    /* داده‌ی خراب را پاک نکن — کنار بگذار و به کاربر بگو. یک نسخه بس است:
+       کلیدِ زمان‌دار با هر بار باز شدنِ صفحه یکی دیگر می‌ساخت و حافظه را پر می‌کرد.
+       اندازه‌گیری شد: ۴ بار باز کردنِ صفحه → قبلاً ۴ کلید، حالا ۱. */
+    if(storeGet(KEY+'_broken')===null) storeSet(KEY+'_broken', raw);
     ROWS=[]; toast('داده‌ی ذخیره‌شده خوانده نشد؛ یک نسخه‌ی خام کنار گذاشته شد.');
     return;
   }

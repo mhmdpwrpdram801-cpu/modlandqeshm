@@ -218,6 +218,16 @@
 
     {"name": "هر ورودی لیبلِ وصل‌شده دارد",
      "js": "()=>{const bad=[];document.querySelectorAll('input').forEach(i=>{const l=i.id&&document.querySelector('label[for=\"'+i.id+'\"]');if(!l&&!i.getAttribute('aria-label'))bad.push(i.id||i.type)});return bad.length?bad.join('، '):'همه‌ی ورودی‌ها لیبل دارند'}",
-     "expect": "همه‌ی ورودی‌ها لیبل دارند"}
+     "expect": "همه‌ی ورودی‌ها لیبل دارند"},
+
+    {"_note": "باگِ واقعی: مبلغِ فایل از parseNum رد می‌شد که برای تایپِ آدم نوشته شده و «.» را جداکننده‌ی هزار می‌بیند. در JSON «.» ممیز است، پس ۱۲٫۵ می‌شد ۱۲۵ و ۸۵۰٫۷۵ می‌شد ۸۵٬۰۷۵ — بی‌صدا، و «سالم» شمرده می‌شد. قبل از اصلاح این بررسی ۴+۰/۵۸۵۳۲۵ می‌داد.",
+     "name": "مبلغِ اعشاری از پشتیبان رد می‌شود، نه اینکه ضرب شود",
+     "js": "()=>{window.EXP.replaceAll([]);const r=window.EXP.applyBackup(JSON.stringify({app:'mlq-expenses',rows:[{id:'d1',amount:12.5,note:'الف',jdate:'1405/05/22'},{id:'d2',amount:850.75,note:'ب',jdate:'1405/05/22'},{id:'d3',amount:'12.5',note:'پ',jdate:'1405/05/22'},{id:'d4',amount:500000,note:'ت',jdate:'1405/05/22'}]}));return r.added+'+'+r.broken+'/'+window.EXP.sumOf(window.EXP.rowsOfMonth(1405,5))}",
+     "expect": "1+3/500000"},
+
+    {"_note": "مکملِ بررسیِ بالا: سخت‌گیریِ تازه نباید پشتیبانِ سالم را هم رد کند.",
+     "name": "پشتیبانِ سالم بی‌کم‌وکاست برمی‌گردد",
+     "js": "()=>{window.EXP.replaceAll([{id:'ok1',amount:850000,note:'حمل',jdate:'1405/05/22',ts:1},{id:'ok2',amount:1,note:'مرزی',jdate:'1405/05/22',ts:2}]);const b=window.EXP.buildBackup();window.EXP.replaceAll([]);const r=window.EXP.applyBackup(b);return r.added+'/'+r.broken+'/'+window.EXP.sumOf(window.EXP.rowsOfMonth(1405,5))}",
+     "expect": "2/0/850001"}
   ]
 }
