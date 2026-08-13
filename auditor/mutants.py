@@ -13,7 +13,8 @@
 
 خروجی: نرخِ گرفتن + فهرستِ دقیقِ جهش‌هایی که از زیرِ دست در رفتند.
 """
-import argparse, json, os, re, shutil, subprocess, sys, tempfile, time
+import argparse, json, os, re, shutil, subprocess, sys, tempfile, threading, time
+import concurrent.futures as cf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -127,15 +128,38 @@ MUTANTS = [
 ]
 
 
-def run_audit(html_rel, engine, timeout):
+def run_audit(html_rel, engine, timeout, source=None, tag="base"):
+    """بازرس را روی یک **کپی** اجرا می‌کند، نه روی فایلِ اصلی.
+
+    قبلاً فایلِ واقعی جهش می‌خورد و بعد برگردانده می‌شد؛ یعنی در هر لحظه ممکن بود
+    یک پنلِ عمداً خراب در درختِ کار باشد و به‌اشتباه کامیت شود. کپی هم آن خطر را
+    برمی‌دارد و هم می‌گذارد چند جهش با هم اجرا شوند.
+    کپی کنارِ فایلِ اصلی می‌نشیند تا مسیرِ دارایی‌ها (فونت، عکس، sw.js) نشکند."""
     cfg = os.path.join(ROOT, CFG[html_rel])
+    d = os.path.dirname(os.path.join(ROOT, html_rel))
+    path = os.path.join(ROOT, html_rel)
+    tmp = None
+    if source is not None:
+        fd, tmp = tempfile.mkstemp(prefix="_mut_", suffix=".html", dir=d)
+        os.close(fd)
+        open(tmp, "w", encoding="utf-8").write(source)
+        path = tmp
+    shots = tempfile.mkdtemp(prefix="shots_")
+    env = dict(os.environ, AUDIT_SHOTS=shots)
     t0 = time.time()
-    p = subprocess.run([sys.executable, os.path.join(ROOT, "auditor/audit.py"),
-                        os.path.join(ROOT, html_rel), "-c", cfg, "-e", engine],
-                       capture_output=True, text=True, timeout=timeout, cwd=ROOT)
-    out = p.stdout + p.stderr
+    try:
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "auditor/audit.py"),
+                            path, "-c", cfg, "-e", engine],
+                           capture_output=True, text=True, timeout=timeout, cwd=ROOT, env=env)
+        out = p.stdout + p.stderr
+        rc = p.returncode
+    except subprocess.TimeoutExpired:
+        out, rc = "زمان تمام شد", 1
+    finally:
+        if tmp and os.path.exists(tmp): os.remove(tmp)
+        shutil.rmtree(shots, ignore_errors=True)
     fails = re.findall(r"^     • (.+)$", out, re.M)
-    return p.returncode, fails, round(time.time() - t0, 1), out
+    return rc, fails, round(time.time() - t0, 1), out
 
 
 def main():
@@ -144,9 +168,15 @@ def main():
     ap.add_argument("-e", "--engine", default="chromium")
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--baseline", action="store_true", help="فقط پایه را بگیر")
+    ap.add_argument("--from", dest="src", default=None,
+                    help="فهرستِ جهشِ ساخته‌شده با mutgen.py (JSON)")
+    ap.add_argument("-j", "--jobs", type=int, default=1, help="چند جهش هم‌زمان")
     a = ap.parse_args()
 
-    sel = [m for m in MUTANTS if not a.only
+    pool = json.load(open(a.src, encoding="utf-8")) if a.src else MUTANTS
+    for m in pool:
+        m["file"] = os.path.relpath(os.path.join(ROOT, m["file"]), ROOT)
+    sel = [m for m in pool if not a.only
            or a.only in m["id"] or a.only in m["file"] or a.only in m["desc"]]
     files = sorted({m["file"] for m in sel})
 
@@ -167,35 +197,35 @@ def main():
         return
 
     originals = {f: open(os.path.join(ROOT, f), encoding="utf-8").read() for f in files}
-    results = []
-    try:
-        for i, m in enumerate(sel, 1):
-            src = originals[m["file"]]
-            n = src.count(m["find"])
-            path = os.path.join(ROOT, m["file"])
-            if n != m["count"]:
-                results.append(dict(m, verdict="نخورد", detail=f"{n} تطابق به‌جای {m['count']}"))
-                print(f"\n  [{i}/{len(sel)}] {m['id']} ⚠️  جهش اجرا نشد — {n} تطابق به‌جای {m['count']}")
-                continue
-            open(path, "w", encoding="utf-8").write(src.replace(m["find"], m["repl"]))
-            try:
-                rc, fails, secs, _ = run_audit(m["file"], a.engine, a.timeout)
-            finally:
-                open(path, "w", encoding="utf-8").write(src)
-            caught = rc != 0
-            results.append(dict(m, verdict="گرفت" if caught else "در رفت",
-                                detail="؛ ".join(fails[:2]) if fails else ""))
-            mark = "✅ گرفت" if caught else "❌ در رفت"
-            if m.get("equiv") and caught:
-                mark += "  ⚠️ هم‌ارز فرض شده بود ولی گرفته شد — فرض را بازبین کن"
-            print(f"\n  [{i}/{len(sel)}] {m['id']} ({m['rule']}) {mark}  ({secs}s)")
-            print(f"       {m['desc']}")
-            if fails:
-                for f in fails[:3]:
+    results, done = [], [0]
+    lock = threading.Lock()
+
+    def one(idx_m):
+        i, m = idx_m
+        src = originals[m["file"]]
+        n = src.count(m["find"])
+        if n != m["count"]:
+            return dict(m, verdict="نخورد", detail=f"{n} تطابق به‌جای {m['count']}", secs=0, fails=[])
+        rc, fails, secs, _ = run_audit(m["file"], a.engine, a.timeout,
+                                       source=src.replace(m["find"], m["repl"]), tag=m["id"])
+        return dict(m, verdict="گرفت" if rc != 0 else "در رفت",
+                    detail="؛ ".join(fails[:2]) if fails else "", secs=secs, fails=fails)
+
+    with cf.ThreadPoolExecutor(max_workers=max(1, a.jobs)) as ex:
+        for r in ex.map(one, enumerate(sel, 1)):
+            with lock:
+                done[0] += 1
+                results.append(r)
+                if r["verdict"] == "نخورد":
+                    print(f"\n  [{done[0]}/{len(sel)}] {r['id']} ⚠️  جهش اجرا نشد — {r['detail']}")
+                    continue
+                mark = "✅ گرفت" if r["verdict"] == "گرفت" else "❌ در رفت"
+                if r.get("equiv") and r["verdict"] == "گرفت":
+                    mark += "  ⚠️ هم‌ارز فرض شده بود ولی گرفته شد — فرض را بازبین کن"
+                print(f"\n  [{done[0]}/{len(sel)}] {r['id']} ({r['rule']}) {mark}  ({r['secs']}s)")
+                print(f"       {r['desc']}")
+                for f in r["fails"][:3]:
                     print(f"       ↳ {f[:96]}")
-    finally:
-        for f, src in originals.items():
-            open(os.path.join(ROOT, f), "w", encoding="utf-8").write(src)
 
     ran = [r for r in results if r["verdict"] != "نخورد" and not r.get("equiv")]
     equivs = [r for r in results if r.get("equiv") and r["verdict"] != "نخورد"]
