@@ -512,6 +512,26 @@
       "name": "عنصرهای ساخته‌شده با کد هم از مقیاسِ z-index بیرون نمی‌زنند",
       "js": "()=>{const made=[];if(typeof showUpdateBar==='function'&&!document.getElementById('updBar')){showUpdateBar(function(){});made.push('updBar')}const bad=[];document.querySelectorAll('body *').forEach(e=>{const cs=getComputedStyle(e);const z=cs.zIndex;if(!z||z==='auto')return;const n=+z;if(!(n>60))return;if(cs.pointerEvents==='none')return;if(!e.querySelector('button,a,input,select,textarea'))return;bad.push((e.id||String(e.className)).slice(0,20)+':'+n)});made.forEach(id=>{const el=document.getElementById(id);if(el)el.remove()});return bad.length?('بالاتر از ۶۰ و دکمه دارد: '+bad.join('، ')):'همه در مقیاس'}",
       "expect": "همه در مقیاس"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: recalc دو جهشِ زنده داشت (dm==='p'&&disc>0 که || شد، و nDiscMode||{} که && شد) و هیچ بررسی‌ای صدایش درنیامد، چون فقط حالتِ تومانی سنجیده می‌شد. اینجا هر دو حالت با عددِ دستی مقابله می‌شوند: ۳×۸۵۰٬۰۰۰=۲٬۵۵۰٬۰۰۰؛ تومانی ۵۰٬۰۰۰ → ۲٬۵۰۰٬۰۰۰؛ درصدی ۱۰٪ → ۲٬۲۹۵٬۰۰۰. ردیفِ تخفیف هم فقط در حالتِ درصدی دیده می‌شود.",
+      "name": "تخفیف در هر دو حالت با حسابِ دستی می‌خواند",
+      "_before_removed": "همه‌ی وضعیت داخلِ js ساخته می‌شود (TEST-03)"
+      , "before": "nav('new')",
+      "js": "()=>{const g=id=>document.getElementById(id);g('itemsWrap').innerHTML='';addItemRow();const r=document.querySelector('.itemrow'),sel=r.querySelector('.ir-prod');sel.value='p1';onPickProduct(sel);r.querySelector('.ir-qty').value='۳';const unit=(PRODUCTS.find(x=>x.id==='p1')||{}).price;const set=(m,v)=>{g('nDiscMode').value=m;g('nDiscount').value=v;recalc();};const vis=()=>{const e=g('tDiscRow');return e?getComputedStyle(e).display!=='none':false};set('t','50,000');const items=g('tItems').textContent,a=g('tFinal').textContent,av=vis();set('p','10');const b=g('tFinal').textContent,bv=vis();set('t','0');const c=g('tFinal').textContent;const want=unit*3;const fa=n=>String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,'٬').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[+d]);const got=[items,a,av?'ردیف':'بی‌ردیف',b,bv?'ردیف':'بی‌ردیف',c].join('/');const exp=[fa(want),fa(want-50000),'بی‌ردیف',fa(Math.round(want*0.9)),'ردیف',fa(want)].join('/');return got===exp?'درست':('دیده شد '+got+' ≠ حسابِ دستی '+exp)}",
+      "expect": "درست"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: renderDashboard بیشترین جهشِ زنده را داشت (۳ تا) چون هیچ‌چیز عددش را با جای دیگری مقابله نمی‌کرد. داشبورد و گزارش دو مسیرِ محاسباتیِ **مستقل**اند روی همان داده؛ اگر عددشان فرق کند یکی خراب است. این بررسی هیچ عددی را حفظ نمی‌کند، فقط سازگاری را می‌سنجد — پس با عوض شدنِ داده‌ی شبیه‌ساز نمی‌شکند.",
+      "name": "فروشِ داشبورد و فروشِ گزارش یک عدد می‌دهند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const num=t=>{const m=String(t||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[,٬]/g,'').match(/\\d+/g);return m?+m[m.length-1]:null};const after=(txt,re)=>{const L=txt.split('\\n').map(x=>x.trim());const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i;j<Math.min(L.length,i+3);j++){if(j>i&&/[۰-۹\\d]/.test(L[j]))return num(L[j]);}return null};await nav('dashboard');await w(900);const dt=(document.getElementById('dashStats')||document.body).innerText;const d=after(dt,/فروش این ماه/);await openReport();await w(1200);const rb=document.getElementById('repBody');if(!rb)return 'گزارش رندر نشد';const r=after(rb.innerText,/^فروش/);if(d===null||r===null)return 'عدد پیدا نشد (داشبورد '+d+' | گزارش '+r+')';return d===r?'یکی':('اختلاف: داشبورد '+d+' ≠ گزارش '+r)}",
+      "expect": "یکی"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: حذفِ esc() از data-pid در openInvoiceReturn زنده ماند، چون بررسیِ فرار فقط جست‌وجوی سراسری را می‌دید. شبیه‌ساز عمداً کالایی با <b> و & و گیومه دارد؛ اینجا هر صفحه‌ای که در screens هست بعد از رندر گشته می‌شود. صفت‌ها هم شمرده می‌شوند چون گیومه‌ی نافرار همان‌جا دستور می‌سازد (SEC-04).",
+      "name": "هیچ صفحه‌ای نامِ بدقواره را به HTML تبدیل نمی‌کند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const scr=['dashboard','invoices','products','customers'];const bad=[];for(const s of scr){await nav(s);await w(650);document.querySelectorAll('#scr-'+s+' b, #scr-'+s+' i, #scr-'+s+' img, #scr-'+s+' script').forEach(e=>{if(/۲۰۲۶|2026/.test(e.textContent||''))bad.push(s+':'+e.tagName)});}await nav('dashboard');await w(400);return bad.length?('تگِ ساخته‌شده → '+bad.slice(0,4).join('، ')):'همه‌جا متن مانْد'}",
+      "expect": "همه‌جا متن مانْد"
     }
   ],
   "click_test": {
