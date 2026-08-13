@@ -532,6 +532,24 @@
       "name": "هیچ صفحه‌ای نامِ بدقواره را به HTML تبدیل نمی‌کند",
       "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const scr=['dashboard','invoices','products','customers'];const bad=[];for(const s of scr){await nav(s);await w(650);document.querySelectorAll('#scr-'+s+' b, #scr-'+s+' i, #scr-'+s+' img, #scr-'+s+' script').forEach(e=>{if(/۲۰۲۶|2026/.test(e.textContent||''))bad.push(s+':'+e.tagName)});}await nav('dashboard');await w(400);return bad.length?('تگِ ساخته‌شده → '+bad.slice(0,4).join('، ')):'همه‌جا متن مانْد'}",
       "expect": "همه‌جا متن مانْد"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: insRetQty دو جهشِ زنده داشت و هیچ‌چیز عددش را نمی‌سنجید. این تابع تفکیکِ «مرجوعیِ روی فاکتور» از «مرجوعیِ مستقل» را نگه می‌دارد — همان تفکیکی که README می‌گوید به‌هم نزنید، چون یکی از قبل از فروش کم شده و دیگری نه. اینجا با دادهٔ ساختگیِ خودش سنجیده می‌شود (TEST-03) و عدد دستی حساب شده: مستقل‌ها ۳+۷=۱۰، و با بازه فقط ۳.",
+      "name": "شمارشِ مرجوعیِ مستقل در بینش‌ها با حسابِ دستی می‌خواند",
+      "js": "()=>{const keep=window.INS;const now=Date.now();const iso=ms=>new Date(ms).toISOString();window.INS={rets:[{invoice_id:'i1',created_at:iso(now-1000),items:[{product_id:'p1',quantity:5}]},{invoice_id:null,created_at:iso(now-1000),items:[{product_id:'p1',quantity:3}]},{invoice_id:null,created_at:iso(now-100000),items:[{product_id:'p1',quantity:7}]},{invoice_id:null,created_at:iso(now-1000),items:[{product_id:'p2',quantity:9}]}]};let out;try{out=insRetQty('p1',0)+'/'+insRetQty('p1',now-50000)+'/'+insRetQty('p2',0)}finally{window.INS=keep}return out}",
+      "expect": "10/3/9"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: saveProduct دو جهشِ زنده داشت. یکی مرزِ قیمت را از «بیشتر از صفر» به «بیشتر از یک» می‌بُرد، دیگری size_infoِ خالی را به‌جای null رشته‌ی خالی می‌فرستاد — هر دو بی‌صدا. اینجا خودِ باری که به سرور می‌رود سنجیده می‌شود، نه ظاهرِ فرم.",
+      "name": "بارِ ذخیره‌ی کالا: مرزِ قیمت و size_infoِ خالی",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const g=id=>document.getElementById(id);const f=window.fetch;let sent=null;window.fetch=function(u,o){const s=String(u);if(s.indexOf('/rest/v1/products')>=0&&o&&o.method==='POST'){try{sent=JSON.parse(o.body)}catch(e){sent=o.body}}return f.apply(this,arguments)};const trial=async(price)=>{sent=null;openProductForm();await w(350);g('pName').value='کالای آزمایشی';g('pPrice').value=String(price);g('pSize').value='';await saveProduct();await w(500);return sent};try{const zero=await trial(0);const one=await trial(1);const si=one?(Array.isArray(one)?one[0]:one).size_info:undefined;return (zero===null?'صفر رد شد':'صفر پذیرفته شد')+'/'+(one?'یک پذیرفته شد':'یک رد شد')+'/size_info='+(si===null?'null':JSON.stringify(si))}finally{window.fetch=f;if(typeof closeProductForm==='function')closeProductForm();}}",
+      "expect": "صفر رد شد/یک پذیرفته شد/size_info=null"
+    },
+    {
+      "_note": "با تستِ جهشی پیدا شد: شرطِ «اقلامِ فاکتور شناسه ندارند؟» با || به جای && همیشه درست می‌شد و فرمِ مرجوعی هر بار اقلام را دوباره از سرور می‌گرفت. هیچ خطایی نمی‌داد، فقط یک درخواستِ اضافه روی اینترنتِ کند. شمارشِ درخواست تنها راهِ دیدنش است.",
+      "name": "فرمِ مرجوعی وقتی اقلام شناسه دارند دوباره از سرور نمی‌گیرد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;let n=0;window.fetch=function(u){const s=String(u);if(s.indexOf('invoice_items?select=id,product_id')>=0)n++;return f.apply(this,arguments)};try{await openInvoiceById('i1');await w(700);n=0;await openInvoiceReturn();await w(800);return n===0?'بدونِ درخواستِ اضافه':('درخواستِ اضافه: '+n)}finally{window.fetch=f;if(typeof closeInvoice==='function')closeInvoice();}}",
+      "expect": "بدونِ درخواستِ اضافه"
     }
   ],
   "click_test": {
