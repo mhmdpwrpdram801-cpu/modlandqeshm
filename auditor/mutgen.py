@@ -53,6 +53,39 @@ def noisy(app, m, name):
     return False
 
 
+def comment_spans(js):
+    """بازه‌های کامنت. جهش داخلِ کامنت هیچ رفتاری را عوض نمی‌کند و فقط عدد را
+    خراب می‌کند — دو تا در نمونه‌ی اول همین‌طور «در رفتند» بی‌آنکه باگی باشند."""
+    spans, i, n = [], 0, len(js)
+    while i < n:
+        c = js[i]
+        if c in "\"'`":                      # از رشته رد شو تا // داخلِ رشته را کامنت نگیریم
+            q, i = c, i + 1
+            while i < n and js[i] != q:
+                i += 2 if js[i] == "\\" else 1
+            i += 1
+        elif js.startswith("//", i):
+            j = js.find("\n", i); j = n if j < 0 else j
+            spans.append((i, j)); i = j
+        elif js.startswith("/*", i):
+            j = js.find("*/", i + 2); j = n if j < 0 else j + 2
+            spans.append((i, j)); i = j
+        else:
+            i += 1
+    return spans
+
+
+def enclosing(js, pos):
+    """نامِ تابعی که جهش داخلش افتاده — تا بشود دید کدام ناحیه‌ها بی‌پوشش‌اند."""
+    best = ""
+    for m in re.finditer(r"(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(|"
+                         r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(", js):
+        if m.start() > pos:
+            break
+        best = m.group(1) or m.group(2) or best
+    return best
+
+
 def biggest_script(src):
     blocks = [(m.start(1), m.group(1))
               for m in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", src, re.S | re.I)]
@@ -76,10 +109,13 @@ def generate(path, n, seed):
     off, app = biggest_script(src)
     rnd = random.Random(seed)
 
+    cspans = comment_spans(app)
+    in_comment = lambda i: any(a <= i < b for a, b in cspans)
+
     sites = []
     for name, pat, fn, rule in OPS:
         for m in pat.finditer(app):
-            if noisy(app, m, name):
+            if noisy(app, m, name) or in_comment(m.start()):
                 continue
             sites.append((name, rule, off + m.start(), off + m.end(), fn(m)))
     rnd.shuffle(sites)
@@ -96,9 +132,10 @@ def generate(path, n, seed):
         seen.add(find)
         i += 1
         snip = re.sub(r"\s+", " ", src[max(0, pos - 26):end + 26]).strip()
+        fnname = enclosing(app, pos - off)
         out.append(dict(
-            id=f"G{i:02d}", file=path, rule=rule, count=1,
-            desc=f"{name} — …{snip[:70]}…",
+            id=f"G{i:02d}", file=path, rule=rule, count=1, fn=fnname,
+            desc=f"{name} @{fnname or '؟'} — …{snip[:64]}…",
             find=find, repl=new))
     return out
 
