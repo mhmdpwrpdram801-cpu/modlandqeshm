@@ -38,12 +38,19 @@ def attach_parent_console() -> bool:
 
 
 def ensure_streams() -> None:
-    """Guarantee ``sys.stdout``/``sys.stderr`` are writable objects."""
+    """Guarantee ``sys.stdout``/``sys.stderr`` are writable objects.
+
+    The console is only touched when a stream is actually missing.  When the
+    caller redirected our output to a file or a pipe the streams are already
+    fine, and attaching a console on top of that buys nothing while adding a
+    way for the process to behave unexpectedly.
+    """
+    missing = [n for n in ("stdout", "stderr") if getattr(sys, n, None) is None]
+    if not missing:
+        return
+
     attached = attach_parent_console()
-    for name in ("stdout", "stderr"):
-        stream = getattr(sys, name, None)
-        if stream is not None:
-            continue
+    for name in missing:
         if attached:
             try:
                 setattr(sys, name, open("CONOUT$", "w", encoding="utf-8", buffering=1))  # noqa: SIM115

@@ -31,6 +31,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    # سقفِ پیش‌فرضِ GitHub شش ساعت است. یک بسته‌ی گیرکرده نباید آن‌قدر بایستد؛
+    # بهتر است زود بمیرد تا لاگش خوانده شود.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: voice
@@ -87,13 +90,24 @@ jobs:
           # چرا Start-Process و نه `& $exe`: بسته با --windowed ساخته می‌شود، یعنی
           # زیرسیستمش GUI است و PowerShell منتظرش نمی‌مانَد — $LASTEXITCODE خالی
           # برمی‌گردد و آزمایش، درست وقتی exe سالم است، شکست می‌دهد.
-          # -Wait -PassThru واقعاً منتظر می‌مانَد و کدِ خروجیِ حقیقی را می‌دهد.
+          # Start-Process واقعاً منتظر می‌مانَد و کدِ خروجیِ حقیقی را می‌دهد.
+          # ولی -Wait بدونِ مهلت یعنی اگر بسته یک بار برنگردد، کار تا سقفِ شش‌ساعته‌ی
+          # GitHub می‌ایستد و لاگ هم تا آن موقع خوانده نمی‌شود — یعنی دقیقاً وقتی
+          # که بیشترین نیاز را به خبر داری، هیچ خبری نداری. WaitForExit با مهلت،
+          # گیر کردن را به یک شکستِ سریع تبدیل می‌کند که اسمِ فرمان را می‌گوید.
           function Invoke-Exe {
-            param([string]$Label, [string[]]$Args)
+            param([string]$Label, [string[]]$Args, [int]$TimeoutMs = 90000)
             $o = [System.IO.Path]::GetTempFileName()
             $e = [System.IO.Path]::GetTempFileName()
-            $p = Start-Process -FilePath $exe -ArgumentList $Args -Wait -PassThru `
+            $p = Start-Process -FilePath $exe -ArgumentList $Args -PassThru `
                    -RedirectStandardOutput $o -RedirectStandardError $e
+            if (-not $p.WaitForExit($TimeoutMs)) {
+              try { $p.Kill() } catch { }
+              $partial = (Get-Content $o -Raw -Encoding utf8)
+              Write-Host "خروجیِ ناقص تا لحظه‌ی کشتن: $partial"
+              throw "exe در «$Label» بعد از $($TimeoutMs/1000) ثانیه برنگشت — گیر کرده"
+            }
+            $p.WaitForExit()   # اطمینان از تخلیه‌ی خروجی
             $out = (Get-Content $o -Raw -Encoding utf8)
             $err = (Get-Content $e -Raw -Encoding utf8)
             Remove-Item $o, $e -Force
