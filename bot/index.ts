@@ -514,8 +514,31 @@ async function medCheck(pid: string, which: string, tok: string): Promise<boolea
   return diff === 0;
 }
 
+// نسخه‌ی این فایل. بازرسِ سرور آن را با عددی که در bot/README.md ثبت شده مقابله
+// می‌کند، پس دیگر نمی‌شود مستقر کرد و یادت برود مستند را جلو ببری.
+const BOT_VER = 40;
+
+// ── لاگِ ساخت‌یافته (OPS-01، OPS-02) ────────────────────────────────────────
+// لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست: نمی‌شود پرسید «این درخواست چه بر
+// سرش آمد؟». هر خط یک JSON است با یک شناسه‌ی همبستگی که از ابتدای درخواست تا ته
+// زنجیره می‌آید. سه سطح بس است (OPS-02): error یعنی کسی باید ببیند، warn یعنی
+// بررسی شود، info رویدادِ کسب‌وکار.
+//
+// **هیچ داده‌ی مشتری و هیچ رمزی اینجا نمی‌رود** (SEC-08) — فقط نوعِ خطا و
+// دویست نویسه‌ی اولِ پیامش.
+type LogLevel = 'error' | 'warn' | 'info';
+function log(rid: string, level: LogLevel, event: string, extra?: Record<string, unknown>) {
+  const line = JSON.stringify({ t: new Date().toISOString(), level, rid, event, ...(extra || {}) });
+  if (level === 'error') console.error(line); else console.log(line);
+}
+function errInfo(e: unknown): Record<string, unknown> {
+  if (e instanceof Error) return { err: e.name, msg: String(e.message).slice(0, 200) };
+  return { err: 'unknown', msg: String(e).slice(0, 200) };
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
+  const rid = crypto.randomUUID().slice(0, 8);
 
   // درگاهِ سوپابیس به OPTIONS فقط allow-origin می‌دهد و allow-headers نمی‌دهد،
   // پس هر درخواستِ میان‌دامنه‌ای که Authorization دارد در preflight رد می‌شد —
@@ -537,7 +560,7 @@ Deno.serve(async (req) => {
     let authed = false;
     if (jwt) {
       try { const u = await supabase.auth.getUser(jwt); authed = !!(u && u.data && u.data.user); }
-      catch (e) { console.error('mediatoken auth failed', e); }
+      catch (e) { log(rid, 'warn', 'mediatoken.auth_failed', errInfo(e)); }
     }
     if (!authed) {
       return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: hdr });
@@ -545,6 +568,30 @@ Deno.serve(async (req) => {
     const w = url.searchParams.get('which') === 'carton' ? 'carton' : 'jin';
     const exp = Math.floor(Date.now() / 1000) + MED_TTL;
     return new Response(JSON.stringify({ ok: true, tok: await medSign(mtok, w, exp) }), { headers: hdr });
+  }
+
+  // ── مسیرِ سلامت (OPS-04) ─────────────────────────────────────────────────
+  // «۲۰۰ برمی‌گردانم پس سالمم» چیزی را ثابت نمی‌کند. این یکی واقعاً به دیتابیس
+  // می‌زند و اگر نرسد ۵۰۳ می‌دهد — رباتِ بی‌دیتابیس نمی‌تواند سفارش بگیرد، حتی
+  // اگر خودش بالا باشد. پشتِ همان کلیدِ cron است تا مسیرِ بی‌احرازِ تازه نسازیم.
+  const health = url.searchParams.get('health');
+  if (health) {
+    const key = await cronKey();
+    if (!key || health !== key) {
+      log(rid, 'warn', 'health.denied');
+      return new Response('no', { status: 401 });
+    }
+    const t0 = Date.now();
+    let db = false;
+    try {
+      const { error } = await supabase.from('bot_admins').select('chat_id').limit(1);
+      db = !error;
+      if (error) log(rid, 'error', 'health.db_error', { msg: String(error.message).slice(0, 200) });
+    } catch (e) { log(rid, 'error', 'health.db_threw', errInfo(e)); }
+    const ms = Date.now() - t0;
+    log(rid, db ? 'info' : 'error', 'health', { db, db_ms: ms, ver: BOT_VER });
+    return new Response(JSON.stringify({ ok: db, db, db_ms: ms, ver: BOT_VER }),
+      { status: db ? 200 : 503, headers: { 'Content-Type': 'application/json' } });
   }
 
   const media = url.searchParams.get('media');
@@ -576,7 +623,7 @@ Deno.serve(async (req) => {
       const cr = up.headers.get('content-range'); if (cr) h.set('Content-Range', cr);
       h.set('Cache-Control', 'private, max-age=600');
       return new Response(up.body, { status: up.status, headers: h });
-    } catch (e) { console.error(e); return new Response('err', { status: 500, headers: cors }); }
+    } catch (e) { log(rid, 'error', 'media.failed', errInfo(e)); return new Response('err', { status: 500, headers: cors }); }
   }
 
   const prime = url.searchParams.get('prime');
@@ -588,7 +635,7 @@ Deno.serve(async (req) => {
     let authed = false;
     if (jwt) {
       try { const u = await supabase.auth.getUser(jwt); authed = !!(u && u.data && u.data.user); }
-      catch (e) { console.error('prime auth failed', e); }
+      catch (e) { log(rid, 'warn', 'prime.auth_failed', errInfo(e)); }
     }
     if (!authed) {
       return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: hdr });
@@ -616,7 +663,7 @@ Deno.serve(async (req) => {
           }
         }
       }
-    } catch (e) { console.error(e); out.ok = false; }
+    } catch (e) { log(rid, 'error', 'prime.failed', errInfo(e)); out.ok = false; }
     return new Response(JSON.stringify(out), { headers: hdr });
   }
 
@@ -627,11 +674,11 @@ Deno.serve(async (req) => {
     // وگرنه جمعه‌شبی که گزارش نیامده در سابقه‌ی زمان‌بند «موفق» ثبت می‌شود.
     const failed: string[] = [];
     try { const rep = await buildWeeklyReport(); await notifyAdmins(rep); }
-    catch (e) { console.error('weekly report failed', e); failed.push('report'); }
+    catch (e) { log(rid, 'error', 'cron.report_failed', errInfo(e)); failed.push('report'); }
     try {
       const { data: admins } = await supabase.from('bot_admins').select('chat_id').limit(1);
       if (admins && admins.length) await sendBackup(Number(admins[0].chat_id));
-    } catch (e) { console.error('weekly backup failed', e); failed.push('backup'); }
+    } catch (e) { log(rid, 'error', 'cron.backup_failed', errInfo(e)); failed.push('backup'); }
     if (failed.length) return new Response('failed: ' + failed.join(','), { status: 500 });
     return new Response('ok');
   }
@@ -1026,7 +1073,7 @@ Deno.serve(async (req) => {
 
     return new Response('ok');
   } catch (e) {
-    console.error(e);
+    log(rid, 'error', 'webhook.failed', errInfo(e));
     return new Response('ok');
   }
 });

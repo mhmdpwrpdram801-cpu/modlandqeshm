@@ -11,6 +11,9 @@
 
 export type Row = Record<string, unknown>;
 export const DB: Record<string, Row[]> = {};
+// خرابیِ دیتابیس را می‌شود عمداً روشن کرد — بدونِ آن، مسیرِ سلامت فقط در حالتِ
+// خوب سنجیده می‌شود و «۵۰۳ می‌دهد یا نه» هیچ‌وقت معلوم نمی‌شود.
+export const FAULT = { on: false };
 export const CALLS: string[] = [];
 
 function match(row: Row, f: [string, string, unknown][]): boolean {
@@ -54,6 +57,7 @@ class Query implements PromiseLike<{ data: unknown; error: unknown }> {
   single() { this._one = "single"; return this; }
 
   private run() {
+    if (FAULT.on) return { data: null, error: { message: 'شبیه‌ساز: خرابیِ عمدیِ دیتابیس' } };
     const rows = DB[this.table] ??= [];
     if (this._mode === "insert") {
       const add = Array.isArray(this._payload) ? this._payload : [this._payload!];
