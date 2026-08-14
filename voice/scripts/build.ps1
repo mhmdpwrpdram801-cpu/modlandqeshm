@@ -39,7 +39,7 @@ Write-Host "ساختِ exe…" -ForegroundColor Cyan
     --exclude-module PySide6.QtWebEngineCore `
     --exclude-module PySide6.QtCharts `
     --paths src `
-    src/mlqvoice/__main__.py
+    scripts/launcher.py
 
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller شکست خورد." }
 
