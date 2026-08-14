@@ -69,6 +69,7 @@ jobs:
             --name mlqvoice `
             --add-data "src/mlqvoice/text/data;mlqvoice/text/data" `
             --add-data "src/mlqvoice/web;mlqvoice/web" `
+            --add-data "src/mlqvoice/assets;mlqvoice/assets" `
             --exclude-module tkinter `
             --exclude-module PySide6.QtQml `
             --exclude-module PySide6.QtQuick `
@@ -127,7 +128,7 @@ jobs:
 
           # check دیکشنری را از فایل‌های همراه‌شده می‌سازد — یعنی --add-data را می‌سنجد
           $c = Invoke-Exe -Label 'check' -ExeArgs @('check')
-          if ($c -notmatch 'ctrl\+alt\+space') { throw "check کلیدِ میان‌بُر را نگفت" }
+          if ($c -notmatch 'alt\+space') { throw "check کلیدِ میان‌بُر را نگفت" }
 
           # و یک جمله را واقعاً از خطِ لوله رد می‌کند
           $s = Invoke-Exe -Label 'say' -ExeArgs @('say', 'کامیت', 'کن', 'نقطه')

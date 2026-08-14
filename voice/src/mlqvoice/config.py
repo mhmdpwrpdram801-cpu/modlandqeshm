@@ -91,7 +91,7 @@ _CHOICES = {
 
 @dataclass(frozen=True)
 class Config:
-    hotkey: str = "ctrl+alt+space"
+    hotkey: str = "alt+space"
     lang: str = "fa-IR"
     digits: str = "latin"
     zwnj: bool = True

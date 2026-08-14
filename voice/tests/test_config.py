@@ -50,6 +50,11 @@ class TestValidate:
     def test_defaults_are_valid(self):
         assert Config().validate().vk == 0x20
 
+    def test_the_default_hotkey_is_alt_space(self):
+        hk = Config().validate()
+        assert str(hk) == "alt+space"
+        assert hk.modifiers == 0x0001  # MOD_ALT only
+
     def test_bad_digits_mode(self):
         with pytest.raises(ConfigError, match="digits"):
             Config(digits="roman").validate()
