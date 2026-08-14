@@ -76,7 +76,7 @@ def bot_checks(src, code):
     for idx, (p, start) in enumerate(marks):
         end = marks[idx + 1][1] if idx + 1 < len(marks) else len(code)
         seg = code[start:end]
-        guarded = bool(re.search(r"cronKey\(\)|Deno\.env\.get\(['\"]BOT_TOKEN|isAdmin\(", seg))
+        guarded = bool(re.search(r"cronKey\(\)|Deno\.env\.get\(['\"]BOT_TOKEN|isAdmin\(|auth\.getUser\(", seg))
         if guarded:
             ok(f"مسیرِ ?{p}= احراز دارد")
         elif p in OPEN:
