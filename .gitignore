@@ -3,3 +3,9 @@ __pycache__/
 modland-panel.zip
 .wrangler/
 guidelines/.upstream-cache.json
+voice/.venv/
+voice/build/
+voice/dist/
+voice/*.spec
+voice/.pytest_cache/
+voice/*.egg-info/

@@ -59,6 +59,9 @@ expenses/  ← ابزارِ جدا و مستقلِ ثبتِ خرجِ روزان�
   index.html         خودِ ابزار (تک‌فایل، داده روی localStorageِ همان گوشی)
   audit.config.json  تنظیماتِ بازرس برای همین ابزار (۴۱ بررسیِ ویژه)
   README.md          قاعده‌هایش و درس‌هایی که موقعِ ساختش گران درآمد
+voice/     ← ابزارِ دسکتاپِ گفتار‌به‌متنِ ویندوز (mlqvoice)؛ نه روی سرور می‌رود نه در zip
+  README.md          راه‌اندازی، دیکشنری، و فهرستِ صریحِ چیزهایی که تست نشده‌اند
+  src/mlqvoice/      پایتون + PySide6. دروازه‌اش pytest و ruff است، نه بازرسِ playwright
 wrangler.toml        تنظیماتِ انتشارِ Cloudflare (ورکر assets-only)
 .github/workflows/
   deploy.yml         انتشارِ خودکار روی هر تغییرِ panel/ در main
