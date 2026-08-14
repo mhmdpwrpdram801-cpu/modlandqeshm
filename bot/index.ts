@@ -552,10 +552,10 @@ Deno.serve(async (req) => {
     const cors: Record<string, string> = { 'Access-Control-Allow-Origin': '*' };
     const which = url.searchParams.get('which') === 'carton' ? 'carton' : 'jin';
     const fidCol = which === 'jin' ? 'video_jin_fid' : 'video_carton_fid';
-    // گامِ «افزودن» از DATA-02: ژتونِ غلط رد می‌شود، ولی نبودِ ژتون هنوز قبول است
-    // تا پنلِ کش‌شده‌ی روی گوشی نشکند. بستنِ در، گامِ جداگانه‌ی بعدی است.
+    // در بسته است: بی‌ژتون هم رد می‌شود. گامِ «افزودن» (پذیرفتنِ نبودِ ژتون) تا وقتی
+    // ماند که مالک تأیید کرد پنلِ گوشی به‌روز شده و فیلم با ژتون باز می‌شود.
     const mt = url.searchParams.get('t');
-    if (mt && !(await medCheck(media, which, mt))) {
+    if (!mt || !(await medCheck(media, which, mt))) {
       return new Response('bad token', { status: 401, headers: cors });
     }
     try {
