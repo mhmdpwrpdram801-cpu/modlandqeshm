@@ -1,0 +1,120 @@
+name: ساختِ mlqvoice.exe روی ویندوز
+
+# دو کار، و کارِ اول از کارِ دوم مهم‌تر است:
+#
+#   ۱. تست‌ها را روی یک ماشینِ **واقعیِ ویندوز** اجرا می‌کند. تا امروز همه‌ی
+#      وارسی‌ها روی لینوکس بودند، یعنی چیدمانِ ساختارهای Win32، مسیرِ APPDATA و
+#      رفتارِ Qt روی ویندوز هیچ‌وقت اجرا نشده بودند.
+#   ۲. exe را می‌سازد و به‌عنوان artifact می‌گذارد تا بشود نصبش کرد.
+#
+# روی هر شاخه‌ای اجرا می‌شود، نه فقط main: تا وقتی exe ساخته و آزمایش نشده،
+# مرج کردنش یعنی همان «بده و بعد چند دور دیباگ کنیم».
+
+on:
+  push:
+    paths:
+      - 'voice/**'
+      - '.github/workflows/voice-windows.yml'
+  pull_request:
+    paths:
+      - 'voice/**'
+      - '.github/workflows/voice-windows.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: voice-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: voice
+        shell: pwsh
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: نصبِ وابستگی‌ها
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: لینت
+        run: |
+          ruff check .
+          ruff format --check .
+
+      # این مرحله چیزی است که تا حالا نداشتیم: همان ۱۵۶ تست، روی ویندوز.
+      - name: تست روی ویندوزِ واقعی
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+      - name: ساختِ exe
+        run: |
+          python -m PyInstaller `
+            --noconfirm --clean --onefile --windowed `
+            --name mlqvoice `
+            --add-data "src/mlqvoice/text/data;mlqvoice/text/data" `
+            --add-data "src/mlqvoice/web;mlqvoice/web" `
+            --exclude-module tkinter `
+            --exclude-module PySide6.QtQml `
+            --exclude-module PySide6.QtQuick `
+            --exclude-module PySide6.Qt3DCore `
+            --exclude-module PySide6.QtMultimedia `
+            --exclude-module PySide6.QtWebEngineCore `
+            --exclude-module PySide6.QtCharts `
+            --paths src `
+            scripts/launcher.py
+
+      # «ساخته شد» با «بالا می‌آید» یکی نیست. این دو فرمان خودِ exe را اجرا
+      # می‌کنند: اگر PySide6 داخلش نرفته باشد یا فایل‌های JSON با --add-data
+      # همراه نشده باشند، همین‌جا می‌افتد، نه روی کامپیوترِ کاربر.
+      - name: آزمایشِ خودِ exe
+        run: |
+          $exe = "dist\mlqvoice.exe"
+          if (-not (Test-Path $exe)) { throw "exe ساخته نشد" }
+
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "exe با --version کد $LASTEXITCODE داد" }
+
+          # check دیکشنری را از فایل‌های همراه‌شده می‌سازد — یعنی --add-data را می‌سنجد
+          & $exe check
+          if ($LASTEXITCODE -ne 0) { throw "exe با check کد $LASTEXITCODE داد" }
+
+          # و یک جمله را واقعاً از خطِ لوله رد می‌کند
+          $out = & $exe say کامیت کن نقطه
+          Write-Host "خروجی: $out"
+          if ($LASTEXITCODE -ne 0) { throw "exe با say کد $LASTEXITCODE داد" }
+
+          $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "اندازه: $size مگابایت"
+          "EXE_SIZE=$size" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: بارگذاریِ exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlqvoice-exe
+          path: voice/dist/mlqvoice.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: خلاصه
+        if: always()
+        run: |
+          @(
+            '### mlqvoice روی ویندوز'
+            ''
+            "- تست‌ها روی ``windows-latest`` اجرا شدند"
+            "- exe: ``$env:EXE_SIZE`` مگابایت"
+            '- از بخشِ Artifacts همین اجرا دانلودش کن'
+          ) -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

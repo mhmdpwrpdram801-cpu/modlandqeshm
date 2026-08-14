@@ -7,20 +7,27 @@ launch, and nothing in the test suite noticed because the tests import the
 package properly.
 """
 
+import io
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 VOICE = Path(__file__).resolve().parent.parent
 LAUNCHER = VOICE / "scripts" / "launcher.py"
 
 
 def run(script: Path, *args: str) -> subprocess.CompletedProcess:
+    # Inherit the real environment and only add what we need.  Handing Windows a
+    # hand-built env without SYSTEMROOT stops Python from starting at all, so a
+    # from-scratch dict would fail here for reasons that have nothing to do with
+    # what is being tested.
     env = {
+        **os.environ,
         "PYTHONPATH": str(VOICE / "src"),
-        "PATH": "/usr/bin:/bin",
         "QT_QPA_PLATFORM": "offscreen",
-        "HOME": str(Path.home()),
     }
     return subprocess.run(
         [sys.executable, str(script), *args],
@@ -30,6 +37,38 @@ def run(script: Path, *args: str) -> subprocess.CompletedProcess:
         env=env,
         check=False,
     )
+
+
+class TestWindowedStreams:
+    """A --windowed build has sys.stdout is None; nothing may crash on that."""
+
+    def test_ensure_streams_replaces_a_missing_stdout(self, monkeypatch):
+        sys.path.insert(0, str(VOICE / "scripts"))
+        import launcher
+
+        monkeypatch.setattr(sys, "stdout", None)
+        monkeypatch.setattr(sys, "stderr", None)
+        launcher.ensure_streams()
+        assert sys.stdout is not None
+        assert sys.stderr is not None
+        print("this would have raised AttributeError before")  # the actual failure mode
+
+    def test_existing_streams_are_left_alone(self, monkeypatch):
+        sys.path.insert(0, str(VOICE / "scripts"))
+        import launcher
+
+        sentinel = io.StringIO()
+        monkeypatch.setattr(sys, "stdout", sentinel)
+        launcher.ensure_streams()
+        assert sys.stdout is sentinel
+
+    def test_attach_parent_console_is_a_noop_off_windows(self):
+        sys.path.insert(0, str(VOICE / "scripts"))
+        import launcher
+
+        if sys.platform == "win32":
+            pytest.skip("این تست برای بیرونِ ویندوز است")
+        assert launcher.attach_parent_console() is False
 
 
 class TestLauncher:
