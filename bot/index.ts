@@ -475,6 +475,45 @@ async function buildWeeklyReport() {
   return t;
 }
 
+// ── نشانیِ امضاشده برای ویدیوی کالا (SEC-02، SEC-03) ────────────────────────
+// `?media=` نمی‌تواند هدرِ Authorization بگیرد چون پنل آن را در `<video src>`
+// می‌گذارد. پس به‌جای هدر، یک ژتونِ کوتاه‌عمر در خودِ نشانی می‌نشیند.
+//
+// چرا نه سقفِ نرخِ درون‌حافظه‌ای: اندازه گرفته شد که هر درخواست یک ایزوله‌ی تازه
+// می‌گیرد (۱۴ درخواست، ۱۴ شناسه‌ی متفاوت)، پس هیچ شمارنده‌ای بینِ درخواست‌ها
+// زنده نمی‌مانَد. آن راه یک محافظِ قلابی بود.
+//
+// کلید از BOT_TOKEN مشتق می‌شود با برچسبِ جدا (جداسازیِ کلید)، نه خودِ BOT_TOKEN،
+// تا امضای ویدیو و احرازِ وبهوک دو چیزِ مستقل بمانند. خودِ ژتون هیچ‌وقت رمز نیست:
+// فقط برای همین کالا و همین نوع و تا همان ثانیه معتبر است.
+const MED_TTL = 3600; // ثانیه
+let _medKey: CryptoKey | null = null;
+async function medKey(): Promise<CryptoKey> {
+  if (_medKey) return _medKey;
+  const seed = new TextEncoder().encode((Deno.env.get('BOT_TOKEN') || '') + '|media-url-v1');
+  const raw = await crypto.subtle.digest('SHA-256', seed);
+  _medKey = await crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return _medKey;
+}
+async function medSign(pid: string, which: string, exp: number): Promise<string> {
+  const k = await medKey();
+  const s = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(`${pid}|${which}|${exp}`));
+  const hex = Array.from(new Uint8Array(s)).map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `${exp}.${hex.slice(0, 32)}`;
+}
+async function medCheck(pid: string, which: string, tok: string): Promise<boolean> {
+  const dot = tok.indexOf('.');
+  if (dot < 1) return false;
+  const exp = Number(tok.slice(0, dot));
+  if (!Number.isFinite(exp) || exp * 1000 < Date.now()) return false;
+  const want = await medSign(pid, which, exp);
+  // مقایسه‌ی زمان‌ثابت — مقایسه‌ی معمولی طولِ پیشوندِ درست را لو می‌دهد.
+  if (want.length !== tok.length) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ tok.charCodeAt(i);
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
@@ -490,11 +529,35 @@ Deno.serve(async (req) => {
     } });
   }
 
+  // صدورِ ژتون: با توکنِ کاربر احراز می‌شود، دقیقاً مثلِ ?prime=.
+  const mtok = url.searchParams.get('mediatoken');
+  if (mtok) {
+    const hdr = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
+    const jwt = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    let authed = false;
+    if (jwt) {
+      try { const u = await supabase.auth.getUser(jwt); authed = !!(u && u.data && u.data.user); }
+      catch (e) { console.error('mediatoken auth failed', e); }
+    }
+    if (!authed) {
+      return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: hdr });
+    }
+    const w = url.searchParams.get('which') === 'carton' ? 'carton' : 'jin';
+    const exp = Math.floor(Date.now() / 1000) + MED_TTL;
+    return new Response(JSON.stringify({ ok: true, tok: await medSign(mtok, w, exp) }), { headers: hdr });
+  }
+
   const media = url.searchParams.get('media');
   if (media) {
     const cors: Record<string, string> = { 'Access-Control-Allow-Origin': '*' };
     const which = url.searchParams.get('which') === 'carton' ? 'carton' : 'jin';
     const fidCol = which === 'jin' ? 'video_jin_fid' : 'video_carton_fid';
+    // گامِ «افزودن» از DATA-02: ژتونِ غلط رد می‌شود، ولی نبودِ ژتون هنوز قبول است
+    // تا پنلِ کش‌شده‌ی روی گوشی نشکند. بستنِ در، گامِ جداگانه‌ی بعدی است.
+    const mt = url.searchParams.get('t');
+    if (mt && !(await medCheck(media, which, mt))) {
+      return new Response('bad token', { status: 401, headers: cors });
+    }
     try {
       const { data: p } = await supabase.from('products').select(`id,${fidCol}`).eq('id', media).maybeSingle();
       const fid = p ? (p as any)[fidCol] : null;

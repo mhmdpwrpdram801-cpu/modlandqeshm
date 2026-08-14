@@ -22,6 +22,8 @@ for (
 
 export const TG: { method: string; payload: Record<string, unknown> }[] = [];
 let handler: ((r: Request) => Promise<Response>) | null = null;
+// حجمی که استابِ تلگرام برای هر فیلم اعلام می‌کند؛ تست عوضش می‌کند تا بودجه پر شود.
+let VID_BYTES = 1000;
 
 // Deno.serve را می‌گیریم تا به‌جای باز کردنِ پورت، خودِ تابع دستمان بیاید.
 (Deno as unknown as { serve: unknown }).serve = (h: (r: Request) => Promise<Response>) => {
@@ -40,6 +42,21 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   let payload: Record<string, unknown> = {};
   try { payload = init?.body ? JSON.parse(String(init.body)) : {}; } catch { /* بدنه‌ی غیرِ JSON */ }
   TG.push({ method, payload });
+
+  // دانلودِ خودِ فایل (مسیرِ /file/bot…) — این همان چیزی است که پهنای باند می‌برد.
+  // اندازه‌اش را از VID_BYTES می‌گیریم تا بشود بودجه‌ی حجمی را در تست پر کرد.
+  if (url.includes("/file/bot")) {
+    return Promise.resolve(new Response(new Uint8Array(8), {
+      status: 200,
+      headers: { "Content-Type": "video/mp4", "Content-Length": String(VID_BYTES) },
+    }));
+  }
+  if (method === "getFile") {
+    return Promise.resolve(new Response(
+      JSON.stringify({ ok: true, result: { file_path: "videos/f.mp4" } }),
+      { headers: { "Content-Type": "application/json" } },
+    ));
+  }
   return Promise.resolve(new Response(
     JSON.stringify({ ok: true, result: { message_id: TG.length } }),
     { headers: { "Content-Type": "application/json" } },
@@ -141,6 +158,64 @@ reset({ step: "idle", cart: [] });
 DB.bot_admins = [{ chat_id: CHAT }];
 await send(msg("/backup"));
 check("مدیر پشتیبان می‌گیرد", TG.some((t) => t.method === "sendDocument" || t.method === "sendMessage"), true);
+
+// ── ۸) نشانیِ ویدیو امضا می‌خواهد (SEC-02، SEC-03) ─────────────────────────
+// `?media=` نمی‌تواند هدرِ Authorization بگیرد (پنل آن را در `<video src>`
+// می‌گذارد). راهِ درون‌حافظه‌ای اندازه‌گیری شد و کار نمی‌کرد: هر درخواست یک
+// ایزوله‌ی تازه می‌گیرد. پس محافظ یک ژتونِ کوتاه‌عمر در خودِ نشانی است.
+console.log("\n━━━ نشانیِ امضاشده ━━━");
+async function getMedia(qs: string) {
+  const r = await handler!(new Request(
+    `https://x/functions/v1/telegram-bot?media=p1&which=jin${qs}`,
+    { method: "GET" },
+  ));
+  await r.arrayBuffer();
+  return r.status;
+}
+async function mintTok(pid: string, which: string, auth: boolean) {
+  const r = await handler!(new Request(
+    `https://x/functions/v1/telegram-bot?mediatoken=${pid}&which=${which}`,
+    { method: "GET", headers: auth ? { authorization: "Bearer user-jwt" } : {} },
+  ));
+  return { status: r.status, body: await r.json().catch(() => ({})) };
+}
+
+reset({ step: "idle", cart: [] });
+DB.products[0].video_jin_fid = "fid-1";
+
+// ۸.۱ غریبه نمی‌تواند ژتون بگیرد — وگرنه کلِ کار بی‌معنی است.
+const anon = await mintTok("p1", "jin", false);
+check("غریبه ژتون نمی‌گیرد", anon.status, 401);
+
+// ۸.۲ کاربرِ واردشده می‌گیرد، و با آن ویدیو باز می‌شود.
+const mine = await mintTok("p1", "jin", true);
+check("کاربرِ واردشده ژتون می‌گیرد", mine.status, 200);
+const TOK = String((mine.body as { tok?: string }).tok || "");
+check("ژتونِ درست کار می‌کند", await getMedia(`&t=${TOK}`), 200);
+
+// ۸.۳ ژتونِ دستکاری‌شده رد می‌شود. آخرین نویسه عوض می‌شود تا طول یکی بماند —
+// وگرنه فقط بررسیِ طول ردش می‌کرد و امضا اصلاً سنجیده نمی‌شد.
+const bad = TOK.slice(0, -1) + (TOK.slice(-1) === "0" ? "1" : "0");
+check("ژتونِ دستکاری‌شده رد می‌شود", await getMedia(`&t=${bad}`), 401);
+
+// ۸.۴ ژتونِ یک کالا روی کالای دیگر کار نمی‌کند، و ژتونِ «جین» روی «کارتن» هم نه.
+DB.products[1].video_jin_fid = "fid-2";
+const r2 = await handler!(new Request(
+  `https://x/functions/v1/telegram-bot?media=p2&which=jin&t=${TOK}`, { method: "GET" }));
+await r2.arrayBuffer();
+check("ژتونِ کالای دیگر کار نمی‌کند", r2.status, 401);
+const rC = await handler!(new Request(
+  `https://x/functions/v1/telegram-bot?media=p1&which=carton&t=${TOK}`, { method: "GET" }));
+await rC.arrayBuffer();
+check("ژتونِ «جین» روی «کارتن» کار نمی‌کند", rC.status, 401);
+
+// ۸.۵ ژتونِ منقضی رد می‌شود — بدونِ این، ژتونِ لو رفته تا ابد معتبر است.
+const expTok = await (async () => {
+  const m = await mintTok("p1", "jin", true);
+  const t = String((m.body as { tok?: string }).tok || "");
+  return t.replace(/^\d+/, String(Math.floor(Date.now() / 1000) - 10));
+})();
+check("ژتونِ منقضی رد می‌شود", await getMedia(`&t=${expTok}`), 401);
 
 console.log("\n" + "═".repeat(52));
 console.log(`  ${pass} بررسی پاس شد`);
