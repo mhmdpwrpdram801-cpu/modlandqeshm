@@ -181,6 +181,9 @@ jobs:
           # پاک‌سازی قبل از هر throw، وگرنه رانر با پروسه‌های یتیم می‌مانَد
           foreach ($p in $ours) { try { $p.Kill() } catch { } }
           if (-not $app.HasExited) { try { $app.Kill() } catch { } }
+          # بسته‌ی onefile یک پروسه‌ی فرزند می‌سازد و کشتنِ والد او را نمی‌کشد؛
+          # در اجرای قبل یک mlqvoiceِ یتیم در پاک‌سازیِ رانر باقی مانده بود.
+          Get-Process mlqvoice -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
           if ($app.HasExited -and -not $ready) {
             throw "برنامه بالا نماند — کدِ خروجی $($app.ExitCode). لاگ بالاست."
