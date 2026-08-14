@@ -171,6 +171,9 @@ def run_audit(html_rel, engine, timeout, source=None, tag="base"):
     return rc, fails, round(time.time() - t0, 1), out
 
 
+STRICT = False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-k", "--only", default="", help="فیلترِ زیررشته روی id، فایل یا شرح")
@@ -180,7 +183,11 @@ def main():
     ap.add_argument("--from", dest="src", default=None,
                     help="فهرستِ جهشِ ساخته‌شده با mutgen.py (JSON)")
     ap.add_argument("-j", "--jobs", type=int, default=1, help="چند جهش هم‌زمان")
+    ap.add_argument("--strict", action="store_true",
+                    help="جهشی که اعمال نشود هم خطا حساب شود (برای دسته‌ی سلامتِ CI)")
     a = ap.parse_args()
+    global STRICT
+    STRICT = a.strict
 
     pool = json.load(open(a.src, encoding="utf-8")) if a.src else MUTANTS
     for m in pool:
@@ -259,7 +266,11 @@ def main():
             print(f"     • {r['id']}: {r['detail']} — {r['desc']}")
     json.dump(results, open("/tmp/mutants-result.json", "w"), ensure_ascii=False, indent=1)
     print("\n  جزئیات: /tmp/mutants-result.json")
-    sys.exit(1 if missed else 0)
+    # جهشی که اعمال نشود هیچ چیزی را وارسی نکرده. برای اجرای اکتشافی هشدار کافی
+    # است، ولی برای دسته‌ی سلامتِ CI نه — آنجا کلِ هدف این است که همان چند محافظ
+    # همچنان سنجیده شوند. یک بار همین اتفاق افتاد: با اضافه شدنِ مسیرِ ?mediatoken=
+    # الگوی S2 دو تطابق پیدا کرد، بی‌صدا رد شد، و دروازه سبز ماند.
+    sys.exit(1 if missed or (STRICT and skipped) else 0)
 
 
 if __name__ == "__main__":

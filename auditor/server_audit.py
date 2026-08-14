@@ -4,13 +4,16 @@
 پنل و ابزارِ خرج هرکدام دروازه دارند؛ **سمتِ سرور هیچ‌وقت نداشت**. و همان‌جاست که
 پول ساخته می‌شود، غریبه‌ها ورودی می‌فرستند، و کلیدِ سرویس دستِ کد است.
 
-    python3 auditor/server_audit.py
-    python3 auditor/server_audit.py --db /tmp/db.json     # با عکسِ ثابت‌های دیتابیس
+    python3 auditor/server_audit.py                       # عکسِ کامیت‌شده را می‌سنجد
+    python3 auditor/server_audit.py --db /tmp/db.json     # یا یک عکسِ دیگر
+    python3 auditor/server_audit.py --max-age-days 60     # کهنه بودنِ عکس را هم خطا بگیر
 
-عکسِ دیتابیس با همان پرس‌وجویی گرفته می‌شود که در auditor/db_invariants.sql است
-(از راهِ MCP یا psql)، و با auditor/db_invariants.expected.json مقابله می‌شود.
-بدونِ --db، بخشِ دیتابیس رد می‌شود و همان را هم می‌گوید — «رد شد» با «پاس شد» یکی
-نیست (CORE-11).
+بخشِ دیتابیس روی auditor/db_invariants.snapshot.json اجرا می‌شود که در مخزن است،
+پس دیگر به یادِ کسی بند نیست. **ولی عکس، دیتابیسِ زنده نیست:** اگر کسی فردا یک قید
+را از داشبورد بردارد، تا وقتی عکس تازه نشود اینجا سبز می‌مانَد. برای همین تاریخِ عکس
+همیشه چاپ می‌شود و اجرای هفتگیِ gates.yml با --max-age-days کهنه بودنش را قرمز
+می‌کند. تازه‌کردن: پرس‌وجوی auditor/db_invariants.sql را بزن (MCP یا psql) و خروجی
+را با taken_at در snapshot.json بگذار.
 """
 import argparse, hashlib, json, os, re, sys
 
@@ -202,7 +205,7 @@ def bot_checks(src, code):
 
 DB_WANT_KEYS = ("tables", "policies", "checks", "triggers")
 
-def db_checks(path):
+def db_checks(path, max_age=None):
     head("۸) ثابت‌های دیتابیس")
     exp_path = os.path.join(HERE, "db_invariants.expected.json")
     if not path:
@@ -212,6 +215,29 @@ def db_checks(path):
     if isinstance(got, list):
         got = got[0]
     exp = json.load(open(exp_path, encoding="utf-8"))
+
+    # **این بخش عکس را می‌سنجد، نه دیتابیسِ زنده را.** تفاوتش مهم است: اگر کسی
+    # فردا یک قیدِ CHECK را از داشبورد بردارد، تا وقتی عکس تازه نشود اینجا سبز
+    # می‌مانَد. پس تاریخِ عکس **همیشه** چاپ می‌شود تا کسی سبزِ اینجا را با
+    # «دیتابیس سالم است» یکی نگیرد. تازه‌کردنش: پرس‌وجوی db_invariants.sql را
+    # بزن و خروجی را در db_invariants.snapshot.json بگذار.
+    taken = got.get("taken_at")
+    if not taken:
+        bad("عکسِ دیتابیس تاریخ ندارد — معلوم نیست مالِ کِی است")
+    else:
+        age = None
+        try:
+            from datetime import date
+            y, m, d = (int(x) for x in taken.split("-"))
+            age = (date.today() - date(y, m, d)).days
+        except Exception:
+            bad(f"تاریخِ عکس خوانده نشد: {taken}")
+        if age is not None:
+            if max_age is not None and age > max_age:
+                bad(f"عکسِ دیتابیس {age} روزه است (سقف {max_age}) — این دروازه دیگر "
+                    "چیزی را نمی‌سنجد؛ با db_invariants.sql تازه‌اش کن")
+            else:
+                ok(f"عکس مالِ {taken} است ({age} روز پیش) — سنجش روی همین عکس است، نه دیتابیسِ زنده")
 
     norm = lambda rows: sorted(json.dumps(r, sort_keys=True, ensure_ascii=False) for r in (rows or []))
 
@@ -257,14 +283,21 @@ def db_checks(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=None, help="خروجیِ JSONِ auditor/db_invariants.sql")
+    ap.add_argument("--max-age-days", type=int, default=None,
+                    help="اگر عکسِ دیتابیس از این کهنه‌تر بود، خطا بده (در اجرای زمان‌بندی‌شده)")
     ap.add_argument("--bot", default=None, help="فایلِ ربات (پیش‌فرض bot/index.ts) — برای تستِ جهشی")
     a = ap.parse_args()
     global BOT
     if a.bot: BOT = os.path.abspath(a.bot)
+    # عکسِ کامیت‌شده پیش‌فرض است تا این هشت بررسی به یادِ کسی بند نباشد. قبلاً
+    # بدونِ --db بی‌صدا رد می‌شدند، یعنی عملاً هیچ‌وقت اجرا نمی‌شدند.
+    if not a.db:
+        snap = os.path.join(HERE, "db_invariants.snapshot.json")
+        if os.path.exists(snap): a.db = snap
     print("\n" + "═" * 52 + "\n  بازرسِ سمتِ سرور — ربات و دیتابیس\n" + "═" * 52)
     src = open(BOT, encoding="utf-8").read()
     bot_checks(src, strip_comments(src))
-    db_checks(a.db)
+    db_checks(a.db, a.max_age_days)
     print("\n" + "═" * 52)
     print(f"  {len(PASS)} بررسی پاس شد")
     if SKIP: print(f"  ⏭️  {len(SKIP)} بخش سنجیده نشد")
