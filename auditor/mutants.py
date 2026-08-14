@@ -21,7 +21,10 @@ ROOT = os.path.dirname(HERE)
 
 PANEL = "panel/index.html"
 EXPENSES = "expenses/index.html"
+BOT = "bot/index.ts"
 CFG = {PANEL: "auditor/audit.config.json", EXPENSES: "expenses/audit.config.json"}
+# عکسِ ثابت‌های دیتابیس برای بازرسِ سرور؛ بدونش بخشِ دیتابیس رد می‌شود.
+DB_SNAPSHOT = os.environ.get("DB_SNAPSHOT", "")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # هر جهش: باگی که یک بار واقعاً به دستِ کاربر رسیده.
@@ -135,22 +138,28 @@ def run_audit(html_rel, engine, timeout, source=None, tag="base"):
     یک پنلِ عمداً خراب در درختِ کار باشد و به‌اشتباه کامیت شود. کپی هم آن خطر را
     برمی‌دارد و هم می‌گذارد چند جهش با هم اجرا شوند.
     کپی کنارِ فایلِ اصلی می‌نشیند تا مسیرِ دارایی‌ها (فونت، عکس، sw.js) نشکند."""
-    cfg = os.path.join(ROOT, CFG[html_rel])
+    cfg = os.path.join(ROOT, CFG.get(html_rel, ""))
     d = os.path.dirname(os.path.join(ROOT, html_rel))
     path = os.path.join(ROOT, html_rel)
     tmp = None
     if source is not None:
-        fd, tmp = tempfile.mkstemp(prefix="_mut_", suffix=".html", dir=d)
+        fd, tmp = tempfile.mkstemp(prefix="_mut_", suffix=os.path.splitext(html_rel)[1], dir=d)
         os.close(fd)
         open(tmp, "w", encoding="utf-8").write(source)
         path = tmp
     shots = tempfile.mkdtemp(prefix="shots_")
     env = dict(os.environ, AUDIT_SHOTS=shots)
+    # ربات دروازه‌ی دیگری دارد: ایستا و بدونِ مرورگر، پس ثانیه‌ای اجرا می‌شود
+    # نه دقیقه‌ای. بازرسِ سرور خودش مقابله‌ی sha256 را روی فایلِ غیرِمرجع رد می‌کند،
+    # وگرنه هر جهش هش را عوض می‌کرد و نرخِ گرفتنِ ۱۰۰٪ِ دروغ می‌ساخت.
+    if html_rel == BOT:
+        cmd = [sys.executable, os.path.join(ROOT, "auditor/server_audit.py"), "--bot", path]
+        if DB_SNAPSHOT: cmd += ["--db", DB_SNAPSHOT]
+    else:
+        cmd = [sys.executable, os.path.join(ROOT, "auditor/audit.py"), path, "-c", cfg, "-e", engine]
     t0 = time.time()
     try:
-        p = subprocess.run([sys.executable, os.path.join(ROOT, "auditor/audit.py"),
-                            path, "-c", cfg, "-e", engine],
-                           capture_output=True, text=True, timeout=timeout, cwd=ROOT, env=env)
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=ROOT, env=env)
         out = p.stdout + p.stderr
         rc = p.returncode
     except subprocess.TimeoutExpired:
@@ -158,7 +167,7 @@ def run_audit(html_rel, engine, timeout, source=None, tag="base"):
     finally:
         if tmp and os.path.exists(tmp): os.remove(tmp)
         shutil.rmtree(shots, ignore_errors=True)
-    fails = re.findall(r"^     • (.+)$", out, re.M)
+    fails = re.findall(r"^     • (.+)$", out, re.M) or re.findall(r"^  ❌ (.+)$", out, re.M)
     return rc, fails, round(time.time() - t0, 1), out
 
 

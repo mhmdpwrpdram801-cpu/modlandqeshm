@@ -16,7 +16,8 @@ import argparse, hashlib, json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-BOT = os.path.join(ROOT, "bot/index.ts")
+BOT_DEFAULT = os.path.join(ROOT, "bot/index.ts")
+BOT = BOT_DEFAULT
 BOT_README = os.path.join(ROOT, "bot/README.md")
 
 PASS, FAIL, SKIP = [], [], []
@@ -76,7 +77,13 @@ def bot_checks(src, code):
     for idx, (p, start) in enumerate(marks):
         end = marks[idx + 1][1] if idx + 1 < len(marks) else len(code)
         seg = code[start:end]
-        guarded = bool(re.search(r"cronKey\(\)|Deno\.env\.get\(['\"]BOT_TOKEN|isAdmin\(|auth\.getUser\(", seg))
+        # «تابعِ احراز صدا زده شده» کافی نیست — با if(false) کد همچنان صدایش
+        # می‌زند و هیچ‌کس را رد نمی‌کند. تستِ جهشی همین را لو داد (S2). پس سه چیز
+        # با هم لازم است: مکانیزمِ احراز، یک خروجِ ۴۰۱/۴۰۳، و نبودِ شرطِ مرده.
+        has_auth = bool(re.search(r"cronKey\(\)|Deno\.env\.get\(['\"]BOT_TOKEN|isAdmin\(|auth\.getUser\(", seg))
+        has_deny = bool(re.search(r"status:\s*40[13]|\{\s*status:\s*40[13]", seg))
+        dead = bool(re.search(r"if\s*\(\s*(false|true)\s*\)", seg))
+        guarded = has_auth and has_deny and not dead
         if guarded:
             ok(f"مسیرِ ?{p}= احراز دارد")
         elif p in OPEN:
@@ -139,6 +146,11 @@ def bot_checks(src, code):
         else "تابعِ فرارِ HTML وجود ندارد")
 
     head("۷) هم‌خوانیِ کپیِ مرجع (OPS-06)")
+    # وقتی فایلِ دیگری سنجیده می‌شود (تستِ جهشی)، این بررسی بی‌معنی است: هر جهشی
+    # هش را عوض می‌کند، پس همه‌ی جهش‌ها «گرفته» می‌شدند و نرخِ ۱۰۰٪ِ دروغ می‌ساخت.
+    if os.path.abspath(BOT) != os.path.abspath(BOT_DEFAULT):
+        skip("فایلِ غیرِمرجع سنجیده می‌شود — مقابله‌ی sha256 بی‌معنی است و رد شد")
+        return
     real = hashlib.sha256(open(BOT, "rb").read()).hexdigest()
     doc = re.search(r"`([0-9a-f]{64})`", open(BOT_README, encoding="utf-8").read())
     if not doc:
@@ -207,7 +219,10 @@ def db_checks(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=None, help="خروجیِ JSONِ auditor/db_invariants.sql")
+    ap.add_argument("--bot", default=None, help="فایلِ ربات (پیش‌فرض bot/index.ts) — برای تستِ جهشی")
     a = ap.parse_args()
+    global BOT
+    if a.bot: BOT = os.path.abspath(a.bot)
     print("\n" + "═" * 52 + "\n  بازرسِ سمتِ سرور — ربات و دیتابیس\n" + "═" * 52)
     src = open(BOT, encoding="utf-8").read()
     bot_checks(src, strip_comments(src))

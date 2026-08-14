@@ -87,10 +87,11 @@ def enclosing(js, pos):
 
 
 def biggest_script(src):
+    """بزرگ‌ترین اسکریپتِ درون‌خطی — یا خودِ فایل، اگر HTML نباشد (مثلِ bot/index.ts)."""
     blocks = [(m.start(1), m.group(1))
               for m in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", src, re.S | re.I)]
     if not blocks:
-        sys.exit("اسکریپتِ درون‌خطی پیدا نشد")
+        return (0, src)
     return max(blocks, key=lambda b: len(b[1]))
 
 
