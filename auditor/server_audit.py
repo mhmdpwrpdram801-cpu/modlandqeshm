@@ -64,8 +64,9 @@ def bot_checks(src, code):
     head("۲) مجوز روی هر مسیر (SEC-03)")
     # هر مسیرِ عمومی باید یا احراز کند یا در فهرستِ آگاهانه‌ی زیر باشد با دلیل.
     OPEN = {
-        "media": "خواندنی و بی‌ضرر: فقط ویدیوی کالا را با شناسه‌ی uuid پخش می‌کند و "
-                 "همان چیزی است که مشتری باید ببیند. توکن سمتِ سرور می‌مانَد.",
+        "media": "خواندنی: ویدیوی کالا را با شناسه‌ی uuid پخش می‌کند. احراز هویت "
+                 "ممکن نیست چون در `<video src>` می‌نشیند و آن عنصر هدرِ Authorization "
+                 "نمی‌فرستد — به‌جایش سقفِ نرخ دارد که §۵.۵ جداگانه می‌سنجدش.",
     }
     # پنجره‌ی هر پارامتر تا شروعِ پارامترِ بعدی است، نه یک عددِ ثابت. با پنجره‌ی
     # بلند، بررسی محافظِ مسیرِ ?secret= را می‌دید و می‌گفت ?prime= هم احراز دارد —
@@ -145,6 +146,24 @@ def bot_checks(src, code):
     (ok if re.search(r"AbortSignal|signal\s*:", tg) else bad)(
         "فراخوانیِ تلگرام مهلت دارد" if re.search(r"AbortSignal|signal\s*:", tg)
         else "tgCall مهلت (timeout) ندارد — یک درخواستِ آویزان تابع را نگه می‌دارد")
+
+    head("۵.۵) سقفِ نرخ روی مسیرِ باز (API-06)")
+    # مسیری که عمداً بی‌احراز است، باید یک محافظِ **دیگر** داشته باشد. `?media=`
+    # نمی‌تواند توکن بگیرد (پنل آن را در `<video src>` می‌گذارد و عنصرِ video هدرِ
+    # Authorization نمی‌فرستد)، پس تنها چیزی که بینِ آن و یک قبضِ پهنای باندِ
+    # بی‌سقف ایستاده، محدودیتِ نرخ است.
+    mm = re.search(r"url\.searchParams\.get\(['\"]media['\"]\)", code)
+    nxt = re.search(r"url\.searchParams\.get\(['\"](?!media|which|k)\w+['\"]\)", code[mm.end():]) if mm else None
+    mseg = code[mm.start(): mm.end() + (nxt.start() if nxt else len(code))] if mm else ""
+    if not mm:
+        bad("مسیرِ ?media= پیدا نشد — این بررسی جای درستی را نگاه نمی‌کند")
+    elif not re.search(r"status:\s*429", mseg):
+        bad("مسیرِ ?media= بی‌احراز است و سقفِ نرخ هم ندارد — هرکس نشانی را داشته "
+            "باشد می‌تواند بی‌نهایت پهنای باند بکشد (API-06)")
+    elif re.search(r"if\s*\(\s*(false|true)\s*\)", mseg[:mseg.find("429")]):
+        bad("سقفِ نرخِ ?media= با یک شرطِ مرده خنثی شده")
+    else:
+        ok("مسیرِ ?media= سقفِ نرخ دارد و با ۴۲۹ رد می‌کند")
 
     head("۶) فرارِ خروجی (SEC-04)")
     (ok if re.search(r"function escH", code) else bad)(

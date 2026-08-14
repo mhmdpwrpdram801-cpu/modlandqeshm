@@ -22,6 +22,8 @@ for (
 
 export const TG: { method: string; payload: Record<string, unknown> }[] = [];
 let handler: ((r: Request) => Promise<Response>) | null = null;
+// حجمی که استابِ تلگرام برای هر فیلم اعلام می‌کند؛ تست عوضش می‌کند تا بودجه پر شود.
+let VID_BYTES = 1000;
 
 // Deno.serve را می‌گیریم تا به‌جای باز کردنِ پورت، خودِ تابع دستمان بیاید.
 (Deno as unknown as { serve: unknown }).serve = (h: (r: Request) => Promise<Response>) => {
@@ -40,6 +42,21 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   let payload: Record<string, unknown> = {};
   try { payload = init?.body ? JSON.parse(String(init.body)) : {}; } catch { /* بدنه‌ی غیرِ JSON */ }
   TG.push({ method, payload });
+
+  // دانلودِ خودِ فایل (مسیرِ /file/bot…) — این همان چیزی است که پهنای باند می‌برد.
+  // اندازه‌اش را از VID_BYTES می‌گیریم تا بشود بودجه‌ی حجمی را در تست پر کرد.
+  if (url.includes("/file/bot")) {
+    return Promise.resolve(new Response(new Uint8Array(8), {
+      status: 200,
+      headers: { "Content-Type": "video/mp4", "Content-Length": String(VID_BYTES) },
+    }));
+  }
+  if (method === "getFile") {
+    return Promise.resolve(new Response(
+      JSON.stringify({ ok: true, result: { file_path: "videos/f.mp4" } }),
+      { headers: { "Content-Type": "application/json" } },
+    ));
+  }
   return Promise.resolve(new Response(
     JSON.stringify({ ok: true, result: { message_id: TG.length } }),
     { headers: { "Content-Type": "application/json" } },
@@ -141,6 +158,43 @@ reset({ step: "idle", cart: [] });
 DB.bot_admins = [{ chat_id: CHAT }];
 await send(msg("/backup"));
 check("مدیر پشتیبان می‌گیرد", TG.some((t) => t.method === "sendDocument" || t.method === "sendMessage"), true);
+
+// ── ۸) مسیرِ ویدیو سقفِ نرخ دارد (API-06) ──────────────────────────────────
+// `?media=` نمی‌تواند احراز هویت داشته باشد — پنل آن را در `<video src>` می‌گذارد
+// و عنصرِ video هدرِ Authorization نمی‌فرستد. پس تنها محافظش سقفِ نرخ است.
+// بدونِ آن، هرکس نشانیِ یک کالا را داشته باشد می‌تواند بی‌نهایت پهنای باند بکشد
+// و پهنای باندِ سوپابیس پولِ واقعی است.
+console.log("\n━━━ سقفِ نرخ ━━━");
+async function getMedia(ip: string) {
+  const r = await handler!(new Request(
+    `https://x/functions/v1/telegram-bot?media=p1&which=jin`,
+    { method: "GET", headers: { "x-forwarded-for": ip } },
+  ));
+  await r.arrayBuffer();
+  return r.status;
+}
+
+// ۸.۱ استفاده‌ی عادی نباید گیر کند: چند بار پشتِ هم، فیلمِ کوچک.
+reset({ step: "idle", cart: [] });
+DB.products[0].video_jin_fid = "fid-1";
+VID_BYTES = 1000;
+const normal: number[] = [];
+for (let i = 0; i < 12; i++) normal.push(await getMedia("1.1.1.1"));
+check("پخشِ عادی سد نمی‌شود", normal.every((s) => s === 200), true);
+
+// ۸.۲ کشیدنِ پیاپیِ فایلِ بزرگ باید به ۴۲۹ برسد. ۱۲۰ مگ در هر درخواست،
+// یعنی بودجه‌ی حجمی خیلی زودتر از سقفِ تعداد پر می‌شود.
+reset({ step: "idle", cart: [] });
+DB.products[0].video_jin_fid = "fid-1";
+VID_BYTES = 120 * 1024 * 1024;
+const flood: number[] = [];
+for (let i = 0; i < 12; i++) flood.push(await getMedia("2.2.2.2"));
+check("کشیدنِ پیاپیِ حجمِ زیاد به ۴۲۹ می‌رسد", flood.includes(429), true);
+
+// ۸.۳ سقف باید **برای هر IP جدا** باشد، وگرنه یک مهاجم کلِ سرویس را
+// برای مالک می‌خواباند — که خودش یک حمله است، نه محافظت.
+const other = await getMedia("3.3.3.3");
+check("سقفِ یک IP دیگران را نمی‌خواباند", other, 200);
 
 console.log("\n" + "═".repeat(52));
 console.log(`  ${pass} بررسی پاس شد`);

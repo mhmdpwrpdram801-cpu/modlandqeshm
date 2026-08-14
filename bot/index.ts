@@ -475,6 +475,46 @@ async function buildWeeklyReport() {
   return t;
 }
 
+// ── سقفِ نرخ برای مسیرِ بازِ ویدیو (API-06) ─────────────────────────────────
+// `?media=` نمی‌تواند احراز هویت داشته باشد: پنل آن را داخلِ `<video src>` می‌گذارد
+// و عنصرِ video هدرِ Authorization نمی‌فرستد. پس تنها محافظش سقفِ نرخ است.
+//
+// آنچه پول می‌برد **بایت** است نه تعدادِ درخواست — یک درخواست می‌تواند ۵۰ مگ بکشد —
+// پس بودجه‌ی اصلی حجمی است و سقفِ تعداد فقط جلوی کوبیدنِ ارزان (مثلاً حدس زدنِ uuid)
+// را می‌گیرد.
+//
+// دو محدودیتِ صادقانه: (۱) این شمارنده در حافظه‌ی همین ایزوله است، پس با سرد شدنِ
+// ایزوله صفر می‌شود — ولی زیرِ حمله ایزوله گرم می‌مانَد، یعنی دقیقاً وقتی که لازم است
+// کار می‌کند. (۲) اگر مهاجم بتواند IP را جعل کند سقف دور می‌خورد؛ برای همین اول
+// cf-connecting-ip خوانده می‌شود و بعد **آخرین** عضوِ x-forwarded-for، نه اولی —
+// مهاجم می‌تواند جلوی زنجیره چیز اضافه کند ولی چیزی را که پروکسی ته آن می‌گذارد
+// نمی‌تواند بردارد.
+const RL_WIN = 600_000;                  // پنجره: ۱۰ دقیقه
+const RL_HITS = 600;                     // سقفِ تعدادِ درخواست در هر پنجره
+const RL_BYTES = 300 * 1024 * 1024;      // سقفِ حجم در هر پنجره
+const RL_MAX_KEYS = 5000;                // سقفِ حافظه‌ی خودِ محدودکننده
+const rlMap = new Map<string, { hits: number; bytes: number; until: number }>();
+
+function clientIp(req: Request): string {
+  const cf = (req.headers.get('cf-connecting-ip') || '').trim();
+  if (cf) return cf;
+  const parts = (req.headers.get('x-forwarded-for') || '').split(',');
+  return (parts[parts.length - 1] || '').trim() || 'unknown';
+}
+
+function rlBucket(ip: string) {
+  const now = Date.now();
+  let b = rlMap.get(ip);
+  if (!b || b.until <= now) { b = { hits: 0, bytes: 0, until: now + RL_WIN }; rlMap.set(ip, b); }
+  // نقشه‌ای که بی‌سقف رشد کند، خودش راهِ خواباندنِ تابع است.
+  if (rlMap.size > RL_MAX_KEYS) {
+    for (const [k, v] of rlMap) if (v.until <= now) rlMap.delete(k);
+    let drop = rlMap.size - RL_MAX_KEYS;
+    if (drop > 0) for (const k of rlMap.keys()) { if (drop <= 0) break; if (k !== ip) { rlMap.delete(k); drop--; } }
+  }
+  return b;
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
@@ -493,6 +533,13 @@ Deno.serve(async (req) => {
   const media = url.searchParams.get('media');
   if (media) {
     const cors: Record<string, string> = { 'Access-Control-Allow-Origin': '*' };
+    const rlB = rlBucket(clientIp(req));
+    if (rlB.hits >= RL_HITS || rlB.bytes >= RL_BYTES) {
+      return new Response('rate', { status: 429, headers: {
+        ...cors, 'Retry-After': String(Math.max(1, Math.ceil((rlB.until - Date.now()) / 1000))),
+      } });
+    }
+    rlB.hits++;
     const which = url.searchParams.get('which') === 'carton' ? 'carton' : 'jin';
     const fidCol = which === 'jin' ? 'video_jin_fid' : 'video_carton_fid';
     try {
@@ -510,6 +557,7 @@ Deno.serve(async (req) => {
       h.set('Content-Type', 'video/mp4');
       h.set('Accept-Ranges', 'bytes');
       const cl = up.headers.get('content-length'); if (cl) h.set('Content-Length', cl);
+      rlB.bytes += Number(cl || 0);
       const cr = up.headers.get('content-range'); if (cr) h.set('Content-Range', cr);
       h.set('Cache-Control', 'private, max-age=600');
       return new Response(up.body, { status: up.status, headers: h });
