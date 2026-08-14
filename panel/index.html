@@ -1806,12 +1806,7 @@ async function medPrime(id){
   const st=document.getElementById('medStatus');
   try{
     if(st)st.textContent='⏳ دارم فیلم رو برای تلگرام آماده می‌کنم…';
-    // توکنِ کاربر را می‌فرستیم چون این کار فقط از پنلِ واردشده معنی دارد.
-    // ربات فعلاً بی‌توکن هم جواب می‌دهد؛ اول این طرف بفرستد، بعد آن طرف اجباری شود
-    // — وگرنه بینِ دو استقرار، آماده‌سازیِ فیلم می‌شکند.
-    await getToken();
-    const r=await fetch(SUPABASE_URL+'/functions/v1/telegram-bot?prime='+encodeURIComponent(id),
-      TOKEN?{headers:{Authorization:'Bearer '+TOKEN}}:{});
+    const r=await fetch(SUPABASE_URL+'/functions/v1/telegram-bot?prime='+encodeURIComponent(id));
     const d=await r.json().catch(()=>({}));
     const M=window.__MED;
     if(M && String(M.pid||'')===String(id)){
