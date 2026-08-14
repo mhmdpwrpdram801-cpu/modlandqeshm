@@ -59,15 +59,25 @@ jobs:
                  desc="محافظِ isAdmin از /backup برداشته شود",
                  find="if (cmdF === '/پشتیبان' || cmdA === '/backup') {\n          if (await isAdmin(chatId)) {",
                  repl="if (cmdF === '/پشتیبان' || cmdA === '/backup') {\n          if (true) {"),
+            # الگو باید **یکتا** باشد. این یکی اول فقط «if (!authed) {» بود و وقتی
+            # مسیرِ ?mediatoken= اضافه شد دو تطابق پیدا کرد، بی‌صدا رد شد و دروازه
+            # سبز ماند. حالا با خطِ بعدش به مسیرِ prime چفت شده.
             dict(id="S2", file="bot/index.ts", rule="SEC-03", count=1,
                  desc="احرازِ ?prime= خنثی شود",
-                 find="    if (!authed) {", repl="    if (false) {"),
+                 find="    if (!authed) {\n      return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: hdr });\n    }\n    const out: any = {",
+                 repl="    if (false) {\n      return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: hdr });\n    }\n    const out: any = {"),
+            dict(id="S4", file="bot/index.ts", rule="SEC-03", count=1,
+                 desc="محافظِ ژتونِ ویدیو خنثی شود",
+                 find="    if (!mt || !(await medCheck(media, which, mt))) {",
+                 repl="    if (false) {"),
             dict(id="S3", file="bot/index.ts", rule="ARCH-06", count=1,
                  desc="مهلتِ tgCall برداشته شود",
                  find="      signal: AbortSignal.timeout(25000),\n", repl=""),
           ], open('/tmp/sanity.json','w'), ensure_ascii=False)
           EOF
-          python3 auditor/mutants.py --from /tmp/sanity.json -j 3
+          # --strict یعنی جهشی که اعمال نشود هم قرمز است. بدونش، الگویی که با
+          # تغییرِ کد از کار بیفتد فقط یک هشدارِ خوانده‌نشده می‌دهد.
+          python3 auditor/mutants.py --from /tmp/sanity.json -j 4 --strict
 
   bot:
     name: شبیه‌سازِ تلگرام — تستِ رفتاریِ ربات
