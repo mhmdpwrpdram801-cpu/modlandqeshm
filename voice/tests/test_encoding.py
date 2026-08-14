@@ -34,7 +34,13 @@ def run_cli(*args: str, encoding: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "mlqvoice", *args],
         capture_output=True,
-        text=True,
+        # Decode as UTF-8 explicitly rather than with text=True. text=True uses
+        # the *parent's* locale encoding — cp1252 on Windows — and the child now
+        # correctly emits UTF-8, so the reader thread died with UnicodeDecodeError
+        # and left stdout/stderr as None. The child ignores PYTHONIOENCODING here
+        # precisely because force_utf8 overrides it; that is what is under test.
+        encoding="utf-8",
+        errors="replace",
         timeout=120,
         env=env,
         check=False,
@@ -70,6 +76,30 @@ class TestLegacyCodepages:
         result = run_cli("check", encoding="utf-8")
         assert result.returncode == 0
         assert "کلیدِ میان‌بُر" in result.stdout
+
+    @pytest.mark.parametrize("encoding", LEGACY_CODEPAGES)
+    def test_the_bytes_on_stdout_are_utf8_whatever_the_console_claims(self, encoding):
+        """The real invariant, asserted on raw bytes.
+
+        Checking decoded text can be masked by whatever the *parent* happens to
+        decode with — which is exactly how the CI failure after the first fix
+        looked like an app bug when it was a harness bug.  Reading the bytes
+        cannot be fooled by either side's locale.
+        """
+        env = {
+            **os.environ,
+            "PYTHONPATH": str(VOICE / "src"),
+            "PYTHONIOENCODING": encoding,
+        }
+        result = subprocess.run(
+            [sys.executable, "-m", "mlqvoice", "check"],
+            capture_output=True,  # bytes: no text=, no encoding=
+            timeout=120,
+            env=env,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "کلیدِ میان‌بُر" in result.stdout.decode("utf-8")
 
 
 class TestForceUtf8:

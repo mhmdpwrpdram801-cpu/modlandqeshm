@@ -32,7 +32,10 @@ def run(script: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(script), *args],
         capture_output=True,
-        text=True,
+        # Not text=True: that decodes with the parent's locale encoding, which is
+        # cp1252 on Windows, and the child emits UTF-8 Persian.
+        encoding="utf-8",
+        errors="replace",
         timeout=120,
         env=env,
         check=False,
