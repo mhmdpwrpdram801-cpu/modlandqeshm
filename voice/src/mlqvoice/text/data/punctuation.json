@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "note": "نشانه‌های گفتاری. attach می‌گوید نشانه به کدام طرف می‌چسبد: left یعنی بی‌فاصله بعد از کلمه‌ی قبلی، right یعنی بی‌فاصله قبل از کلمه‌ی بعدی، both یعنی هیچ فاصله‌ای، none یعنی هر دو طرف فاصله.",
+  "symbols": [
+    { "say": ["نقطه"], "text": ".", "attach": "left" },
+    { "say": ["دات"], "text": ".", "attach": "both" },
+    { "say": ["سه نقطه"], "text": "...", "attach": "left" },
+    { "say": ["ویرگول", "کاما"], "text": "،", "attach": "left" },
+    { "say": ["کامای انگلیسی"], "text": ",", "attach": "left" },
+    { "say": ["نقطه ویرگول"], "text": "؛", "attach": "left" },
+    { "say": ["سمی کالن", "سمیکالن"], "text": ";", "attach": "left" },
+    { "say": ["دو نقطه", "کالن"], "text": ":", "attach": "left" },
+    { "say": ["علامت سوال"], "text": "؟", "attach": "left" },
+    { "say": ["سوال انگلیسی"], "text": "?", "attach": "left" },
+    { "say": ["علامت تعجب"], "text": "!", "attach": "left" },
+
+    { "say": ["خط جدید", "خط بعد", "اینتر"], "text": "\n", "attach": "both" },
+    { "say": ["پاراگراف جدید"], "text": "\n\n", "attach": "both" },
+    { "say": ["تب"], "text": "\t", "attach": "both" },
+
+    { "say": ["پرانتز باز"], "text": "(", "attach": "right" },
+    { "say": ["پرانتز بسته"], "text": ")", "attach": "left" },
+    { "say": ["کروشه باز"], "text": "[", "attach": "right" },
+    { "say": ["کروشه بسته"], "text": "]", "attach": "left" },
+    { "say": ["آکولاد باز", "اکولاد باز"], "text": "{", "attach": "right" },
+    { "say": ["آکولاد بسته", "اکولاد بسته"], "text": "}", "attach": "left" },
+    { "say": ["گیومه"], "text": "\"", "attach": "both" },
+    { "say": ["سینگل کوت"], "text": "'", "attach": "both" },
+    { "say": ["بک تیک"], "text": "`", "attach": "both" },
+
+    { "say": ["خط تیره", "دش"], "text": "-", "attach": "both" },
+    { "say": ["آندرلاین", "خط زیر", "اندرلاین"], "text": "_", "attach": "both" },
+    { "say": ["اسلش"], "text": "/", "attach": "both" },
+    { "say": ["بک اسلش"], "text": "\\", "attach": "both" },
+    { "say": ["ستاره"], "text": "*", "attach": "both" },
+    { "say": ["هشتگ", "شارپ"], "text": "#", "attach": "right" },
+    { "say": ["دلار"], "text": "$", "attach": "right" },
+    { "say": ["اتساین", "ات ساین"], "text": "@", "attach": "both" },
+    { "say": ["درصد"], "text": "%", "attach": "left" },
+
+    { "say": ["مساوی"], "text": "=", "attach": "none" },
+    { "say": ["به علاوه", "بعلاوه"], "text": "+", "attach": "none" },
+    { "say": ["امپرسند", "اند ساین"], "text": "&", "attach": "none" },
+    { "say": ["پایپ"], "text": "|", "attach": "none" },
+    { "say": ["کوچکتر از", "کوچک تر از"], "text": "<", "attach": "none" },
+    { "say": ["بزرگتر از", "بزرگ تر از"], "text": ">", "attach": "none" },
+    { "say": ["فلش"], "text": "=>", "attach": "none" }
+  ]
+}

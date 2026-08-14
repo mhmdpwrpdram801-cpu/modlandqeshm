@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<meta charset="utf-8">
+<title>mlqvoice — تشخیصِ گفتار</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; font: 13px system-ui, sans-serif;
+    background: #14161a; color: #cfd6e4;
+    display: flex; align-items: center; justify-content: center; height: 100vh;
+  }
+  #s { padding: 0 12px; text-align: center; }
+  .bad { color: #ff8a8a; }
+</style>
+<div id="s">در حالِ اتصال…</div>
+<script>
+"use strict";
+const TOKEN = "__TOKEN__";
+const el = document.getElementById("s");
+
+function say(text, bad) {
+  el.textContent = text;
+  el.className = bad ? "bad" : "";
+}
+
+function post(path, body) {
+  // keepalive so a result still leaves the page if the window is being torn down.
+  return fetch(path + "?t=" + encodeURIComponent(TOKEN), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Token": TOKEN },
+    body: JSON.stringify(body),
+    keepalive: true,
+  }).catch(() => {});
+}
+
+function status(state, detail) {
+  post("/status", { state: state, detail: detail || "" });
+}
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) {
+  say("این مرورگر Web Speech API ندارد. کروم لازم است.", true);
+  status("unsupported", navigator.userAgent);
+}
+
+let rec = null;
+let wantRunning = false;   // what the app asked for
+let running = false;       // what the engine is actually doing
+let restartTimer = null;
+
+function build(lang, interim) {
+  const r = new SR();
+  r.lang = lang || "fa-IR";
+  r.continuous = true;
+  r.interimResults = !!interim;
+  r.maxAlternatives = 1;
+
+  r.onstart = () => { running = true; say("در حالِ شنیدن…"); status("listening"); };
+
+  r.onresult = (ev) => {
+    let interimText = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const res = ev.results[i];
+      const text = res[0].transcript;
+      if (res.isFinal) {
+        post("/result", { text: text, final: true });
+      } else {
+        interimText += text;
+      }
+    }
+    if (interimText) post("/result", { text: interimText, final: false });
+  };
+
+  r.onerror = (ev) => {
+    // "no-speech" and "aborted" are routine; only the rest are worth reporting.
+    if (ev.error === "no-speech" || ev.error === "aborted") return;
+    say("خطا: " + ev.error, true);
+    status("error", ev.error);
+    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+      wantRunning = false;
+    }
+  };
+
+  r.onend = () => {
+    running = false;
+    // Chrome ends the session on its own after a stretch of silence. If the user
+    // has not asked us to stop, that is not the end of anything — restart.
+    if (wantRunning) {
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(() => { try { r.start(); } catch (e) {} }, 250);
+    } else {
+      say("آماده");
+      status("idle");
+    }
+  };
+  return r;
+}
+
+function start(lang, interim) {
+  wantRunning = true;
+  if (!rec) rec = build(lang, interim);
+  rec.lang = lang || "fa-IR";
+  rec.interimResults = !!interim;
+  if (running) return;
+  try {
+    rec.start();
+  } catch (e) {
+    // start() throws if the engine is already going; onend will re-drive it.
+    status("error", String(e && e.message || e));
+  }
+}
+
+function stop() {
+  wantRunning = false;
+  clearTimeout(restartTimer);
+  if (rec && running) rec.stop();
+}
+
+const src = new EventSource("/events?t=" + encodeURIComponent(TOKEN));
+src.onopen = () => { say("آماده"); status("ready"); };
+src.onerror = () => say("ارتباط با برنامه قطع شد — دوباره وصل می‌شوم…", true);
+src.onmessage = (ev) => {
+  let msg;
+  try { msg = JSON.parse(ev.data); } catch (e) { return; }
+  if (msg.cmd === "start") start(msg.lang, msg.interim);
+  else if (msg.cmd === "stop") stop();
+};
+
+window.addEventListener("pagehide", () => status("gone"));
+</script>
+</html>
