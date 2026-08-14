@@ -24,8 +24,14 @@
 
 ```bash
 python3 auditor/audit.py panel/index.html -c auditor/audit.config.json   # باید ۰ برگرداند
+python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json  # اگر expenses/ را دست زدی
+python3 auditor/server_audit.py                                           # اگر bot/ را دست زدی
+deno run -A --import-map auditor/botsim/import_map.json auditor/botsim/run.ts   # همچنین
 python3 guidelines/self-check.py                                          # اگر guidelines/ را دست زدی
 ```
+
+هر چهارتا در `.github/workflows/gates.yml` روی هر PR هم اجرا می‌شوند، ولی **قبل از
+push خودت بزنشان** — دروازه‌ای که ده دقیقه بعد قرمز می‌دهد جای دیدنِ باگ را نمی‌گیرد.
 
 ## دستورهای دستورالعمل
 
