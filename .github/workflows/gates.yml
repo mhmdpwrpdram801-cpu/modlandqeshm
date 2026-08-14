@@ -13,6 +13,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # هفتگی، چون عکسِ ثابت‌های دیتابیس با گذرِ زمان کهنه می‌شود نه با تغییرِ کد.
+  # روی PR این را قرمز نمی‌کنیم — قرمزی‌ای که به تغییرِ خودِ PR ربط ندارد،
+  # بعد از چند بار نادیده گرفته می‌شود (CORE-04).
+  schedule:
+    - cron: '0 6 * * 1'
 
 permissions:
   contents: read
@@ -38,6 +43,10 @@ jobs:
       # نمی‌گیرد (CORE-11). بخشِ ربات کاملاً ایستاست و اینجا واقعاً سنجیده می‌شود.
       - name: بازرسِ سمتِ سرور (بخشِ ایستا)
         run: python3 auditor/server_audit.py
+
+      - name: عکسِ دیتابیس کهنه نشده باشد؟
+        if: github.event_name == 'schedule'
+        run: python3 auditor/server_audit.py --max-age-days 60
 
       - name: تستِ جهشی روی دروازه‌ی سرور
         # ثانیه‌ای است، پس دلیلی ندارد اجرا نشود. اگر روزی یکی از این سه محافظ
