@@ -60,6 +60,18 @@ jobs:
           EOF
           python3 auditor/mutants.py --from /tmp/sanity.json -j 3
 
+  bot:
+    name: شبیه‌سازِ تلگرام — تستِ رفتاریِ ربات
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.x }
+      # خودِ کدِ ربات اجرا می‌شود؛ فقط دیتابیس و تلگرام استاب‌اند و هیچ درخواستی
+      # به شبکه نمی‌رود (اگر برود، شبیه‌ساز بلند خطا می‌دهد).
+      - name: شبیه‌ساز
+        run: deno run -A --import-map auditor/botsim/import_map.json auditor/botsim/run.ts
+
   browser:
     name: بازرسِ پنل و ابزارِ خرج
     runs-on: ubuntu-latest
