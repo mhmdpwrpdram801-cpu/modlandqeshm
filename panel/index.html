@@ -1837,11 +1837,51 @@ async function medRemove(kind, idx){
 }
 function medVidFail(el){ try{ const d=document.createElement('div'); d.className='medempty';
   d.innerHTML='✅ فیلم روی تلگرام ذخیره شده<br>حجمش زیاده و اینجا پخش نمی‌شه — تو ربات ببینش'; el.replaceWith(d); }catch(_){} }
+// نشانیِ ویدیو دیگر لخت نیست: یک ژتونِ کوتاه‌عمر می‌خواهد که فقط کاربرِ واردشده
+// می‌تواند بگیرد. `<video src>` هدرِ Authorization نمی‌فرستد، پس امضا در خودِ
+// نشانی می‌نشیند. ژتون برای همین کالا و همین نوع است و یک ساعت اعتبار دارد.
+async function medTok(kind){
+  const M=window.__MED||{}; if(!M.pid) return;
+  const key=kind==='carton'?'tok_carton':'tok_jin', busy='_tokbusy_'+kind, err='_tokerr_'+kind;
+  if(M[key]||M[busy]) return;
+  M[busy]=true;
+  const pid=M.pid;
+  try{
+    await getToken();
+    const r=await fetch(SUPABASE_URL+'/functions/v1/telegram-bot?mediatoken='+encodeURIComponent(pid)+'&which='+kind,
+      TOKEN?{headers:{Authorization:'Bearer '+TOKEN}}:{});
+    const d=await r.json().catch(()=>({}));
+    const C=window.__MED||{};
+    if(String(C.pid||'')!==String(pid)) return;   // کاربر رفته سراغِ کالای دیگر
+    if(d&&d.tok){ C[key]=d.tok; } else { C[err]=true; }
+    C[busy]=false; renderMedia();
+  }catch(e){
+    const C=window.__MED||{};
+    if(String(C.pid||'')===String(pid)){ C[err]=true; C[busy]=false; renderMedia(); }
+    try{ reportError('medTok', e&&e.message); }catch(_){}
+  }
+}
+function medRetryTok(kind){
+  const M=window.__MED||{}; if(!M)return;
+  M['_tokerr_'+kind]=false; M['_tokbusy_'+kind]=false;
+  renderMedia();
+}
 function renderMedia(){
   const M=window.__MED||{}; if(!document.getElementById('medJin'))return;
   const vbox=(kind,label,url,fid)=>{
     const has=!!(url||fid);
-    const src = url ? esc(url) : (fid&&M.pid ? (SUPABASE_URL+'/functions/v1/telegram-bot?media='+encodeURIComponent(M.pid)+'&which='+kind) : '');
+    const tok=kind==='carton'?M.tok_carton:M.tok_jin, terr=M['_tokerr_'+kind];
+    const needTok=!url&&!!fid&&!!M.pid;
+    if(needTok&&!tok&&!terr) medTok(kind);
+    const src = url ? esc(url) : (needTok&&tok
+      ? (SUPABASE_URL+'/functions/v1/telegram-bot?media='+encodeURIComponent(M.pid)+'&which='+kind+'&t='+encodeURIComponent(tok))
+      : '');
+    if(needTok&&!tok){
+      return `<div class="medhead"><b>${label}</b><button class="btn sm red" onclick="medRemove('${kind}')">🗑 پاک کن</button></div>`+
+        (terr?`<div class="medempty">فیلم بارگذاری نشد — <a href="#" onclick="medRetryTok('${kind}');return false">دوباره امتحان کن</a></div>`
+             :`<div class="medempty">⏳ دارم فیلم رو باز می‌کنم…</div>`)+
+        `<button class="btn sm sec" style="width:100%;margin-top:8px" onclick="medPick('${kind}')">🔁 عوض کن</button>`;
+    }
     return `<div class="medhead"><b>${label}</b>${has?`<button class="btn sm red" onclick="medRemove('${kind}')">🗑 پاک کن</button>`:''}</div>`+
       (has ? (src?`<video src="${src}" controls playsinline preload="metadata" class="medvid" onerror="medVidFail(this)"></video>`
                  :`<div class="medempty">✅ فیلم روی تلگرام ذخیره شده</div>`)

@@ -64,15 +64,16 @@ def bot_checks(src, code):
     head("۲) مجوز روی هر مسیر (SEC-03)")
     # هر مسیرِ عمومی باید یا احراز کند یا در فهرستِ آگاهانه‌ی زیر باشد با دلیل.
     OPEN = {
-        "media": "خواندنی و بی‌ضرر: فقط ویدیوی کالا را با شناسه‌ی uuid پخش می‌کند و "
-                 "همان چیزی است که مشتری باید ببیند. توکن سمتِ سرور می‌مانَد.",
+        "media": "هدرِ Authorization نمی‌تواند داشته باشد چون در `<video src>` "
+                 "می‌نشیند؛ به‌جایش ژتونِ امضاشده در خودِ نشانی دارد که §۵.۵ می‌سنجدش.",
     }
     # پنجره‌ی هر پارامتر تا شروعِ پارامترِ بعدی است، نه یک عددِ ثابت. با پنجره‌ی
     # بلند، بررسی محافظِ مسیرِ ?secret= را می‌دید و می‌گفت ?prime= هم احراز دارد —
     # یعنی دقیقاً همان سوراخی را که باید لو می‌داد، پنهان می‌کرد.
     marks = [(m.group(1), m.start()) for m in
              re.finditer(r"url\.searchParams\.get\(['\"](\w+)['\"]\)", code)]
-    marks = [(n, i) for n, i in marks if n not in ("which", "k")]
+    # «t» و «which» پارامترِ خودِ مسیرِ ویدیواند، نه مسیرِ جدا.
+    marks = [(n, i) for n, i in marks if n not in ("which", "k", "t")]
     seen = []
     for idx, (p, start) in enumerate(marks):
         end = marks[idx + 1][1] if idx + 1 < len(marks) else len(code)
@@ -145,6 +146,34 @@ def bot_checks(src, code):
     (ok if re.search(r"AbortSignal|signal\s*:", tg) else bad)(
         "فراخوانیِ تلگرام مهلت دارد" if re.search(r"AbortSignal|signal\s*:", tg)
         else "tgCall مهلت (timeout) ندارد — یک درخواستِ آویزان تابع را نگه می‌دارد")
+
+    head("۵.۵) نشانیِ امضاشده‌ی ویدیو (SEC-02، SEC-03)")
+    # `?media=` نمی‌تواند هدرِ Authorization بگیرد چون پنل آن را در `<video src>`
+    # می‌گذارد. پس امضا در خودِ نشانی می‌نشیند.
+    #
+    # سقفِ نرخِ درون‌حافظه‌ای اینجا **امتحان شد و کار نکرد**: اندازه‌گیری نشان داد هر
+    # درخواست یک ایزوله‌ی تازه می‌گیرد، پس هیچ شمارنده‌ای بینِ درخواست‌ها نمی‌مانَد.
+    # آن راه یک محافظِ قلابی بود و برداشته شد — دنبالش نرو.
+    mm = re.search(r"url\.searchParams\.get\(['\"]media['\"]\)", code)
+    nxt = re.search(r"url\.searchParams\.get\(['\"](?!media|which|k|t)\w+['\"]\)", code[mm.end():]) if mm else None
+    mseg = code[mm.start(): mm.end() + (nxt.start() if nxt else len(code))] if mm else ""
+    if not mm:
+        bad("مسیرِ ?media= پیدا نشد — این بررسی جای درستی را نگاه نمی‌کند")
+    elif not re.search(r"medCheck\(", mseg):
+        bad("مسیرِ ?media= امضای نشانی را وارسی نمی‌کند (SEC-03)")
+    elif not re.search(r"status:\s*401", mseg):
+        bad("مسیرِ ?media= امضا را می‌سنجد ولی هیچ‌جا رد نمی‌کند")
+    elif re.search(r"if\s*\(\s*(false|true)\s*\)", mseg):
+        bad("وارسیِ امضای ?media= با یک شرطِ مرده خنثی شده")
+    else:
+        ok("مسیرِ ?media= امضای نشانی را وارسی می‌کند و با ۴۰۱ رد می‌کند")
+
+    # امضا فقط وقتی ارزش دارد که کلیدش از خودِ BOT_TOKEN جدا باشد؛ وگرنه هر جای
+    # دیگری که آن رمز را ببیند می‌تواند نشانیِ معتبر بسازد (جداسازیِ کلید).
+    if re.search(r"crypto\.subtle\.digest\(['\"]SHA-256['\"]", code) and "media-url-v1" in code:
+        ok("کلیدِ امضا از BOT_TOKEN مشتق می‌شود، خودش نیست")
+    else:
+        bad("کلیدِ امضای ویدیو از BOT_TOKEN جدا نشده")
 
     head("۶) فرارِ خروجی (SEC-04)")
     (ok if re.search(r"function escH", code) else bad)(
