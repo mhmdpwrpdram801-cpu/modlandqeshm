@@ -24,8 +24,17 @@
 
 ```bash
 python3 auditor/audit.py panel/index.html -c auditor/audit.config.json   # باید ۰ برگرداند
+python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json  # اگر expenses/ را دست زدی
+python3 auditor/server_audit.py                                           # اگر bot/ را دست زدی
+deno run -A --import-map auditor/botsim/import_map.json auditor/botsim/run.ts   # همچنین
 python3 guidelines/self-check.py                                          # اگر guidelines/ را دست زدی
+cd voice && python3 -m pytest -q && ruff check . && ruff format --check .  # اگر voice/ را دست زدی
 ```
+
+اولی‌ها در `.github/workflows/gates.yml` روی هر PR هم اجرا می‌شوند، و `voice/` دو
+گردش‌کارِ خودش را دارد (`voice.yml` روی لینوکس، `voice-windows.yml` روی ویندوز که
+exe را هم می‌سازد و اجرایش می‌کند). ولی **قبل از push خودت بزنشان** — دروازه‌ای که
+ده دقیقه بعد قرمز می‌دهد جای دیدنِ باگ را نمی‌گیرد.
 
 ## دستورهای دستورالعمل
 

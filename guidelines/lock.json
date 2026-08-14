@@ -20,6 +20,11 @@
       "note": "دروازه‌ی ابزارِ تک‌فایلِ ثبتِ خرج (expenses/). کدِ خروجی ۰ یعنی آماده."
     },
     {
+      "name": "بازرسِ سمتِ سرور",
+      "cmd": "python3 auditor/server_audit.py",
+      "note": "ربات و ثابت‌های دیتابیس. برای بخشِ دیتابیس، خروجیِ auditor/db_invariants.sql را بگیر و با سوئیچِ --db بده؛ بدونِ آن، آن بخش رد می‌شود و همان را هم می‌گوید — «رد شد» با «پاس شد» یکی نیست."
+    },
+    {
       "name": "تست‌های mlqvoice",
       "cmd": "cd voice && python3 -m pytest -q",
       "note": "دروازه‌ی ابزارِ گفتار‌به‌متنِ ویندوز (voice/). پایتون است نه HTML، پس بازرسِ playwright به آن نمی‌خورد."
@@ -39,7 +44,7 @@
     "bot/": {
       "version": "2026.08.8",
       "kind": "کدِ موجود",
-      "note": "کپیِ مرجعِ Edge Function. قبل از تغییر bot/README.md خوانده شود."
+      "note": "کپیِ مرجعِ Edge Function. قبل از تغییر bot/README.md خوانده شود. دروازه‌اش auditor/server_audit.py است."
     },
     "auditor/": {
       "version": "2026.08.8",
