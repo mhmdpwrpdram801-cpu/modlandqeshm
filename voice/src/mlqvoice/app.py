@@ -123,8 +123,10 @@ class VoiceApp:
         if not self.overlay.isVisible():
             # Must happen before the overlay steals the foreground.
             self.target_hwnd = inject.capture_target()
-            self.overlay.set_target(inject.window_title(self.target_hwnd))
-            self.overlay.present()
+            # begin_session, not present: a new dictation starts empty. Closing
+            # the box with Esc used to leave the text in the widget, so the next
+            # hotkey press showed the previous session's words.
+            self.overlay.begin_session(inject.window_title(self.target_hwnd))
         if not self.bridge.browser_alive():
             self.overlay.set_status("مرورگرِ تشخیصِ گفتار بسته شده — دوباره بازش می‌کنم", bad=True)
             try:
@@ -170,10 +172,11 @@ class VoiceApp:
     # -- actions ---------------------------------------------------------
 
     def _show_overlay(self) -> None:
-        if not self.overlay.isVisible():
-            self.target_hwnd = inject.capture_target()
-            self.overlay.set_target(inject.window_title(self.target_hwnd))
-        self.overlay.present()
+        if self.overlay.isVisible():
+            self.overlay.present()
+            return
+        self.target_hwnd = inject.capture_target()
+        self.overlay.begin_session(inject.window_title(self.target_hwnd))
 
     def _insert(self, text: str) -> None:
         if self.recording:

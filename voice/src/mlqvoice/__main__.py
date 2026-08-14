@@ -95,11 +95,20 @@ def cmd_selftest(_args) -> int:
     from PySide6.QtWidgets import QApplication
 
     from .bridge import RecognizerBridge
+    from .ui.fonts import FAMILY, available, load_fonts
     from .ui.overlay import Overlay
     from .ui.tray import make_icon
 
     app = QApplication.instance() or QApplication([])
     plugin = app.platformName()
+
+    # The font is a bundled data file like the dictionaries; if --add-data missed
+    # it the app still runs, just ugly — exactly the kind of silent regression
+    # this command exists to catch.
+    load_fonts()
+    if not available():
+        print(f"selftest: فونتِ {FAMILY} همراهِ بسته نشده", file=sys.stderr)
+        return 1
 
     overlay = Overlay()
     overlay.append_final("آزمایش")
@@ -116,7 +125,10 @@ def cmd_selftest(_args) -> int:
         return 1
 
     lex = build_lexicon(user_file=user_dictionary_file())
-    print(f"selftest ok — Qt platform={plugin}، صفحه={len(page)} بایت، واژه‌ها={len(lex)}")
+    print(
+        f"selftest ok — Qt platform={plugin}، فونت={FAMILY}، "
+        f"صفحه={len(page)} بایت، واژه‌ها={len(lex)}"
+    )
     return 0
 
 

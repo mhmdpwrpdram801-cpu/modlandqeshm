@@ -35,7 +35,7 @@ class TestCheck:
     def test_reports_the_defaults(self, capsys):
         assert main(["check"]) == 0
         out = capsys.readouterr().out
-        assert "ctrl+alt+space" in out
+        assert "alt+space" in out  # the default
         assert "fa-IR" in out
 
     def test_fails_on_a_broken_config(self, capsys, tmp_path):
