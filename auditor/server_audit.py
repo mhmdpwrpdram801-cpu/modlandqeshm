@@ -181,6 +181,59 @@ def bot_checks(src, code):
     else:
         bad("کلیدِ امضای ویدیو از BOT_TOKEN جدا نشده")
 
+    head("۵.۷) لاگ و سلامت (OPS-01، OPS-02، OPS-04)")
+    # لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست. هر خط باید JSON باشد و یک
+    # شناسه‌ی همبستگی داشته باشد، وگرنه نمی‌شود پرسید «این درخواست چه بر سرش آمد؟».
+    helper = re.search(r"function log\(rid[\s\S]{0,400}?\n\}", code)
+    if not helper:
+        bad("تابعِ لاگِ ساخت‌یافته وجود ندارد (OPS-01)")
+    elif not ("JSON.stringify" in helper.group(0) and "rid" in helper.group(0)):
+        bad("لاگ JSON نیست یا شناسه‌ی همبستگی ندارد (OPS-01)")
+    else:
+        ok("لاگ JSON است و شناسه‌ی همبستگی دارد")
+
+    # console.error فقط حق دارد داخلِ همان تابع باشد. هر جای دیگری یعنی یک خطِ
+    # آزاد که در جست‌وجو گم می‌شود.
+    raw = [m.start() for m in re.finditer(r"console\.error\(", code)]
+    inside = [i for i in raw if helper and helper.start() <= i <= helper.end()]
+    (ok if len(raw) == len(inside) and raw else bad)(
+        f"هر {len(raw)} console.error داخلِ خودِ تابعِ لاگ است"
+        if len(raw) == len(inside) and raw
+        else f"{len(raw) - len(inside)} console.errorِ آزاد مانده — لاگِ بی‌ساختار (OPS-01)")
+
+    # سطح‌ها: سه‌تا کافی است و بیشتر از این فقط سردرگمی می‌سازد (OPS-02).
+    lv = set(re.findall(r"log\(rid, '(\w+)'", code))
+    (ok if lv and lv <= {"error", "warn", "info"} else bad)(
+        f"سطح‌های لاگ همان سه‌تای مجازند: {sorted(lv)}" if lv and lv <= {"error", "warn", "info"}
+        else f"سطحِ لاگِ ناشناخته: {sorted(lv - {'error', 'warn', 'info'})}")
+
+    # OPS-04: مسیرِ سلامت باید **واقعاً وابستگی را بسنجد**، نه فقط ۲۰۰ بدهد.
+    hm = re.search(r"url\.searchParams\.get\(['\"]health['\"]\)", code)
+    hnx = re.search(r"url\.searchParams\.get\(['\"](?!health|which|k|t)\w+['\"]\)", code[hm.end():]) if hm else None
+    hseg = code[hm.start(): hm.end() + (hnx.start() if hnx else len(code))] if hm else ""
+    if not hm:
+        bad("مسیرِ سلامت وجود ندارد (OPS-04)")
+    elif "supabase.from" not in hseg:
+        bad("مسیرِ سلامت به دیتابیس نمی‌زند — فقط می‌گوید «بالام» (OPS-04)")
+    elif "503" not in hseg:
+        bad("مسیرِ سلامت وقتی وابستگی نرسد هم ۲۰۰ می‌دهد — یعنی هیچ‌وقت قرمز نمی‌شود")
+    else:
+        ok("مسیرِ سلامت واقعاً دیتابیس را می‌سنجد و با ۵۰۳ رد می‌کند")
+
+    # نسخه‌ی داخلِ کد باید با چیزی که README ثبت کرده یکی باشد، وگرنه بعد از
+    # استقرار مستند بی‌صدا عقب می‌مانَد (OPS-06).
+    mver = re.search(r"const BOT_VER = (\d+)", code)
+    doc = re.search(r"نسخه‌ی مستقر: \*\*([۰-۹\d]+)\*\*", open(BOT_README, encoding="utf-8").read())
+    fa = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+    if not mver:
+        bad("BOT_VER در کد نیست")
+    elif not doc:
+        bad("نسخه‌ی مستقر در bot/README.md ثبت نشده")
+    elif mver.group(1) != doc.group(1).translate(fa):
+        bad(f"BOT_VER={mver.group(1)} ولی README می‌گوید {doc.group(1)} — یکی‌شان عقب مانده")
+    else:
+        ok(f"BOT_VER با نسخه‌ی ثبت‌شده در README یکی است ({mver.group(1)})")
+
     head("۶) فرارِ خروجی (SEC-04)")
     (ok if re.search(r"function escH", code) else bad)(
         "تابعِ escH برای متنِ کاربر هست" if re.search(r"function escH", code)

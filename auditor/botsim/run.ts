@@ -8,7 +8,7 @@
  *
  *   /tmp/deno/bin/deno run -A --import-map auditor/botsim/import_map.json auditor/botsim/run.ts
  */
-import { CALLS, DB } from "./stub_supabase.ts";
+import { CALLS, DB, FAULT } from "./stub_supabase.ts";
 
 // ── دنیای بیرون ─────────────────────────────────────────────────────────────
 for (
@@ -220,6 +220,28 @@ const expTok = await (async () => {
   return t.replace(/^\d+/, String(Math.floor(Date.now() / 1000) - 10));
 })();
 check("ژتونِ منقضی رد می‌شود", await getMedia(`&t=${expTok}`), 401);
+
+// ── ۹) مسیرِ سلامت (OPS-04) ────────────────────────────────────────────────
+// «۲۰۰ می‌دهم پس سالمم» چیزی را ثابت نمی‌کند. بررسیِ آخر مهم‌ترین است: با
+// دیتابیسِ خراب باید ۵۰۳ بدهد. بدونِ آن، این مسیر فقط می‌گفت «تابع بالاست».
+console.log("\n━━━ سلامت ━━━");
+reset({ step: "idle", cart: [] });
+const hq = (k: string) => new Request(`https://x/functions/v1/telegram-bot?health=${k}`, { method: "GET" });
+
+const hNo = await handler!(hq("wrong-key"));
+await hNo.text();
+check("سلامت بدونِ کلیدِ درست رد می‌شود", hNo.status, 401);
+
+const hOk = await handler!(hq("test-cron"));
+const hBody = await hOk.json().catch(() => ({}));
+check("سلامت با کلید ۲۰۰ می‌دهد", hOk.status, 200);
+check("سلامت واقعاً دیتابیس را می‌سنجد", (hBody as { db?: boolean }).db, true);
+
+FAULT.on = true;
+const hBad = await handler!(hq("test-cron"));
+await hBad.text();
+FAULT.on = false;
+check("دیتابیسِ خراب → ۵۰۳، نه ۲۰۰", hBad.status, 503);
 
 console.log("\n" + "═".repeat(52));
 console.log(`  ${pass} بررسی پاس شد`);
