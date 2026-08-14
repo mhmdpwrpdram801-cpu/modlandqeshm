@@ -96,6 +96,13 @@ jobs:
           Write-Host "خروجی: $out"
           if ($LASTEXITCODE -ne 0) { throw "exe با say کد $LASTEXITCODE داد" }
 
+          # مهم‌ترین آزمایش: check و say اصلاً Qt را صدا نمی‌زنند، پس اگر PySide6
+          # یا پلاگینِ سکویش داخلِ بسته نرفته باشد هر دو سبز رد می‌شوند و کاربر
+          # با یک آیکن می‌مانَد که دوبار کلیک کردنش هیچ کاری نمی‌کند.
+          # selftest کادر و آیکن و صفحه‌ی تشخیص را واقعاً می‌سازد.
+          & $exe selftest
+          if ($LASTEXITCODE -ne 0) { throw "exe با selftest کد $LASTEXITCODE داد" }
+
           $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
           Write-Host "اندازه: $size مگابایت"
           "EXE_SIZE=$size" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8

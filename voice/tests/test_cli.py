@@ -69,3 +69,17 @@ class TestVersion:
             main(["--version"])
         assert exc.value.code == 0
         assert "mlqvoice" in capsys.readouterr().out
+
+
+class TestSelftest:
+    """Guards the exe smoke test: selftest must build the real UI chain."""
+
+    def test_builds_the_ui_and_reports_ok(self, capsys):
+        import os
+
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        pytest.importorskip("PySide6", reason="PySide6 نصب نیست")
+        assert main(["selftest"]) == 0
+        out = capsys.readouterr().out
+        assert "selftest ok" in out
+        assert "واژه‌ها=" in out

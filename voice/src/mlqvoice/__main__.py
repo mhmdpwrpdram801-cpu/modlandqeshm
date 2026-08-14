@@ -9,6 +9,7 @@ any platform, which is also how the test suite reaches this code.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
 
 from . import APP_NAME, __version__
@@ -16,6 +17,24 @@ from .config import ConfigError, load, parse_hotkey
 from .paths import config_file, data_dir, user_dictionary_file
 from .text import build_lexicon, transform
 from .text.pipeline import Options
+
+
+def force_utf8() -> None:
+    """Make the output streams able to carry Persian.
+
+    Windows picks the process ANSI code page for stdout — cp1252 on a US
+    install — and *every* Persian ``print`` in this CLI then dies with
+    ``UnicodeEncodeError``.  It is not hypothetical: this crashed on the first
+    CI run on a real Windows machine, on the very first line of ``check``.
+    """
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        # A stream that refuses is still better than crashing the command.
+        with contextlib.suppress(ValueError, OSError, AttributeError):
+            reconfigure(encoding="utf-8", errors="replace")
 
 
 def _options(cfg) -> Options:
@@ -65,6 +84,42 @@ def cmd_check(_args) -> int:
     return 0
 
 
+def cmd_selftest(_args) -> int:
+    """Build every heavy part of the app once, without opening anything.
+
+    This exists for the packaged exe.  ``check`` and ``say`` never touch Qt, so
+    they pass happily even if PySide6 or its platform plugins failed to make it
+    into the bundle — and the user is left with an icon that does nothing when
+    double-clicked.  Constructing the real widgets is what proves otherwise.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    from .bridge import RecognizerBridge
+    from .ui.overlay import Overlay
+    from .ui.tray import make_icon
+
+    app = QApplication.instance() or QApplication([])
+    plugin = app.platformName()
+
+    overlay = Overlay()
+    overlay.append_final("آزمایش")
+    if overlay.text() != "آزمایش":
+        print("selftest: کادر متن را نگه نداشت", file=sys.stderr)
+        return 1
+    if make_icon().isNull():
+        print("selftest: آیکنِ سینی ساخته نشد", file=sys.stderr)
+        return 1
+
+    page = RecognizerBridge().page_html()
+    if "webkitSpeechRecognition" not in page:
+        print("selftest: صفحه‌ی تشخیصِ گفتار همراهِ بسته نشده", file=sys.stderr)
+        return 1
+
+    lex = build_lexicon(user_file=user_dictionary_file())
+    print(f"selftest ok — Qt platform={plugin}، صفحه={len(page)} بایت، واژه‌ها={len(lex)}")
+    return 0
+
+
 def cmd_hotkey(args) -> int:
     try:
         hk = parse_hotkey(args.spec)
@@ -86,6 +141,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("paths", help="مسیرِ تنظیمات و دیکشنری").set_defaults(func=cmd_paths)
     sub.add_parser("check", help="وارسیِ تنظیمات").set_defaults(func=cmd_check)
+    sub.add_parser("selftest", help="ساختِ یک‌بارِ رابط — برای وارسیِ خودِ exe").set_defaults(
+        func=cmd_selftest
+    )
 
     hotkey = sub.add_parser("hotkey", help="یک ترکیبِ کلید را بسنج")
     hotkey.add_argument("spec")
@@ -94,6 +152,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    force_utf8()
     args = build_parser().parse_args(argv)
     if getattr(args, "func", None) is not None:
         return args.func(args)
