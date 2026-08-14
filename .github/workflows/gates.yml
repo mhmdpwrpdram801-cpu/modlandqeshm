@@ -67,21 +67,31 @@ jobs:
     # بقیه‌ی مرحله‌ها اجرا شوند یا نه.
     steps:
       - uses: actions/checkout@v4
+        # تاریخچه‌ی کامل لازم است: با عمقِ ۱، مبنای مقایسه در مخزن نیست و
+        # `git diff BASE...HEAD` با «no merge base» می‌افتد. اولین بار همین شد و
+        # کارِ مرورگری بی‌صدا رد شد — سبزی که هیچ چیزی را نسنجیده بود.
+        with: { fetch-depth: 0 }
 
       - name: کدِ برنامه عوض شده؟
         id: changed
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="${{ github.event.pull_request.base.sha }}"
-            git fetch --no-tags --depth=1 origin "$BASE" 2>/dev/null || true
-            FILES=$(git diff --name-only "$BASE"...HEAD || echo "")
+            FILES=$(git diff --name-only "$BASE"...HEAD 2>/dev/null) || FILES="__UNKNOWN__"
           else
-            FILES=$(git diff --name-only HEAD~1 HEAD || echo "")
+            FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) || FILES="__UNKNOWN__"
           fi
-          echo "$FILES" | grep -qE '^(panel/|expenses/|auditor/)' \
-            && echo "run=yes" >> "$GITHUB_OUTPUT" \
-            || echo "run=no"  >> "$GITHUB_OUTPUT"
           echo "فایل‌های عوض‌شده:"; echo "$FILES"
+          # اگر نشد بفهمیم چه عوض شده، **اجرا می‌کنیم**. حالتِ نامعلوم نباید
+          # بی‌صدا یعنی «رد کن» — همان اشتباهی که همین گردش‌کار بارِ اول کرد.
+          if [ "$FILES" = "__UNKNOWN__" ] || [ -z "$FILES" ]; then
+            echo "::warning::فهرستِ تغییرات معلوم نشد — بازرس‌ها را محتاطانه اجرا می‌کنیم"
+            echo "run=yes" >> "$GITHUB_OUTPUT"
+          elif echo "$FILES" | grep -qE '^(panel/|expenses/|auditor/)'; then
+            echo "run=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=no" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-python@v5
         if: steps.changed.outputs.run == 'yes'
