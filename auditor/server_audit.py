@@ -81,8 +81,14 @@ def bot_checks(src, code):
         # می‌زند و هیچ‌کس را رد نمی‌کند. تستِ جهشی همین را لو داد (S2). پس سه چیز
         # با هم لازم است: مکانیزمِ احراز، یک خروجِ ۴۰۱/۴۰۳، و نبودِ شرطِ مرده.
         has_auth = bool(re.search(r"cronKey\(\)|Deno\.env\.get\(['\"]BOT_TOKEN|isAdmin\(|auth\.getUser\(", seg))
-        has_deny = bool(re.search(r"status:\s*40[13]|\{\s*status:\s*40[13]", seg))
-        dead = bool(re.search(r"if\s*\(\s*(false|true)\s*\)", seg))
+        deny = re.search(r"status:\s*40[13]", seg)
+        has_deny = bool(deny)
+        # شرطِ مرده را فقط **دور و برِ خودِ محافظ** می‌گردیم. با گشتنِ کلِ بخش،
+        # هر if(true) در نهصد خطِ بدنه‌ی وبهوک باعث می‌شد ?secret= «بی‌احراز»
+        # گزارش شود — احرازی که کاملاً سرِ جایش است. پیامِ غلط از نبودِ پیام بدتر
+        # است، چون آدم را دنبالِ سوراخی می‌فرستد که وجود ندارد (CORE-04).
+        near = seg[max(0, deny.start() - 320):deny.end() + 80] if deny else ""
+        dead = bool(re.search(r"if\s*\(\s*(false|true)\s*\)", near))
         guarded = has_auth and has_deny and not dead
         if guarded:
             ok(f"مسیرِ ?{p}= احراز دارد")

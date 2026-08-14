@@ -1,0 +1,124 @@
+name: دروازه‌های وارسی
+
+# تا امروز هیچ‌کدام از بازرس‌ها خودکار اجرا نمی‌شدند — فقط وقتی کسی یادش می‌افتاد.
+# گردش‌کارِ انتشار سه چیز را چک می‌کند (بودنِ ۱۳ فایل، جلو رفتنِ نسخه‌ی کش، درستیِ
+# کلید) و بعد منتشر می‌کند؛ یعنی یک پنلِ خرابِ سبزنشده می‌توانست برود روی هوا.
+#
+# دو کارِ جدا، چون هزینه‌شان دو دنیاست:
+#   · fast     — ثانیه‌ای، بدونِ مرورگر، روی هر PR و هر push
+#   · browser  — دقیقه‌ای، با کرومیوم، فقط وقتی کدِ برنامه عوض شده
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    name: سریع — خودوارسی و بازرسِ سرور
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: خودوارسیِ دستورالعمل
+        run: python3 guidelines/self-check.py
+
+      # بخشِ دیتابیس اینجا اجرا نمی‌شود: CI به دیتابیس دسترسی ندارد و نباید
+      # داشته باشد. خودِ بازرس می‌گوید «سنجیده نشد» و آن را با «پاس شد» یکی
+      # نمی‌گیرد (CORE-11). بخشِ ربات کاملاً ایستاست و اینجا واقعاً سنجیده می‌شود.
+      - name: بازرسِ سمتِ سرور (بخشِ ایستا)
+        run: python3 auditor/server_audit.py
+
+      - name: تستِ جهشی روی دروازه‌ی سرور
+        # ثانیه‌ای است، پس دلیلی ندارد اجرا نشود. اگر روزی یکی از این سه محافظ
+        # بی‌صدا خنثی شود، همین‌جا قرمز می‌شود نه سه ماه بعد.
+        run: |
+          python3 - <<'EOF'
+          import json
+          json.dump([
+            dict(id="S1", file="bot/index.ts", rule="SEC-03", count=1,
+                 desc="محافظِ isAdmin از /backup برداشته شود",
+                 find="if (cmdF === '/پشتیبان' || cmdA === '/backup') {\n          if (await isAdmin(chatId)) {",
+                 repl="if (cmdF === '/پشتیبان' || cmdA === '/backup') {\n          if (true) {"),
+            dict(id="S2", file="bot/index.ts", rule="SEC-03", count=1,
+                 desc="احرازِ ?prime= خنثی شود",
+                 find="    if (!authed) {", repl="    if (false) {"),
+            dict(id="S3", file="bot/index.ts", rule="ARCH-06", count=1,
+                 desc="مهلتِ tgCall برداشته شود",
+                 find="      signal: AbortSignal.timeout(25000),\n", repl=""),
+          ], open('/tmp/sanity.json','w'), ensure_ascii=False)
+          EOF
+          python3 auditor/mutants.py --from /tmp/sanity.json -j 3
+
+  browser:
+    name: بازرسِ پنل و ابزارِ خرج
+    runs-on: ubuntu-latest
+    # کرومیوم ارزان نیست، پس مرحله‌ی «کدِ برنامه عوض شده؟» تصمیم می‌گیرد
+    # بقیه‌ی مرحله‌ها اجرا شوند یا نه.
+    steps:
+      - uses: actions/checkout@v4
+        # تاریخچه‌ی کامل لازم است: با عمقِ ۱، مبنای مقایسه در مخزن نیست و
+        # `git diff BASE...HEAD` با «no merge base» می‌افتد. اولین بار همین شد و
+        # کارِ مرورگری بی‌صدا رد شد — سبزی که هیچ چیزی را نسنجیده بود.
+        with: { fetch-depth: 0 }
+
+      - name: کدِ برنامه عوض شده؟
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            FILES=$(git diff --name-only "$BASE"...HEAD 2>/dev/null) || FILES="__UNKNOWN__"
+          else
+            FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) || FILES="__UNKNOWN__"
+          fi
+          echo "فایل‌های عوض‌شده:"; echo "$FILES"
+          # اگر نشد بفهمیم چه عوض شده، **اجرا می‌کنیم**. حالتِ نامعلوم نباید
+          # بی‌صدا یعنی «رد کن» — همان اشتباهی که همین گردش‌کار بارِ اول کرد.
+          if [ "$FILES" = "__UNKNOWN__" ] || [ -z "$FILES" ]; then
+            echo "::warning::فهرستِ تغییرات معلوم نشد — بازرس‌ها را محتاطانه اجرا می‌کنیم"
+            echo "run=yes" >> "$GITHUB_OUTPUT"
+          elif echo "$FILES" | grep -qE '^(panel/|expenses/|auditor/)'; then
+            echo "run=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.changed.outputs.run == 'yes'
+        with: { python-version: '3.12' }
+
+      - uses: actions/setup-node@v4
+        if: steps.changed.outputs.run == 'yes'
+        with: { node-version: '22' }
+
+      - name: نصبِ پلی‌رایت و کرومیوم
+        if: steps.changed.outputs.run == 'yes'
+        run: |
+          python3 -m pip install --quiet playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+
+      - name: بازرسِ پنل
+        if: steps.changed.outputs.run == 'yes'
+        run: python3 auditor/audit.py panel/index.html -c auditor/audit.config.json
+
+      - name: بازرسِ ابزارِ خرج
+        if: steps.changed.outputs.run == 'yes'
+        run: python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json
+
+      - name: عکس‌ها برای وقتی که قرمز شد
+        if: failure() && steps.changed.outputs.run == 'yes'
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-shots
+          path: /tmp/audit_shots
+          if-no-files-found: ignore
