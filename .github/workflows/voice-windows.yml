@@ -96,10 +96,14 @@ jobs:
           # که بیشترین نیاز را به خبر داری، هیچ خبری نداری. WaitForExit با مهلت،
           # گیر کردن را به یک شکستِ سریع تبدیل می‌کند که اسمِ فرمان را می‌گوید.
           function Invoke-Exe {
-            param([string]$Label, [string[]]$Args, [int]$TimeoutMs = 90000)
+            # نامش $ExeArgs است نه $Args: در PowerShell، $args متغیرِ خودکارِ
+            # زبان است و پارامتری با آن نام هیچ‌وقت bind نمی‌شود — آرایه‌ی خالی
+            # می‌رسید، exe بی‌آرگومان اجرا می‌شد و به‌جای زیردستور کلِ برنامه‌ی
+            # گرافیکی بالا می‌آمد و تا ابد می‌ماند.
+            param([string]$Label, [string[]]$ExeArgs, [int]$TimeoutMs = 90000)
             $o = [System.IO.Path]::GetTempFileName()
             $e = [System.IO.Path]::GetTempFileName()
-            $p = Start-Process -FilePath $exe -ArgumentList $Args -PassThru `
+            $p = Start-Process -FilePath $exe -ArgumentList $ExeArgs -PassThru `
                    -RedirectStandardOutput $o -RedirectStandardError $e
             if (-not $p.WaitForExit($TimeoutMs)) {
               try { $p.Kill() } catch { }
@@ -118,27 +122,76 @@ jobs:
             return $out
           }
 
-          $v = Invoke-Exe -Label '--version' -Args @('--version')
+          $v = Invoke-Exe -Label '--version' -ExeArgs @('--version')
           if ($v -notmatch 'mlqvoice') { throw "--version نامِ برنامه را نگفت" }
 
           # check دیکشنری را از فایل‌های همراه‌شده می‌سازد — یعنی --add-data را می‌سنجد
-          $c = Invoke-Exe -Label 'check' -Args @('check')
+          $c = Invoke-Exe -Label 'check' -ExeArgs @('check')
           if ($c -notmatch 'ctrl\+alt\+space') { throw "check کلیدِ میان‌بُر را نگفت" }
 
           # و یک جمله را واقعاً از خطِ لوله رد می‌کند
-          $s = Invoke-Exe -Label 'say' -Args @('say', 'کامیت', 'کن', 'نقطه')
+          $s = Invoke-Exe -Label 'say' -ExeArgs @('say', 'کامیت', 'کن', 'نقطه')
           if ($s -notmatch 'commit') { throw "دیکشنری داخلِ exe کار نکرد: $s" }
 
           # مهم‌ترین آزمایش: check و say اصلاً Qt را صدا نمی‌زنند، پس اگر PySide6
           # یا پلاگینِ سکویش داخلِ بسته نرفته باشد هر دو سبز رد می‌شوند و کاربر
           # با یک آیکن می‌مانَد که دوبار کلیک کردنش هیچ کاری نمی‌کند.
           # selftest کادر و آیکن و صفحه‌ی تشخیص را واقعاً می‌سازد.
-          $t = Invoke-Exe -Label 'selftest' -Args @('selftest')
+          $t = Invoke-Exe -Label 'selftest' -ExeArgs @('selftest')
           if ($t -notmatch 'selftest ok') { throw "selftest تأیید نکرد: $t" }
 
           $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
           Write-Host "اندازه: $size مگابایت"
           "EXE_SIZE=$size" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # این مرحله از یک اشتباه زاده شد: یک بار آرگومان‌ها به exe نرسیدند، برنامه
+      # به‌جای زیردستور کاملاً بالا آمد، و لاگِ پاک‌سازیِ رانر سه پروسه‌ی chrome
+      # را نشان داد. یعنی همین محیط *می‌تواند* کلِ مسیرِ راه‌اندازی را اجرا کند —
+      # چیزی که تا آن لحظه در فهرستِ «تست‌نشده» بود. حالا عمداً انجامش می‌دهیم.
+      #
+      # ملاکِ موفقیت خطِ لاگِ «ready on» است، نه صرفاً زنده ماندنِ پروسه: اگر
+      # RegisterHotKey شکست بخورد، برنامه یک پنجره‌ی خطا نشان می‌دهد و همچنان
+      # زنده می‌مانَد — یعنی «هنوز اجرا می‌شود» شاهدِ راه‌اندازیِ موفق نیست.
+      - name: آزمایشِ راه‌اندازیِ کاملِ برنامه
+        run: |
+          $exe = (Resolve-Path "dist\mlqvoice.exe").Path
+          $err = Join-Path $env:RUNNER_TEMP 'app-err.txt'
+          $out = Join-Path $env:RUNNER_TEMP 'app-out.txt'
+          $before = @(Get-Process chrome, msedge -ErrorAction SilentlyContinue).Id
+
+          $app = Start-Process -FilePath $exe -PassThru `
+                   -RedirectStandardOutput $out -RedirectStandardError $err
+
+          $ready = $false
+          $deadline = (Get-Date).AddSeconds(75)
+          while ((Get-Date) -lt $deadline) {
+            if ($app.HasExited) { break }
+            $log = Get-Content $err -Raw -Encoding utf8 -ErrorAction SilentlyContinue
+            if ($log -match 'ready on') { $ready = $true; break }
+            Start-Sleep -Milliseconds 500
+          }
+
+          $log = Get-Content $err -Raw -Encoding utf8 -ErrorAction SilentlyContinue
+          Write-Host "--- لاگِ برنامه ---"
+          if ($log) { Write-Host $log } else { Write-Host "(خالی)" }
+
+          $chromeNow = @(Get-Process chrome, msedge -ErrorAction SilentlyContinue)
+          $ours = @($chromeNow | Where-Object { $before -notcontains $_.Id })
+
+          # پاک‌سازی قبل از هر throw، وگرنه رانر با پروسه‌های یتیم می‌مانَد
+          foreach ($p in $ours) { try { $p.Kill() } catch { } }
+          if (-not $app.HasExited) { try { $app.Kill() } catch { } }
+
+          if ($app.HasExited -and -not $ready) {
+            throw "برنامه بالا نماند — کدِ خروجی $($app.ExitCode). لاگ بالاست."
+          }
+          if (-not $ready) {
+            throw "برنامه تا ۷۵ ثانیه «ready on» نگفت — راه‌اندازی نیمه‌کاره ماند"
+          }
+          if ($ours.Count -eq 0) {
+            throw "مرورگرِ تشخیصِ گفتار بالا نیامد — بدونِ آن هیچ صدایی تبدیل نمی‌شود"
+          }
+          Write-Host "راه‌اندازی کامل شد و $($ours.Count) پروسه‌ی مرورگر بالا آمد."
 
       - name: بارگذاریِ exe
         uses: actions/upload-artifact@v4
