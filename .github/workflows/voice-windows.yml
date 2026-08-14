@@ -81,27 +81,46 @@ jobs:
       # همراه نشده باشند، همین‌جا می‌افتد، نه روی کامپیوترِ کاربر.
       - name: آزمایشِ خودِ exe
         run: |
-          $exe = "dist\mlqvoice.exe"
+          $exe = (Resolve-Path "dist\mlqvoice.exe").Path
           if (-not (Test-Path $exe)) { throw "exe ساخته نشد" }
 
-          & $exe --version
-          if ($LASTEXITCODE -ne 0) { throw "exe با --version کد $LASTEXITCODE داد" }
+          # چرا Start-Process و نه `& $exe`: بسته با --windowed ساخته می‌شود، یعنی
+          # زیرسیستمش GUI است و PowerShell منتظرش نمی‌مانَد — $LASTEXITCODE خالی
+          # برمی‌گردد و آزمایش، درست وقتی exe سالم است، شکست می‌دهد.
+          # -Wait -PassThru واقعاً منتظر می‌مانَد و کدِ خروجیِ حقیقی را می‌دهد.
+          function Invoke-Exe {
+            param([string]$Label, [string[]]$Args)
+            $o = [System.IO.Path]::GetTempFileName()
+            $e = [System.IO.Path]::GetTempFileName()
+            $p = Start-Process -FilePath $exe -ArgumentList $Args -Wait -PassThru `
+                   -RedirectStandardOutput $o -RedirectStandardError $e
+            $out = (Get-Content $o -Raw -Encoding utf8)
+            $err = (Get-Content $e -Raw -Encoding utf8)
+            Remove-Item $o, $e -Force
+            Write-Host "--- $Label (کد $($p.ExitCode)) ---"
+            if ($out) { Write-Host $out }
+            if ($err) { Write-Host "stderr: $err" }
+            if ($p.ExitCode -ne 0) { throw "exe با $Label کد $($p.ExitCode) داد" }
+            return $out
+          }
+
+          $v = Invoke-Exe -Label '--version' -Args @('--version')
+          if ($v -notmatch 'mlqvoice') { throw "--version نامِ برنامه را نگفت" }
 
           # check دیکشنری را از فایل‌های همراه‌شده می‌سازد — یعنی --add-data را می‌سنجد
-          & $exe check
-          if ($LASTEXITCODE -ne 0) { throw "exe با check کد $LASTEXITCODE داد" }
+          $c = Invoke-Exe -Label 'check' -Args @('check')
+          if ($c -notmatch 'ctrl\+alt\+space') { throw "check کلیدِ میان‌بُر را نگفت" }
 
           # و یک جمله را واقعاً از خطِ لوله رد می‌کند
-          $out = & $exe say کامیت کن نقطه
-          Write-Host "خروجی: $out"
-          if ($LASTEXITCODE -ne 0) { throw "exe با say کد $LASTEXITCODE داد" }
+          $s = Invoke-Exe -Label 'say' -Args @('say', 'کامیت', 'کن', 'نقطه')
+          if ($s -notmatch 'commit') { throw "دیکشنری داخلِ exe کار نکرد: $s" }
 
           # مهم‌ترین آزمایش: check و say اصلاً Qt را صدا نمی‌زنند، پس اگر PySide6
           # یا پلاگینِ سکویش داخلِ بسته نرفته باشد هر دو سبز رد می‌شوند و کاربر
           # با یک آیکن می‌مانَد که دوبار کلیک کردنش هیچ کاری نمی‌کند.
           # selftest کادر و آیکن و صفحه‌ی تشخیص را واقعاً می‌سازد.
-          & $exe selftest
-          if ($LASTEXITCODE -ne 0) { throw "exe با selftest کد $LASTEXITCODE داد" }
+          $t = Invoke-Exe -Label 'selftest' -Args @('selftest')
+          if ($t -notmatch 'selftest ok') { throw "selftest تأیید نکرد: $t" }
 
           $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
           Write-Host "اندازه: $size مگابایت"
