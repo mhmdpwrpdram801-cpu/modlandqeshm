@@ -42,11 +42,13 @@ jobs:
       # داشته باشد. خودِ بازرس می‌گوید «سنجیده نشد» و آن را با «پاس شد» یکی
       # نمی‌گیرد (CORE-11). بخشِ ربات کاملاً ایستاست و اینجا واقعاً سنجیده می‌شود.
       - name: بازرسِ سمتِ سرور (بخشِ ایستا)
-        run: python3 auditor/server_audit.py
+        # --strict: هر بخشی که «رد شود» هم خطاست (CORE-12). در CI هیچ ردشدنِ
+        # مشروعی وجود ندارد، پس اگر یکی پیش آمد خودش خبر است.
+        run: python3 auditor/server_audit.py --strict
 
       - name: عکسِ دیتابیس کهنه نشده باشد؟
         if: github.event_name == 'schedule'
-        run: python3 auditor/server_audit.py --max-age-days 60
+        run: python3 auditor/server_audit.py --max-age-days 60 --strict
 
       - name: تستِ جهشی روی دروازه‌ی سرور
         # ثانیه‌ای است، پس دلیلی ندارد اجرا نشود. اگر روزی یکی از این سه محافظ

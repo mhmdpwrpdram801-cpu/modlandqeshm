@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "note": "مُهرِ انطباق. می‌گوید هر بخش از این مخزن با کدام نسخه‌ی دستورالعمل منطبق شده. فقط بعد از سبز شدنِ verify به‌روز می‌شود (MIG-06).",
-  "guideline_version": "2026.08.8",
+  "guideline_version": "2026.08.9",
   "applied_at": "2026-08-13",
   "verify": [
     {
@@ -37,32 +37,32 @@
   ],
   "areas": {
     "panel/": {
-      "version": "2026.08.8",
+      "version": "2026.08.9",
       "kind": "کدِ موجود",
       "note": "پنلِ تک‌فایل. قاعده‌های رفتاری (§۲، §۶–§۱۲) اعمال می‌شوند؛ انتخابِ فناوری نه — waiverِ panel-no-framework."
     },
     "bot/": {
-      "version": "2026.08.8",
+      "version": "2026.08.9",
       "kind": "کدِ موجود",
       "note": "کپیِ مرجعِ Edge Function. قبل از تغییر bot/README.md خوانده شود. دروازه‌اش auditor/server_audit.py است."
     },
     "auditor/": {
-      "version": "2026.08.8",
+      "version": "2026.08.9",
       "kind": "ابزارِ داخلی",
       "note": "روی سرور نمی‌رود. قاعده‌های تست (§۱۰) اینجا مرجع‌اند."
     },
     "guidelines/": {
-      "version": "2026.08.8",
+      "version": "2026.08.9",
       "kind": "خودِ دستورالعمل",
       "note": ""
     },
     "expenses/": {
-      "version": "2026.08.8",
+      "version": "2026.08.9",
       "kind": "کدِ تازه",
       "note": "ابزارِ تک‌فایلِ ثبتِ خرجِ روزانه. داده روی localStorageِ خودِ گوشی؛ نه سرور دارد نه به Supabase می‌نویسد. waiverِ expenses-single-file."
     },
     "voice/": {
-      "version": "2026.08.8",
+      "version": "2026.08.9",
       "kind": "کدِ تازه",
       "note": "ابزارِ گفتار‌به‌متنِ دسکتاپ برای ویندوز (mlqvoice). پایتون + PySide6، مستقل از پنل و دیتابیس. تشخیصِ گفتار با موتورِ فارسیِ گوگل از راهِ Web Speech API در کرومِ خودِ کاربر. waiverِ voice-browser-bridge."
     }
