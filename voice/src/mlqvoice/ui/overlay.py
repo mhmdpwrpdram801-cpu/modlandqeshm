@@ -15,8 +15,18 @@ that yesterday's dictation is never sitting there waiting for them.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QGuiApplication, QKeySequence, QMouseEvent, QShortcut
+from collections.abc import Callable
+
+from PySide6.QtCore import QEasingCurve, QEvent, QPropertyAnimation, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QGuiApplication,
+    QKeySequence,
+    QMouseEvent,
+    QShortcut,
+    QTextCursor,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QGraphicsDropShadowEffect,
@@ -37,6 +47,15 @@ INK_DIM = "#8892a6"
 EDGE = "#2a3040"
 REC = "#ff5f6d"
 ACCENT = "#5b8cff"
+
+# What ends a typed word, for the live Finglish conversion.
+#
+# Space and Enter only — deliberately not "." or "-" or "_". Those are *inside*
+# the tokens that must survive untouched (``app.py``, ``user_id``, ``utf-8``),
+# and treating them as boundaries would convert ``app`` the moment the dot was
+# typed, before the guard that recognises the whole thing as code ever got to
+# see it. Waiting for the space means the guard always judges the complete word.
+_WORD_END = frozenset({Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Tab})
 
 
 def _qss() -> str:
@@ -130,9 +149,18 @@ class Overlay(QWidget):
         self._pulse.setInterval(600)
         self._pulse.timeout.connect(self._tick_pulse)
         self._fade: QPropertyAnimation | None = None
+        # Set by the app; until then typing behaves exactly as it always did.
+        self._transliterate: Callable[[str], str] | None = None
+        # Where the current run of *typed* characters began. Anything before it
+        # arrived some other way — dictation, paste, a conversion — and is off
+        # limits. Without this floor the conversion simply read back to the
+        # nearest space and would happily rewrite a dictated word the moment the
+        # user pressed space after it.
+        self._typed_from: int | None = None
 
         self._build()
         self._shortcuts()
+        self._text.installEventFilter(self)
 
     # -- construction ----------------------------------------------------
 
@@ -244,6 +272,78 @@ class Overlay(QWidget):
         QShortcut(QKeySequence("Esc"), self, self.dismiss)
         QShortcut(QKeySequence("Ctrl+L"), self, lambda: self.finglishRequested.emit(self.text()))
 
+    # -- typing in Finglish ----------------------------------------------
+
+    def set_transliterator(self, convert: Callable[[str], str] | None) -> None:
+        """Turn typed Finglish into Persian as the user types.
+
+        Passing ``None`` switches it off. The overlay deliberately does not know
+        *how* to transliterate — it owns the keystrokes, the app owns the
+        dictionary — which is also what keeps this testable without one.
+        """
+        self._transliterate = convert
+
+    def eventFilter(self, obj, event) -> bool:
+        if (
+            obj is not self._text
+            or self._transliterate is None
+            or event.type() != QEvent.Type.KeyPress
+        ):
+            return super().eventFilter(obj, event)
+
+        if event.key() in _WORD_END:
+            # Before the space is inserted, so it lands after the finished
+            # Persian word rather than inside it.
+            self._convert_word_before_cursor()
+            # The next word starts its own run. Belt and braces today — every
+            # boundary key inserts whitespace, which the backward scan stops at
+            # anyway — but it keeps "a run of typed characters" true, so a
+            # boundary that is not whitespace could be added without this
+            # quietly becoming wrong.
+            self._typed_from = None
+        elif event.text() and event.text().isprintable():
+            if self._typed_from is None:
+                self._typed_from = self._text.textCursor().position()
+        return super().eventFilter(obj, event)
+
+    def _convert_word_before_cursor(self) -> None:
+        """Replace the run of typed characters behind the caret, if it changes.
+
+        Only ever touches what the user typed themselves. Two limits do that:
+        it stops at the nearest space, *and* it stops at wherever this run of
+        typing began — so a dictated word sitting immediately before the caret
+        is not rewritten when the user happens to press space after it.
+        """
+        if self._typed_from is None:
+            return  # nothing was typed since the last dictation or paste
+        cursor = self._text.textCursor()
+        if cursor.hasSelection():
+            return  # they are replacing a selection; leave the intent alone
+        block = cursor.block()
+        line = block.text()
+        end = cursor.position() - block.position()
+        floor = max(0, self._typed_from - block.position())
+        start = end
+        while start > floor and not line[start - 1].isspace():
+            start -= 1
+        word = line[start:end]
+        if not word:
+            return
+
+        try:
+            converted = self._transliterate(word)
+        except Exception:  # a typo must never break typing
+            return
+        if not converted or converted == word:
+            return
+
+        edit = QTextCursor(self._text.document())
+        edit.setPosition(block.position() + start)
+        edit.setPosition(block.position() + end, QTextCursor.MoveMode.KeepAnchor)
+        # One insertText, so a single Ctrl+Z puts the Latin back — the escape
+        # hatch for the times the guard guesses wrong.
+        edit.insertText(converted)
+
     # -- state -----------------------------------------------------------
 
     def text(self) -> str:
@@ -252,6 +352,7 @@ class Overlay(QWidget):
     def clear(self) -> None:
         self._text.clear()
         self._interim.clear()
+        self._typed_from = None
 
     def append_final(self, chunk: str) -> None:
         """Add a finished phrase, keeping the user's cursor and edits intact."""
@@ -267,11 +368,14 @@ class Overlay(QWidget):
         if not at_end:
             self._text.setTextCursor(cursor)
         self._interim.clear()
+        # What just arrived was not typed, so it is not part of any typed run.
+        self._typed_from = None
 
     def set_text(self, text: str) -> None:
         """Replace the whole box — used by conversions that rewrite in place."""
         self._text.setPlainText(text)
         self._text.moveCursor(self._text.textCursor().MoveOperation.End)
+        self._typed_from = None
 
     def set_interim(self, text: str) -> None:
         self._interim.setText(text.strip())

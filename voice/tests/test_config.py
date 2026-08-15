@@ -114,6 +114,11 @@ class TestLoadSave:
     def test_missing_file_gives_defaults(self, tmp_path):
         assert load(tmp_path / "none.json") == Config()
 
+    def test_live_finglish_is_on_by_default(self, tmp_path):
+        # The owner asked for typing to convert itself; off by default would
+        # mean shipping the thing they said they did not want.
+        assert Config().live_finglish
+
     def test_media_pause_is_on_by_default(self, tmp_path):
         assert Config().pause_media
 

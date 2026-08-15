@@ -102,6 +102,9 @@ class Config:
     restore_clipboard: bool = True
     close_after_insert: bool = True
     learn: bool = True
+    # Turn typed Finglish into Persian as you type, on every space.
+    # Applies to the keyboard only — dictated text is never transliterated.
+    live_finglish: bool = True
     # Local usage counts, for judging the dictionary. Numbers only, never text.
     stats: bool = True
     # Pause whatever is playing while you dictate, and put it back afterwards.
