@@ -104,6 +104,12 @@ class VoiceApp:
         self._silence.timeout.connect(self._on_silence)
 
         self.overlay = Overlay()
+        if cfg.live_finglish:
+            # Typing only. The recogniser's output goes nowhere near this: it is
+            # full of deliberate Latin (`commit`, `database`) and transliterating
+            # it would undo the glossary. Keystrokes are a different question —
+            # somebody typing Finglish has no Persian layout and wants Persian.
+            self.overlay.set_transliterator(self._typed_finglish)
         self.overlay.insertRequested.connect(self._insert)
         self.overlay.copyRequested.connect(self._copy)
         self.overlay.finglishRequested.connect(self._finglish)
@@ -334,6 +340,14 @@ class VoiceApp:
             )
         except OSError as exc:
             log.warning("ثبتِ پیشنهادِ دیکشنری نشد: %s", exc)
+
+    def _typed_finglish(self, word: str) -> str:
+        """One typed word, transliterated — or handed straight back.
+
+        The same skip-list the button uses, so code and glossary output survive:
+        `app.py`, `user_id` and `commit` are returned untouched.
+        """
+        return finglish_to_persian(word, skip=self.lexicon.outputs())
 
     def _finglish(self, text: str) -> None:
         """Turn Finglish in the box into Persian, on request only.
