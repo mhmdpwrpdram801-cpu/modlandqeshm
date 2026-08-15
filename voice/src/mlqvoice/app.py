@@ -15,7 +15,14 @@ from .bridge import BrowserNotFound, RecognizerBridge
 from .config import Config, ConfigError, load, save
 from .hotkey import HotkeyError, HotkeyListener
 from .paths import config_file, learned_file, user_dictionary_file
-from .text import Options, build_lexicon, learning, transform
+from .text import (
+    Options,
+    build_lexicon,
+    finglish_to_persian,
+    has_latin,
+    learning,
+    transform,
+)
 from .ui.overlay import Overlay
 from .ui.tray import Tray
 from .win32 import IS_WINDOWS
@@ -80,6 +87,7 @@ class VoiceApp:
         self.overlay = Overlay()
         self.overlay.insertRequested.connect(self._insert)
         self.overlay.copyRequested.connect(self._copy)
+        self.overlay.finglishRequested.connect(self._finglish)
         self.overlay.toggleRequested.connect(self.toggle)
         self.overlay.dismissed.connect(self._on_dismissed)
 
@@ -220,6 +228,23 @@ class VoiceApp:
             )
         except OSError as exc:
             log.warning("ثبتِ پیشنهادِ دیکشنری نشد: %s", exc)
+
+    def _finglish(self, text: str) -> None:
+        """Turn Finglish in the box into Persian, on request only.
+
+        Never automatic: the pipeline's output is full of Latin on purpose, and
+        converting it would undo the glossary. The lexicon's own outputs are
+        passed as a skip-list for the same reason.
+        """
+        if not text or not has_latin(text):
+            self.overlay.set_status("چیزی برای تبدیل نیست")
+            return
+        converted = finglish_to_persian(text, skip=self.lexicon.outputs())
+        if converted == text:
+            self.overlay.set_status("چیزی عوض نشد — کد و واژه‌های فنی دست نمی‌خورند")
+            return
+        self.overlay.set_text(converted)
+        self.overlay.set_status("فارسی شد")
 
     def _copy(self, text: str) -> None:
         QApplication.clipboard().setText(text)

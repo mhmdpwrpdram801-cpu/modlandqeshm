@@ -139,6 +139,19 @@ def cmd_learn(args) -> int:
     return 0
 
 
+def cmd_fa(args) -> int:
+    """Finglish -> Persian, the same conversion the box's button performs."""
+    from .text import finglish_to_persian
+
+    cfg = load()
+    text = " ".join(args.words) if args.words else sys.stdin.read()
+    lex = build_lexicon(
+        glossary=cfg.glossary, punctuation=cfg.punctuation, user_file=user_dictionary_file()
+    )
+    print(finglish_to_persian(text, skip=lex.outputs()))
+    return 0
+
+
 def cmd_selftest(_args) -> int:
     """Build every heavy part of the app once, without opening anything.
 
@@ -219,6 +232,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--min-count", type=int, default=1, help="فقط پیشنهادهایی که این‌قدر تکرار شده‌اند"
     )
     learn.set_defaults(func=cmd_learn)
+
+    fa = sub.add_parser("fa", help="فینگلیش را فارسی کن")
+    fa.add_argument("words", nargs="*", help="اگر ندهی، از ورودیِ استاندارد می‌خواند")
+    fa.set_defaults(func=cmd_fa)
 
     hotkey = sub.add_parser("hotkey", help="یک ترکیبِ کلید را بسنج")
     hotkey.add_argument("spec")
