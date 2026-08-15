@@ -13,7 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PySide6", reason="PySide6 نصب نیست")
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QPushButton
 
 from mlqvoice.ui.overlay import Overlay
 from mlqvoice.ui.tray import make_icon
@@ -56,24 +56,42 @@ class TestText:
         overlay.append_final("دوم")
         assert overlay.text() == "اول\nدوم"
 
-    def test_interim_never_touches_the_editable_text(self, overlay):
-        # Web Speech rewrites interim text constantly; if it landed in the box it
-        # would fight the user for the cursor.
+    def test_interim_now_shows_inside_the_box(self, overlay):
+        # The owner asked to watch the words appear where they will stay.
         overlay.append_final("سلام")
         overlay.set_interim("دنیا")
+        assert overlay.text() == "سلام دنیا"
+
+    def test_a_revised_guess_replaces_the_previous_one(self, overlay):
+        # Web Speech rewrites the same phrase over and over. Appending each
+        # revision would spell out every guess it ever made.
+        overlay.set_interim("دن")
+        overlay.set_interim("دنی")
+        overlay.set_interim("دنیا")
+        assert overlay.text() == "دنیا"
+
+    def test_settled_text_excludes_the_guess(self, overlay):
+        overlay.append_final("سلام")
+        overlay.set_interim("دنیا")
+        assert overlay.settled_text() == "سلام"
+
+    def test_a_guess_never_disturbs_what_came_before_it(self, overlay):
+        overlay.append_final("سلام")
+        overlay.set_interim("یک")
+        overlay.set_interim("دو")
+        overlay.set_interim("")
         assert overlay.text() == "سلام"
 
-    def test_a_final_chunk_clears_the_interim_line(self, overlay):
+    def test_a_final_chunk_replaces_the_guess_rather_than_following_it(self, overlay):
         overlay.set_interim("در حالِ گفتن")
         overlay.append_final("گفتم")
-        assert overlay._interim.text() == ""
+        assert overlay.text() == "گفتم"
 
-    def test_clear_empties_both(self, overlay):
+    def test_clear_empties_the_box(self, overlay):
         overlay.append_final("سلام")
         overlay.set_interim("دنیا")
         overlay.clear()
         assert overlay.text() == ""
-        assert overlay._interim.text() == ""
 
     def test_user_edits_survive_a_new_chunk(self, overlay):
         overlay.append_final("سلام")
@@ -123,10 +141,13 @@ class TestState:
         overlay.set_recording(False)
         assert overlay._toggle.text() == "ادامه"
 
-    def test_stopping_drops_the_interim_guess(self, overlay):
+    def test_stopping_drops_the_half_finished_guess(self, overlay):
+        # Nobody is listening any more, so a guess that will never be confirmed
+        # has no business sitting in the box looking like text.
+        overlay.append_final("سلام")
         overlay.set_interim("نیمه‌کاره")
         overlay.set_recording(False)
-        assert overlay._interim.text() == ""
+        assert overlay.text() == "سلام"
 
     def test_target_title_is_shown(self, overlay):
         overlay.set_target("VS Code")
@@ -173,10 +194,10 @@ class TestSessionLifecycle:
         overlay.begin_session("Notepad")
         assert overlay.text() == ""
 
-    def test_begin_session_clears_the_interim_line_too(self, overlay):
+    def test_begin_session_clears_a_leftover_guess_too(self, overlay):
         overlay.set_interim("حدسِ نیمه‌کاره")
         overlay.begin_session("Notepad")
-        assert overlay._interim.text() == ""
+        assert overlay.text() == ""
 
     def test_begin_session_sets_the_target(self, overlay):
         overlay.begin_session("VS Code")
@@ -316,18 +337,85 @@ class TestCaretSide:
         assert x > width / 2, f"caret at {x} of {width} after clear"
 
 
-class TestFinglishButton:
-    def test_the_button_emits_the_box_contents(self, overlay):
-        got = []
-        overlay.finglishRequested.connect(got.append)
-        overlay._text.setPlainText("salam chetori")
-        overlay._finglish.click()
-        assert got == ["salam chetori"]
+class TestButtons:
+    """The owner asked for fewer of them."""
+
+    def test_the_finglish_button_is_gone(self, overlay):
+        # Typing converts itself now, so a button for it was one more thing to
+        # look at and never press.
+        assert not hasattr(overlay, "_finglish")
+        labels = [b.text() for b in overlay.findChildren(QPushButton)]
+        assert not any("فارسی" in label for label in labels)
+
+    def test_the_primary_button_is_one_action_not_two(self, overlay):
+        # "توقف" then "بنویس" became a single "تمام شد".
+        assert overlay._insert.text() == "تمام شد"
 
     def test_set_text_replaces_the_whole_box(self, overlay):
         overlay.append_final("salam")
         overlay.set_text("سلام")
         assert overlay.text() == "سلام"
 
-    def test_the_shortcut_is_advertised_in_the_hint(self, overlay):
-        assert "Ctrl+L" in overlay._hint.text()
+    def test_the_hint_names_the_one_shortcut_that_matters(self, overlay):
+        assert "Ctrl+Enter" in overlay._hint.text()
+
+    def test_the_hint_no_longer_advertises_a_button_that_is_gone(self, overlay):
+        assert "Ctrl+L" not in overlay._hint.text()
+
+
+class TestGuessAndEditingTogether:
+    """The reason the guess is a tracked tail and not just appended text.
+
+    Web Speech revises the same phrase many times a second. The box is also
+    where the user fixes things. Those two have to share it without the guess
+    ever eating an edit.
+    """
+
+    def test_an_edit_further_back_survives_the_next_revision(self, overlay):
+        overlay.append_final("سلام")
+        overlay.set_interim("دنیا")
+        # The user fixes the settled word while the guess is still moving.
+        cursor = overlay._text.textCursor()
+        cursor.setPosition(0)
+        cursor.setPosition(4, cursor.MoveMode.KeepAnchor)
+        cursor.insertText("درود")
+        overlay.set_interim("دنیای")
+        assert overlay.text() == "درود دنیای"
+
+    def test_the_caret_is_not_dragged_to_the_end_by_a_revision(self, overlay):
+        overlay.append_final("سلام دنیا")
+        cursor = overlay._text.textCursor()
+        cursor.setPosition(2)
+        overlay._text.setTextCursor(cursor)
+        overlay.set_interim("چطوری")
+        assert overlay._text.textCursor().position() == 2
+
+    def test_an_empty_guess_removes_the_tail_entirely(self, overlay):
+        overlay.append_final("سلام")
+        overlay.set_interim("دنیا")
+        overlay.set_interim("")
+        assert overlay.text() == "سلام"
+
+    def test_a_guess_on_an_empty_box_needs_no_leading_space(self, overlay):
+        overlay.set_interim("سلام")
+        assert overlay._text.toPlainText() == "سلام"
+
+    def test_repeated_revisions_do_not_accumulate(self, overlay):
+        for guess in ("ی", "یک", "یکی", "یکی از"):
+            overlay.set_interim(guess)
+        assert overlay.text() == "یکی از"
+
+    def test_pressing_done_mid_guess_writes_what_is_on_screen(self, overlay):
+        # WYSIWYG: the guess is visible, so it is part of what "تمام شد" means.
+        got = []
+        overlay.insertRequested.connect(got.append)
+        overlay.append_final("سلام")
+        overlay.set_interim("دنیا")
+        overlay._emit_insert()
+        assert got == ["سلام دنیا"]
+
+    def test_the_insert_button_wakes_up_for_a_guess_alone(self, overlay):
+        # Pressing "تمام شد" mid-sentence should write what is on screen, so the
+        # button cannot be disabled just because nothing is final yet.
+        overlay.set_interim("سلام")
+        assert overlay._insert.isEnabled()

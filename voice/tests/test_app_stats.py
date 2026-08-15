@@ -102,6 +102,19 @@ class TestWhatGetsCounted:
         assert data.terms == {"commit": 1, "merge": 1}
 
 
+class TestTheGuessOnScreen:
+    def test_writing_mid_guess_is_not_counted_as_an_edit(self, app, tmp_path):
+        # "تمام شد" pressed while a word is still being revised inserts that
+        # word too. If the comparison did not know about it, every such
+        # dictation would be filed as "the user had to fix this" — and the one
+        # number the stats file exists to report would quietly sag.
+        app.start_recording()
+        app._on_result("کامیت کن", True)
+        app._on_result("دیگه", False)
+        app._insert(app.overlay.text())
+        assert stored(tmp_path).edited == 0
+
+
 class TestSwitchedOff:
     def test_nothing_is_written_when_the_setting_is_off(self, make_app, monkeypatch, tmp_path):
         voice = make_app(stats=False)

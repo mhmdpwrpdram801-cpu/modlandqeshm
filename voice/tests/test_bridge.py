@@ -171,3 +171,67 @@ class TestBrowserLookup:
         exe = tmp_path / "chrome.exe"
         exe.write_text("")
         assert find_browser(str(exe)) == str(exe)
+
+
+class TestCommandsBeforeTheBrowserIsUp:
+    """The reported bug: press the hotkey, nothing happens.
+
+    Chrome takes seconds to cold-start and connect. Every command sent in that
+    window used to be handed to an empty client list and simply vanish — the
+    user pressed the key, the app looked alive, and nothing came of it.
+    """
+
+    def test_a_command_with_no_client_is_kept(self, bridge):
+        bridge.start_recording()
+        assert bridge.pending_command == {
+            "cmd": "start",
+            "lang": bridge.lang,
+            "interim": bridge.interim,
+        }
+
+    def test_the_late_client_receives_it(self, bridge):
+        bridge.start_recording()
+        q = bridge.subscribe()
+        assert q.get_nowait()["cmd"] == "start"
+
+    def test_only_the_last_command_is_kept(self, bridge):
+        # Pressing the key twice before the page connects must not leave a
+        # "start" queued behind a "stop".
+        bridge.start_recording()
+        bridge.stop_recording()
+        q = bridge.subscribe()
+        assert q.get_nowait()["cmd"] == "stop"
+        assert q.empty()
+
+    def test_a_delivered_command_is_not_kept(self, bridge):
+        # Otherwise every reconnection would replay the last thing that was
+        # already acted on.
+        listening = bridge.subscribe()
+        bridge.start_recording()
+        assert listening.get_nowait()["cmd"] == "start"
+        assert bridge.pending_command is None
+
+    def test_a_second_client_does_not_get_a_replay(self, bridge):
+        listening = bridge.subscribe()
+        bridge.start_recording()
+        listening.get_nowait()
+        assert bridge.subscribe().empty()
+
+    def test_a_stale_command_is_not_replayed(self, monkeypatch, bridge):
+        # A page that reconnects minutes later must not suddenly start
+        # recording on its own.
+        #
+        # The clock has to be fake *before* the command is sent — the first
+        # version of this test patched it afterwards, so the command carried a
+        # real timestamp, the elapsed time came out hugely negative, and the
+        # check passed while proving nothing.
+        import mlqvoice.bridge as mod
+
+        now = [1000.0]
+        monkeypatch.setattr(mod, "time", type("C", (), {"monotonic": staticmethod(lambda: now[0])}))
+        bridge.start_recording()
+        assert bridge.pending_command is not None  # fresh
+
+        now[0] += mod.PENDING_TTL + 1
+        assert bridge.pending_command is None
+        assert bridge.subscribe().empty()

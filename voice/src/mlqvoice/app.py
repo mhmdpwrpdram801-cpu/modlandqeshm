@@ -21,7 +21,6 @@ from .text import (
     Options,
     build_lexicon,
     finglish_to_persian,
-    has_latin,
     learning,
     transform_hits,
 )
@@ -76,6 +75,10 @@ class VoiceApp:
         # And what the pipeline made of it, so "did the user have to fix this?"
         # can be answered by comparison rather than by asking them.
         self._produced: list[str] = []
+        # The guess still on screen when "تمام شد" is pressed is inserted along
+        # with everything else, so the comparison that decides "did the user
+        # edit this?" has to know about it too.
+        self._guess = ""
         self._hits: list[str] = []
         self._spoke_seconds = 0.0
         self._started_at = 0.0
@@ -112,7 +115,6 @@ class VoiceApp:
             self.overlay.set_transliterator(self._typed_finglish)
         self.overlay.insertRequested.connect(self._insert)
         self.overlay.copyRequested.connect(self._copy)
-        self.overlay.finglishRequested.connect(self._finglish)
         self.overlay.toggleRequested.connect(self.toggle)
         self.overlay.dismissed.connect(self._on_dismissed)
 
@@ -129,9 +131,14 @@ class VoiceApp:
 
     def start(self) -> None:
         self.bridge.start()
-        self.bridge.launch_browser()
+        # The hotkey is registered *before* Chrome is launched. Cold-starting a
+        # browser takes seconds, and with the old order every key press in that
+        # window did nothing at all — the listener did not exist yet. Now the
+        # key answers immediately, and a press that arrives before the page has
+        # connected is held by the bridge until it does.
         self.listener.start()
         self.tray.show()
+        self.bridge.launch_browser()
         self.tray.showMessage(
             APP_NAME,
             f"آماده است. برای شروع {self.hotkey} را بزن.",
@@ -231,8 +238,10 @@ class VoiceApp:
             # counting them would report one sentence as twenty dictionary hits.
             self._produced.append(cleaned)
             self._hits.extend(hits)
+            self._guess = ""
             self.overlay.append_final(cleaned)
         else:
+            self._guess = cleaned
             self.overlay.set_interim(cleaned)
 
     def _restart_silence_timer(self) -> None:
@@ -298,6 +307,7 @@ class VoiceApp:
         """Forget the previous dictation entirely — text, hits and clock."""
         self._heard.clear()
         self._produced.clear()
+        self._guess = ""
         self._hits.clear()
         self._spoke_seconds = 0.0
         self._started_at = 0.0
@@ -311,7 +321,7 @@ class VoiceApp:
         """
         if not self.cfg.stats:
             return
-        produced = " ".join(self._produced)
+        produced = " ".join([*self._produced, self._guess] if self._guess else self._produced)
         try:
             usage.record(
                 stats_file(),
@@ -348,23 +358,6 @@ class VoiceApp:
         `app.py`, `user_id` and `commit` are returned untouched.
         """
         return finglish_to_persian(word, skip=self.lexicon.outputs())
-
-    def _finglish(self, text: str) -> None:
-        """Turn Finglish in the box into Persian, on request only.
-
-        Never automatic: the pipeline's output is full of Latin on purpose, and
-        converting it would undo the glossary. The lexicon's own outputs are
-        passed as a skip-list for the same reason.
-        """
-        if not text or not has_latin(text):
-            self.overlay.set_status("چیزی برای تبدیل نیست")
-            return
-        converted = finglish_to_persian(text, skip=self.lexicon.outputs())
-        if converted == text:
-            self.overlay.set_status("چیزی عوض نشد — کد و واژه‌های فنی دست نمی‌خورند")
-            return
-        self.overlay.set_text(converted)
-        self.overlay.set_status("فارسی شد")
 
     def _copy(self, text: str) -> None:
         QApplication.clipboard().setText(text)
