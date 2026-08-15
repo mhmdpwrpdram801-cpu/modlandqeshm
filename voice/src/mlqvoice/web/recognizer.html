@@ -48,6 +48,29 @@ let wantRunning = false;   // what the app asked for
 let running = false;       // what the engine is actually doing
 let restartTimer = null;
 
+// Restarting is normal: Chrome ends the session by itself after a stretch of
+// silence, and picking it straight back up is what makes dictation feel
+// continuous.  Restarting *after a failure* is a different thing wearing the
+// same clothes.  The first version could not tell them apart and retried every
+// 250ms for ever — on a dropped VPN that is four requests a second at Google,
+// indefinitely, from a window positioned off-screen where nobody can see it.
+//
+// The error is what separates the two cases, so no clock is needed: a session
+// that ended quietly (or with "no speech") was healthy and earns an immediate
+// retry, while anything else backs off and eventually gives up and says so.
+const RESTART_BASE = 250;
+const RESTART_MAX = 10000;
+const RESTART_LIMIT = 12;   // ≈ a minute of trying before we admit defeat
+// "" is the no-error case: Chrome simply ended the session.
+const ROUTINE_END = ["", "no-speech", "aborted"];
+let sessionError = "";
+let failures = 0;
+
+function restartDelay() {
+  if (failures === 0) return RESTART_BASE;
+  return Math.min(RESTART_BASE * Math.pow(2, failures - 1), RESTART_MAX);
+}
+
 function build(lang, interim) {
   const r = new SR();
   r.lang = lang || "fa-IR";
@@ -72,32 +95,53 @@ function build(lang, interim) {
   };
 
   r.onerror = (ev) => {
+    sessionError = ev.error || "";
     // "no-speech" and "aborted" are routine; only the rest are worth reporting.
-    if (ev.error === "no-speech" || ev.error === "aborted") return;
-    say("خطا: " + ev.error, true);
-    status("error", ev.error);
-    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+    if (ROUTINE_END.indexOf(sessionError) !== -1) return;
+    say("خطا: " + sessionError, true);
+    status("error", sessionError);
+    if (sessionError === "not-allowed" || sessionError === "service-not-allowed") {
       wantRunning = false;
     }
   };
 
   r.onend = () => {
     running = false;
-    // Chrome ends the session on its own after a stretch of silence. If the user
-    // has not asked us to stop, that is not the end of anything — restart.
-    if (wantRunning) {
-      clearTimeout(restartTimer);
-      restartTimer = setTimeout(() => { try { r.start(); } catch (e) {} }, 250);
-    } else {
+    if (!wantRunning) {
       say("آماده");
       status("idle");
+      return;
     }
+    // Chrome ends the session on its own after a stretch of silence. If the user
+    // has not asked us to stop, that is not the end of anything — restart.
+    if (ROUTINE_END.indexOf(sessionError) !== -1) {
+      failures = 0;   // it was working; the next hiccup starts from scratch
+    } else {
+      failures++;
+    }
+    if (failures > RESTART_LIMIT) {
+      // Hammering a service that is not answering helps nobody, and a silent
+      // retry loop in an invisible window is indistinguishable from the app
+      // being broken. Stop, and make sure the box says why.
+      wantRunning = false;
+      failures = 0;
+      say("سرویسِ تشخیصِ گفتار جواب نمی‌دهد", true);
+      status("error", "unreachable");
+      return;
+    }
+    clearTimeout(restartTimer);
+    restartTimer = setTimeout(() => {
+      sessionError = "";
+      try { r.start(); } catch (e) {}
+    }, restartDelay());
   };
   return r;
 }
 
 function start(lang, interim) {
   wantRunning = true;
+  failures = 0;         // a fresh press of the hotkey deserves a fresh start
+  sessionError = "";
   if (!rec) rec = build(lang, interim);
   rec.lang = lang || "fa-IR";
   rec.interimResults = !!interim;
