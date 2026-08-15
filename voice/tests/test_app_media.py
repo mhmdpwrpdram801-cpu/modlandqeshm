@@ -14,11 +14,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PySide6", reason="PySide6 نصب نیست")
 
+from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import QApplication
 
 from mlqvoice import inject
 from mlqvoice.app import VoiceApp
 from mlqvoice.config import Config
+from mlqvoice.media import MediaGuard
 
 
 @pytest.fixture(scope="module")
@@ -44,18 +46,62 @@ class FakeGuard:
         return was
 
 
+def _shutdown(voice) -> None:
+    """Take a VoiceApp down completely, here and now.
+
+    Both halves matter, and the first one cost a Windows CI crash to learn.
+
+    *Stop the timers first.* An armed silence timer outlives the test that
+    armed it — four seconds later it fires inside whatever test is running by
+    then and calls ``overlay.set_recording(False)`` on an overlay whose C++
+    object this teardown already deleted. On Linux PySide6 turns that
+    use-after-free into a printed ``RuntimeError``; on Windows it is an access
+    violation that takes the whole process down, and the traceback names the
+    innocent test that happened to be spinning the event loop at the time.
+
+    *Then flush.* ``deleteLater`` only schedules; the deletion lands on the next
+    turn of the event loop, which is to say inside somebody else's test. Draining
+    it here keeps this module's mess inside this module — and it takes
+    ``sendPostedEvents`` to do it, because ``processEvents`` deliberately skips
+    ``DeferredDelete``. The two tests below are what caught that distinction;
+    with ``processEvents`` alone the windows were still standing afterwards.
+    """
+    if getattr(voice, "_torn_down", False):
+        return  # a test may have taken it down itself; the fixture still sweeps
+    voice._torn_down = True
+    voice._silence.stop()
+    voice.overlay.set_recording(False)  # stops the pulse timer
+    voice.overlay.hide()
+    voice.overlay.deleteLater()
+    voice.tray.hide()
+    QApplication.processEvents()
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
 @pytest.fixture
-def app(qt_app, monkeypatch, tmp_path):
+def make_app(qt_app, monkeypatch, tmp_path):
+    """Builds VoiceApps and guarantees every one of them is torn down."""
     monkeypatch.setattr(inject, "capture_target", lambda: 1234)
     monkeypatch.setattr(inject, "window_title", lambda _hwnd: "Notepad")
     monkeypatch.setattr("mlqvoice.app.user_dictionary_file", lambda: tmp_path / "d.json")
-    voice = VoiceApp(Config())
-    voice.media = FakeGuard()
-    # The browser is never launched here, so pretend it is up.
-    monkeypatch.setattr(type(voice.bridge), "browser_alive", lambda _self: True)
-    yield voice
-    voice.overlay.close()
-    voice.overlay.deleteLater()
+    built = []
+
+    def build(**settings):
+        voice = VoiceApp(Config(**settings))
+        built.append(voice)
+        voice.media = FakeGuard()
+        # The browser is never launched here, so pretend it is up.
+        monkeypatch.setattr(type(voice.bridge), "browser_alive", lambda _self: True)
+        return voice
+
+    yield build
+    for voice in built:
+        _shutdown(voice)
+
+
+@pytest.fixture
+def app(make_app):
+    return make_app()
 
 
 class TestPausesAndResumes:
@@ -119,10 +165,10 @@ class TestPausesAndResumes:
         app.start_recording()
         assert app.media.calls == []
 
-    def test_the_guard_is_off_when_the_setting_is(self, qt_app, monkeypatch, tmp_path):
-        monkeypatch.setattr("mlqvoice.app.user_dictionary_file", lambda: tmp_path / "d.json")
-        voice = VoiceApp(Config(pause_media=False))
-        assert not voice.media.enabled
+    def test_the_guard_is_off_when_the_setting_is(self, make_app):
+        voice = make_app(pause_media=False)
+        # make_app swaps in the fake, so ask the real one the setting produced.
+        assert not MediaGuard(enabled=voice.cfg.pause_media).enabled
 
 
 class TestSilenceStopsIt:
@@ -178,27 +224,17 @@ class TestSilenceStopsIt:
         app._on_silence()
         assert app.overlay._state.text() == before
 
-    def test_zero_seconds_turns_it_off(self, qt_app, monkeypatch, tmp_path):
-        monkeypatch.setattr(inject, "capture_target", lambda: 1234)
-        monkeypatch.setattr(inject, "window_title", lambda _hwnd: "Notepad")
-        monkeypatch.setattr("mlqvoice.app.user_dictionary_file", lambda: tmp_path / "d.json")
-        voice = VoiceApp(Config(auto_stop_seconds=0))
-        monkeypatch.setattr(type(voice.bridge), "browser_alive", lambda _self: True)
+    def test_zero_seconds_turns_it_off(self, make_app):
+        voice = make_app(auto_stop_seconds=0)
         voice.start_recording()
         voice._on_result("سلام", True)
         assert not voice._silence.isActive()
-        voice.overlay.close()
 
-    def test_the_configured_number_is_the_one_used(self, qt_app, monkeypatch, tmp_path):
-        monkeypatch.setattr(inject, "capture_target", lambda: 1234)
-        monkeypatch.setattr(inject, "window_title", lambda _hwnd: "Notepad")
-        monkeypatch.setattr("mlqvoice.app.user_dictionary_file", lambda: tmp_path / "d.json")
-        voice = VoiceApp(Config(auto_stop_seconds=7))
-        monkeypatch.setattr(type(voice.bridge), "browser_alive", lambda _self: True)
+    def test_the_configured_number_is_the_one_used(self, make_app):
+        voice = make_app(auto_stop_seconds=7)
         voice.start_recording()
         voice._on_result("سلام", True)
         assert voice._silence.interval() == 7000
-        voice.overlay.close()
 
 
 class TestOwnProcessesAreIgnored:
@@ -215,3 +251,53 @@ class TestOwnProcessesAreIgnored:
         # browser_pid is 0 here; treating that as a real pid would silently
         # ignore whichever process happened to be pid 0.
         assert 0 not in app._own_pids()
+
+
+class TestTeardownLeavesNothingRunning:
+    """The Windows CI crash: an armed timer outliving the window it points at.
+
+    It surfaced as an access violation inside ``test_overlay.py`` — a file this
+    change never touched — because that is simply where the event loop happened
+    to be spinning four seconds later. The rule the failure teaches: a test that
+    arms a timer owns switching it off, and ``deleteLater`` is not cleanup until
+    something drains the event loop.
+    """
+
+    def test_the_silence_timer_is_stopped(self, make_app):
+        voice = make_app()
+        voice._silence.start(50)
+        _shutdown(voice)
+        assert not voice._silence.isActive()
+
+    def test_quitting_disarms_the_silence_timer(self, app, monkeypatch):
+        # quit() does not go through stop_recording, so it needs its own.
+        monkeypatch.setattr(QApplication, "quit", staticmethod(lambda: None))
+        monkeypatch.setattr(type(app.listener), "stop", lambda _self: None)
+        monkeypatch.setattr(type(app.bridge), "stop", lambda _self: None)
+        app.start_recording()
+        app._on_result("سلام", True)
+        app.quit()
+        assert not app._silence.isActive()
+
+    def test_the_window_is_really_gone_not_merely_scheduled(self, make_app):
+        import shiboken6
+
+        voice = make_app()
+        voice.start_recording()
+        pulse = voice.overlay._pulse  # grabbed while there is still something there
+        assert pulse.isActive()
+        _shutdown(voice)
+        # The child timer is the honest witness, and it answers the question that
+        # matters — a destroyed timer cannot fire into a destroyed window. The
+        # overlay's own Python wrapper outlives the C++ object and would say yes.
+        assert not shiboken6.Shiboken.isValid(pulse)
+
+    def test_no_overlay_is_left_behind(self, make_app):
+        from mlqvoice.ui.overlay import Overlay
+
+        before = sum(isinstance(w, Overlay) for w in QApplication.topLevelWidgets())
+        voice = make_app()
+        voice.start_recording()
+        _shutdown(voice)
+        after = sum(isinstance(w, Overlay) for w in QApplication.topLevelWidgets())
+        assert after == before

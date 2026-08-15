@@ -258,7 +258,7 @@ mlqvoice fa salam chetori khoobi
 ## ۶. دروازه‌ی وارسی
 
 ```bash
-python -m pytest -q      # ۳۵۳ تست (روی ویندوز هم اجرا می‌شوند)
+python -m pytest -q      # ۳۵۷ تست (روی ویندوز هم اجرا می‌شوند)
 ruff check .
 ruff format --check .
 ```

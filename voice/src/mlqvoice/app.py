@@ -130,6 +130,8 @@ class VoiceApp:
         # Before anything else: quitting mid-dictation must not leave the user's
         # music paused with nothing left running to un-pause it.
         self.media.resume_if_paused()
+        # And a timer left armed would fire into a half-torn-down window.
+        self._silence.stop()
         try:
             self.listener.stop()
         finally:
