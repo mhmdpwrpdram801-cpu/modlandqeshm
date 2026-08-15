@@ -262,7 +262,10 @@ def db_checks(path, max_age=None):
     head("۸) ثابت‌های دیتابیس")
     exp_path = os.path.join(HERE, "db_invariants.expected.json")
     if not path:
-        skip("عکسِ دیتابیس داده نشده (--db) — این بخش سنجیده نشد، نه اینکه پاس شده باشد")
+        # CORE-12: نبودِ عکس یعنی نُه بررسی اجرا نشدند. عکس در مخزن کامیت شده،
+        # پس نبودنش خرابی است نه حالتِ عادی — و «رد شد» نباید سبز بماند.
+        bad("عکسِ ثابت‌های دیتابیس پیدا نشد — نُه بررسی اجرا نشدند (CORE-12). "
+            "auditor/db_invariants.snapshot.json کجاست؟")
         return
     got = json.load(open(path, encoding="utf-8"))
     if isinstance(got, list):
@@ -339,6 +342,8 @@ def main():
     ap.add_argument("--max-age-days", type=int, default=None,
                     help="اگر عکسِ دیتابیس از این کهنه‌تر بود، خطا بده (در اجرای زمان‌بندی‌شده)")
     ap.add_argument("--bot", default=None, help="فایلِ ربات (پیش‌فرض bot/index.ts) — برای تستِ جهشی")
+    ap.add_argument("--strict", action="store_true",
+                    help="هر بخشی که رد شود هم خطا حساب شود (CORE-12 — در CI همین را بزن)")
     a = ap.parse_args()
     global BOT
     if a.bot: BOT = os.path.abspath(a.bot)
@@ -359,7 +364,9 @@ def main():
         for f in FAIL: print("     • " + f)
     else:
         print("  ✅ بدونِ ایراد")
-    sys.exit(1 if FAIL else 0)
+    # تنها ردشدنِ مشروع وقتی است که کاربر عمداً فایلِ دیگری داده باشد (تستِ جهشی).
+    # در CI که این‌طور نیست، پس --strict هر ردشدنی را خطا می‌کند (CORE-12).
+    sys.exit(1 if FAIL or (a.strict and SKIP) else 0)
 
 
 if __name__ == "__main__":
