@@ -101,6 +101,7 @@ class Config:
     insert_mode: str = "paste"
     restore_clipboard: bool = True
     close_after_insert: bool = True
+    learn: bool = True
     browser_path: str = ""
     port: int = 0
     _unknown: tuple[str, ...] = field(default=(), repr=False, compare=False)

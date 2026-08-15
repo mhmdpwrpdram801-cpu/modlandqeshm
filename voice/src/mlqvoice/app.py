@@ -14,8 +14,8 @@ from . import APP_NAME, __version__, inject
 from .bridge import BrowserNotFound, RecognizerBridge
 from .config import Config, ConfigError, load, save
 from .hotkey import HotkeyError, HotkeyListener
-from .paths import config_file, user_dictionary_file
-from .text import Options, build_lexicon, transform
+from .paths import config_file, learned_file, user_dictionary_file
+from .text import Options, build_lexicon, learning, transform
 from .ui.overlay import Overlay
 from .ui.tray import Tray
 from .win32 import IS_WINDOWS
@@ -60,6 +60,9 @@ class VoiceApp:
 
         self.recording = False
         self.target_hwnd = 0
+        # What the recogniser actually said, kept so that the difference between
+        # it and what the user finally inserted can become a dictionary entry.
+        self._heard: list[str] = []
 
         self.inbox = _Inbox()
         self.inbox.result.connect(self._on_result, Qt.ConnectionType.QueuedConnection)
@@ -83,6 +86,7 @@ class VoiceApp:
         self.tray = Tray(str(self.hotkey))
         self.tray.show_action.triggered.connect(self._show_overlay)
         self.tray.dictionary_action.triggered.connect(self._open_dictionary)
+        self.tray.learned_action.triggered.connect(self._open_learned)
         self.tray.config_action.triggered.connect(self._open_config)
         self.tray.quit_action.triggered.connect(self.quit)
 
@@ -126,6 +130,7 @@ class VoiceApp:
             # begin_session, not present: a new dictation starts empty. Closing
             # the box with Esc used to leave the text in the widget, so the next
             # hotkey press showed the previous session's words.
+            self._heard.clear()
             self.overlay.begin_session(inject.window_title(self.target_hwnd))
         if not self.bridge.browser_alive():
             self.overlay.set_status("مرورگرِ تشخیصِ گفتار بسته شده — دوباره بازش می‌کنم", bad=True)
@@ -152,6 +157,7 @@ class VoiceApp:
         if not cleaned:
             return
         if final:
+            self._heard.append(text.strip())
             self.overlay.append_final(cleaned)
         else:
             self.overlay.set_interim(cleaned)
@@ -176,6 +182,7 @@ class VoiceApp:
             self.overlay.present()
             return
         self.target_hwnd = inject.capture_target()
+        self._heard.clear()
         self.overlay.begin_session(inject.window_title(self.target_hwnd))
 
     def _insert(self, text: str) -> None:
@@ -193,10 +200,26 @@ class VoiceApp:
             self.overlay.present()
             self.overlay.set_status(str(exc), bad=True)
             return
+        self._learn_from(text)
         if self.cfg.close_after_insert:
             self.overlay.clear()
         else:
             self.overlay.present()
+
+    def _learn_from(self, inserted: str) -> None:
+        """Turn the user's hand edits into proposed dictionary entries.
+
+        Never fatal: this is a convenience, and losing a suggestion is nothing
+        next to losing the text the user just dictated.
+        """
+        if not self.cfg.learn or not self._heard:
+            return
+        try:
+            learning.record(
+                learned_file(), " ".join(self._heard), inserted, self.lexicon, self.opts
+            )
+        except OSError as exc:
+            log.warning("ثبتِ پیشنهادِ دیکشنری نشد: %s", exc)
 
     def _copy(self, text: str) -> None:
         QApplication.clipboard().setText(text)
@@ -210,6 +233,18 @@ class VoiceApp:
         path = user_dictionary_file()
         if not path.exists():
             path.write_text(DEFAULT_DICTIONARY, encoding="utf-8")
+        _open_in_editor(path)
+
+    def _open_learned(self) -> None:
+        path = learned_file()
+        if not path.exists():
+            self.tray.showMessage(
+                APP_NAME,
+                "هنوز چیزی یاد نگرفته. متن را قبل از «بنویس» ویرایش کن.",
+                self.tray.icon(),
+                4000,
+            )
+            return
         _open_in_editor(path)
 
     def _open_config(self) -> None:

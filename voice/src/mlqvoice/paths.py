@@ -33,6 +33,11 @@ def user_dictionary_file() -> Path:
     return data_dir() / "dictionary.json"
 
 
+def learned_file() -> Path:
+    """Suggestions grown from the user's own corrections. Never leaves the machine."""
+    return data_dir() / "learned.json"
+
+
 def browser_profile_dir() -> Path:
     """A private Chrome profile, so we never touch the user's own one."""
     path = data_dir() / "browser-profile"

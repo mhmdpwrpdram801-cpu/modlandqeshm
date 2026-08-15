@@ -14,7 +14,7 @@ import sys
 
 from . import APP_NAME, __version__
 from .config import ConfigError, load, parse_hotkey
-from .paths import config_file, data_dir, user_dictionary_file
+from .paths import config_file, data_dir, learned_file, user_dictionary_file
 from .text import build_lexicon, transform
 from .text.pipeline import Options
 
@@ -81,6 +81,61 @@ def cmd_check(_args) -> int:
     print(f"واژه‌ها:       {len(lex)}")
     if cfg._unknown:
         print(f"کلیدهای ناشناخته در تنظیمات: {', '.join(cfg._unknown)}", file=sys.stderr)
+    return 0
+
+
+def cmd_learn(args) -> int:
+    """Show — and optionally accept — what the app learned from your edits."""
+    import json
+
+    from .text import learning
+
+    path = learned_file()
+    stored = learning.load(path)
+    if not stored:
+        print("هنوز چیزی یاد نگرفته. متن را قبل از «بنویس» ویرایش کن تا یاد بگیرد.")
+        print(f"(فایل: {path})")
+        return 0
+
+    if args.forget:
+        path.unlink(missing_ok=True)
+        print(f"{len(stored)} پیشنهاد پاک شد.")
+        return 0
+
+    ranked = sorted(stored, key=lambda s: (-s.count, s.spoken))
+    if not args.apply:
+        print(f"{len(ranked)} پیشنهاد (فایل: {path}):\n")
+        for item in ranked:
+            seen = f"{item.count}×" if item.count > 1 else " "
+            print(f"  {seen:>4}  «{item.spoken}»  →  {item.replacement}")
+        print("\nبرای افزودنشان به دیکشنری:  mlqvoice learn --apply")
+        print("برای پاک کردنشان:            mlqvoice learn --forget")
+        return 0
+
+    accepted = learning.as_dictionary(ranked, min_count=args.min_count)
+    if not accepted:
+        print(f"هیچ پیشنهادی {args.min_count} بار یا بیشتر دیده نشده.")
+        return 0
+
+    target = user_dictionary_file()
+    data = {}
+    if target.exists():
+        try:
+            data = json.loads(target.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"دیکشنریِ تو JSONِ سالم نیست — دست نزدم: {exc}", file=sys.stderr)
+            return 1
+    terms = data.setdefault("terms", {})
+    added = 0
+    for canonical, forms in accepted.items():
+        current = terms.setdefault(canonical, [])
+        for form in forms:
+            if form not in current:
+                current.append(form)
+                added += 1
+    target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{added} شکلِ گفتاری به {target} اضافه شد.")
+    print("پیشنهادها نگه داشته شدند؛ برای پاک کردنشان: mlqvoice learn --forget")
     return 0
 
 
@@ -156,6 +211,14 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("selftest", help="ساختِ یک‌بارِ رابط — برای وارسیِ خودِ exe").set_defaults(
         func=cmd_selftest
     )
+
+    learn = sub.add_parser("learn", help="آنچه از ویرایش‌های خودت یاد گرفته")
+    learn.add_argument("--apply", action="store_true", help="به دیکشنریِ خودت اضافه کن")
+    learn.add_argument("--forget", action="store_true", help="همه را پاک کن")
+    learn.add_argument(
+        "--min-count", type=int, default=1, help="فقط پیشنهادهایی که این‌قدر تکرار شده‌اند"
+    )
+    learn.set_defaults(func=cmd_learn)
 
     hotkey = sub.add_parser("hotkey", help="یک ترکیبِ کلید را بسنج")
     hotkey.add_argument("spec")

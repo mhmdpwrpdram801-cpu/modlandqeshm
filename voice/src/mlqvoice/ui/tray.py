@@ -42,9 +42,15 @@ class Tray(QSystemTrayIcon):
 
         self.show_action = QAction("بازکردنِ کادر", self._menu)
         self.dictionary_action = QAction("دیکشنریِ من", self._menu)
+        self.learned_action = QAction("آنچه یاد گرفته", self._menu)
         self.config_action = QAction("تنظیمات", self._menu)
         self.quit_action = QAction("خروج", self._menu)
-        for action in (self.show_action, self.dictionary_action, self.config_action):
+        for action in (
+            self.show_action,
+            self.dictionary_action,
+            self.learned_action,
+            self.config_action,
+        ):
             self._menu.addAction(action)
         self._menu.addSeparator()
         self._menu.addAction(self.quit_action)
