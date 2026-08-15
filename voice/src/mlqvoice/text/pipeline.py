@@ -39,6 +39,12 @@ def _match_at(lex: Lexicon, keys: list[str], i: int) -> tuple[Entry, int] | None
         entry = lex.get("".join(keys[i : i + length]))
         if entry is not None:
             return entry, length
+    # Only now try sound. Exact spellings always win, so adding this index can
+    # never change a match that already worked.
+    for length in range(longest, 0, -1):
+        entry = lex.get_by_sound(keys[i : i + length])
+        if entry is not None:
+            return entry, length
     return None
 
 
