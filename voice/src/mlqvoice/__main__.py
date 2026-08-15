@@ -162,13 +162,26 @@ def cmd_selftest(_args) -> int:
     """
     from PySide6.QtWidgets import QApplication
 
+    from . import media
     from .bridge import RecognizerBridge
     from .ui.fonts import FAMILY, available, load_fonts
     from .ui.overlay import Overlay
     from .ui.tray import make_icon
+    from .win32 import IS_WINDOWS
 
     app = QApplication.instance() or QApplication([])
     plugin = app.platformName()
+
+    # pycaw reaches Core Audio through comtypes, which builds its interface
+    # classes at run time — exactly the pattern a bundler cannot follow. If it
+    # were left out, the app would still start and the media pause would just
+    # quietly never happen, which is the failure nobody reports.
+    if IS_WINDOWS:
+        try:
+            import pycaw.pycaw  # noqa: F401
+        except ImportError as exc:
+            print(f"selftest: pycaw همراهِ بسته نشده — {exc}", file=sys.stderr)
+            return 1
 
     # The font is a bundled data file like the dictionaries; if --add-data missed
     # it the app still runs, just ugly — exactly the kind of silent regression
@@ -195,7 +208,8 @@ def cmd_selftest(_args) -> int:
     lex = build_lexicon(user_file=user_dictionary_file())
     print(
         f"selftest ok — Qt platform={plugin}، فونت={FAMILY}، "
-        f"صفحه={len(page)} بایت، واژه‌ها={len(lex)}"
+        f"صفحه={len(page)} بایت، واژه‌ها={len(lex)}، "
+        f"مکثِ پخش={media.describe()}"
     )
     return 0
 

@@ -36,6 +36,10 @@ class NotWindows(RuntimeError):
     """Raised when a Windows-only call is attempted elsewhere."""
 
 
+class SendFailed(RuntimeError):
+    """``SendInput`` accepted fewer events than it was given."""
+
+
 # -- structures ----------------------------------------------------------
 #
 # Fixed-width types, not ``wintypes``.  ``wintypes.DWORD`` is ``c_ulong``, which
@@ -109,6 +113,25 @@ def unicode_inputs(char: str) -> list[INPUT]:
         out.append(key_input(scan=unit, flags=KEYEVENTF_UNICODE))
         out.append(key_input(scan=unit, flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP))
     return out
+
+
+def send_input(inputs: list[INPUT]) -> None:
+    """Hand a batch of events to ``SendInput``.
+
+    Sent as one array rather than one call per event: Windows delivers a batch
+    atomically, so nothing the user physically types can land in the middle of a
+    modifier combination and turn ``Ctrl+V`` into a bare ``V``.
+
+    A short count is an error, not a warning.  ``SendInput`` drops the *rest* of
+    the batch when it refuses one event — usually because a more privileged
+    window has the foreground — and half a key combination is worse than none.
+    """
+    if not inputs:
+        return
+    array = (INPUT * len(inputs))(*inputs)
+    sent = user32().SendInput(len(inputs), array, ctypes.sizeof(INPUT))
+    if sent != len(inputs):
+        raise SendFailed(f"SendInput فقط {sent} از {len(inputs)} رویداد را فرستاد")
 
 
 # -- libraries -----------------------------------------------------------

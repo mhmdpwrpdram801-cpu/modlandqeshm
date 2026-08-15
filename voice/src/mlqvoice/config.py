@@ -102,6 +102,11 @@ class Config:
     restore_clipboard: bool = True
     close_after_insert: bool = True
     learn: bool = True
+    # Pause whatever is playing while you dictate, and put it back afterwards.
+    pause_media: bool = True
+    # Seconds of silence, after you have started speaking, that end the
+    # recording on their own. 0 turns it off and leaves stopping to the hotkey.
+    auto_stop_seconds: int = 4
     browser_path: str = ""
     port: int = 0
     _unknown: tuple[str, ...] = field(default=(), repr=False, compare=False)
@@ -112,8 +117,15 @@ class Config:
             value = getattr(self, name)
             if value not in allowed:
                 raise ConfigError(f"{name}: {value!r} نامعتبر است (مجاز: {', '.join(allowed)})")
-        if not (0 <= self.port <= 65535):
-            raise ConfigError(f"port: {self.port} خارج از بازه است")
+        # Range-checking a string raises TypeError, which escapes as a traceback
+        # instead of the message that names the field. The file is hand-edited,
+        # so the wrong *type* is at least as likely as the wrong value.
+        for name, high in (("port", 65535), ("auto_stop_seconds", 600)):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ConfigError(f"{name}: باید عددِ صحیح باشد، نه {value!r}")
+            if not (0 <= value <= high):
+                raise ConfigError(f"{name}: {value} خارج از بازه است (۰ تا {high})")
         if not self.lang.strip():
             raise ConfigError("lang: خالی است")
         if self.browser_path and not Path(self.browser_path).exists():

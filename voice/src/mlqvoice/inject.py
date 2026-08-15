@@ -23,8 +23,10 @@ from .win32 import (
     SW_RESTORE,
     VK_CONTROL,
     VK_RETURN,
+    SendFailed,
     kernel32,
     key_input,
+    send_input,
     unicode_inputs,
     user32,
 )
@@ -53,12 +55,15 @@ def window_title(hwnd: int) -> str:
 
 
 def _send(inputs: list[INPUT]) -> None:
-    if not inputs:
-        return
-    array = (INPUT * len(inputs))(*inputs)
-    sent = user32().SendInput(len(inputs), array, ctypes.sizeof(INPUT))
-    if sent != len(inputs):
-        raise InjectError(f"SendInput فقط {sent} از {len(inputs)} رویداد را فرستاد")
+    """``send_input``, but failing as an :class:`InjectError` like its neighbours.
+
+    Callers here catch ``InjectError`` and show it to the user; a bare
+    ``SendFailed`` escaping this module would reach them as a traceback instead.
+    """
+    try:
+        send_input(inputs)
+    except SendFailed as exc:
+        raise InjectError(str(exc)) from exc
 
 
 def focus_window(hwnd: int, *, timeout: float = 1.0) -> bool:

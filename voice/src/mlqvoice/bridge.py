@@ -281,6 +281,18 @@ class RecognizerBridge:
     def browser_alive(self) -> bool:
         return self._browser is not None and self._browser.poll() is None
 
+    @property
+    def browser_pid(self) -> int:
+        """The recogniser browser's pid, or 0 when it is not running.
+
+        Used to keep our own Chrome out of the "is something playing?" question.
+        A dead process's pid is not reported: the number gets recycled, and
+        handing back a stale one would ignore whoever inherited it.
+        """
+        if self._browser is None or self._browser.poll() is not None:
+            return 0
+        return self._browser.pid
+
     # -- events ----------------------------------------------------------
 
     def subscribe(self) -> queue.Queue:

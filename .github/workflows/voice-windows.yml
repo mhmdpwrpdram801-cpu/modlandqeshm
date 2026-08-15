@@ -70,6 +70,9 @@ jobs:
             --add-data "src/mlqvoice/text/data;mlqvoice/text/data" `
             --add-data "src/mlqvoice/web;mlqvoice/web" `
             --add-data "src/mlqvoice/assets;mlqvoice/assets" `
+            --collect-all comtypes `
+            --hidden-import pycaw `
+            --hidden-import pycaw.pycaw `
             --exclude-module tkinter `
             --exclude-module PySide6.QtQml `
             --exclude-module PySide6.QtQuick `
@@ -140,6 +143,13 @@ jobs:
           # selftest کادر و آیکن و صفحه‌ی تشخیص را واقعاً می‌سازد.
           $t = Invoke-Exe -Label 'selftest' -ExeArgs @('selftest')
           if ($t -notmatch 'selftest ok') { throw "selftest تأیید نکرد: $t" }
+
+          # pycaw می‌رسد از راهِ comtypes که رابط‌هایش را در زمانِ اجرا می‌سازد —
+          # همان الگویی که بسته‌بند نمی‌تواند دنبالش کند. اگر جا بماند، برنامه
+          # بالا می‌آید و فقط مکثِ پخش بی‌صدا هیچ‌وقت اتفاق نمی‌افتد. selftest با
+          # نبودنش کدِ ۱ می‌دهد؛ این خط وضعیتش را در لاگ هم می‌گذارد. روی رانر
+          # کارتِ صدا نیست، پس «خاموش» انتظارِ درستی است، نه شکست.
+          if ($t -notmatch 'مکثِ پخش') { throw "selftest وضعیتِ مکثِ پخش را نگفت" }
 
           $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
           Write-Host "اندازه: $size مگابایت"
