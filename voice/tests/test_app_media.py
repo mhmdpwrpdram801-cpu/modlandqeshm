@@ -141,6 +141,28 @@ class TestPausesAndResumes:
         app._on_status("error", "not-allowed")
         assert app.media.calls == ["pause", "resume"]
 
+    def test_the_page_giving_up_on_the_network_resumes_it_too(self, app):
+        # When the page stops retrying, nothing is listening any more. Staying
+        # "recording" would pulse a dot at a dead microphone and hold the music
+        # paused with no way back short of quitting.
+        app.start_recording()
+        app._on_status("error", "unreachable")
+        assert not app.recording
+        assert app.media.calls == ["pause", "resume"]
+
+    def test_and_the_box_explains_it_in_persian(self, app):
+        app.start_recording()
+        app._on_status("error", "unreachable")
+        assert "VPN" in app.overlay._state.text()
+
+    def test_the_microphone_refusal_is_visible_too(self, app):
+        # This one was broken long before the media work: the message was set
+        # and then stop_recording() wrote "متوقف" over it a line later, so the
+        # user saw the box stop with no hint that permission was the problem.
+        app.start_recording()
+        app._on_status("error", "not-allowed")
+        assert "میکروفون" in app.overlay._state.text()
+
     def test_quitting_mid_dictation_resumes_it(self, app, monkeypatch):
         # Nothing is left running to un-pause it afterwards, so this is the one
         # path where forgetting would leave the user's music stopped for good.

@@ -223,9 +223,18 @@ class VoiceApp:
             self.toggle()
             return
         if state == "error":
-            self.overlay.set_status(_explain(detail), bad=True)
-            if detail in ("not-allowed", "service-not-allowed"):
+            # These three are dead ends: the page has stopped trying, so leaving
+            # the app "recording" would show a pulsing dot next to a microphone
+            # nobody is listening to — and would hold the user's music paused.
+            if detail in ("not-allowed", "service-not-allowed", "unreachable"):
                 self.stop_recording()
+            # After the stop, never before: set_recording(False) writes "متوقف"
+            # into the same label, so the message explaining *why* was being
+            # wiped a line after it was set. The microphone-permission error has
+            # been invisible this whole time for exactly that reason — the user
+            # saw a box that just stopped, with no hint that they had to grant
+            # anything.
+            self.overlay.set_status(_explain(detail), bad=True)
         elif state == "listening" and self.recording:
             self.overlay.set_recording(True)
         elif state == "unsupported":
@@ -332,6 +341,7 @@ def _explain(error: str) -> str:
         "not-allowed": "دسترسی به میکروفون داده نشد",
         "service-not-allowed": "سرویسِ تشخیصِ گفتار در دسترس نیست",
         "network": "شبکه قطع است — تشخیصِ گفتارِ گوگل اینترنت لازم دارد",
+        "unreachable": "سرویسِ تشخیصِ گفتار جواب نداد — اینترنت یا VPN را چک کن و دوباره بزن",
         "audio-capture": "میکروفونی پیدا نشد",
     }.get(error, f"خطای تشخیصِ گفتار: {error}")
 

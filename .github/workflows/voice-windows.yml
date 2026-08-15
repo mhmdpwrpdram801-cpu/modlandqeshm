@@ -46,6 +46,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      # صریح، نه «رانر اتفاقاً دارد»: تست‌ها حالا شبیه‌سازِ صفحه‌ی تشخیص را با
+      # node اجرا می‌کنند و اگر نباشد عمداً قرمز می‌دهند، نه رد (CORE-12).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: نصبِ وابستگی‌ها
         run: |
           python -m pip install --upgrade pip
