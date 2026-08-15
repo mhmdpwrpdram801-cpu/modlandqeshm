@@ -15,6 +15,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from .normalize import normalize, strip_zwnj
+from .phonetics import phrase_key
 
 # How a replacement sits between its neighbours.
 #   left  — glued to the word before it, space after   (".", "،", ")")
@@ -79,6 +80,11 @@ class Lexicon:
 
     def __init__(self) -> None:
         self._entries: dict[str, Entry] = {}
+        # Phonetic keys are a *fallback* index, consulted only when the exact one
+        # misses. A key that two different terms would both claim is dropped
+        # rather than guessed at — see _phonetic_conflicts.
+        self._phonetic: dict[str, Entry] = {}
+        self._phonetic_conflicts: set[str] = set()
         self._max_len = MIN_LOOKAHEAD
 
     def __len__(self) -> int:
@@ -96,8 +102,53 @@ class Lexicon:
         self._entries["".join(words)] = entry
         self._max_len = max(self._max_len, len(words))
 
+        sound = phrase_key(words)
+        if not sound:
+            return
+        existing = self._phonetic.get(sound)
+        if existing is not None and existing.text != entry.text:
+            # Two terms that sound alike. Emitting either would be a coin flip,
+            # so this key stops being usable for both of them.
+            self._phonetic_conflicts.add(sound)
+            self._phonetic.pop(sound, None)
+        elif sound not in self._phonetic_conflicts:
+            self._phonetic[sound] = entry
+
     def get(self, key: str) -> Entry | None:
         return self._entries.get(key)
+
+    def block_sounds(self, words: Iterable[str]) -> int:
+        """Refuse to sound-match anything that is an ordinary Persian word.
+
+        Without this, folding ص onto س turned «صورت» — a face — into ``sort``.
+        A word that is *deliberately* a dictionary entry is left alone: «درصد»
+        really is how you say ``%``, and blocking it would break that.
+        """
+        blocked = 0
+        for word in words:
+            if self.get(spoken_key(word)) is not None:
+                continue  # claimed on purpose by an exact entry
+            sound = phrase_key(spoken_words(word))
+            if sound and self._phonetic.pop(sound, None) is not None:
+                blocked += 1
+            if sound:
+                self._phonetic_conflicts.add(sound)
+        return blocked
+
+    def get_by_sound(self, words: list[str]) -> Entry | None:
+        """Fallback lookup: same sound, different spelling."""
+        sound = phrase_key(words)
+        if not sound or sound in self._phonetic_conflicts:
+            return None
+        return self._phonetic.get(sound)
+
+    @property
+    def phonetic_size(self) -> int:
+        return len(self._phonetic)
+
+    @property
+    def phonetic_conflicts(self) -> set[str]:
+        return set(self._phonetic_conflicts)
 
     def phrases(self) -> Iterable[tuple[str, Entry]]:
         return self._entries.items()
@@ -147,6 +198,11 @@ def build_lexicon(
         lex.load_symbols(_read_json(builtin_path("punctuation.json"))["symbols"])
     if glossary:
         lex.load_terms(_read_json(builtin_path("programmer.json"))["terms"])
+
+    # Guard the sound index *after* the terms are in, so a word that a term
+    # legitimately claims is recognised as such.
+    common = _read_json(builtin_path("fa_common.json"))["words"]
+    lex.block_sounds(common)
 
     if user_file is not None and user_file.exists():
         data = _read_json(user_file)
