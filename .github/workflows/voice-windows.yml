@@ -281,15 +281,22 @@ jobs:
           ویندوز اخطارِ SmartScreen می‌دهد چون فایل امضای دیجیتال ندارد:
           More info ← Run anyway."
 
+          # `--repo` روی هر چهار فرمان لازم است، نه از سرِ وسواس: این کار مخزن را
+          # checkout نمی‌کند (فقط artifact را می‌گیرد)، پس هیچ ریموتِ گیتی نیست که
+          # gh بتواند از رویش حدس بزند کجا را می‌گوید. بدونش با
+          # «fatal: not a git repository» می‌افتد — و اولین بار همین‌طور افتاد.
+          #
           # جایگزینی به‌جای حذف و ساختِ دوباره: پاک کردنِ Release یک فاصله‌ی
           # چندثانیه‌ای می‌سازد که در آن همان نشانیِ «ثابت» ۴۰۴ می‌دهد.
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" mlqvoice.exe --clobber
-            gh release edit "$TAG" --notes "$notes" --title "mlqvoice (تازه‌ترین)"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" mlqvoice.exe --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --notes "$notes" --title "mlqvoice (تازه‌ترین)"
           else
-            gh release create "$TAG" mlqvoice.exe \
+            gh release create "$TAG" mlqvoice.exe --repo "$GITHUB_REPOSITORY" \
               --title "mlqvoice (تازه‌ترین)" --notes "$notes" --latest
           fi
+          echo "منتشر شد: $size بایت"
 
       # «فرمان خطا نداد» با «فایل واقعاً آنجاست» یکی نیست. این مرحله همان
       # نشانیِ عمومی را می‌گیرد و اندازه‌اش را با فایلِ ساخته‌شده مقابله می‌کند —
