@@ -76,7 +76,7 @@ jobs:
       - name: ساختِ exe
         run: |
           python -m PyInstaller `
-            --noconfirm --clean --onefile --windowed `
+            --noconfirm --clean --onedir --windowed `
             --name mlqvoice `
             --add-data "src/mlqvoice/text/data;mlqvoice/text/data" `
             --add-data "src/mlqvoice/web;mlqvoice/web" `
@@ -94,12 +94,17 @@ jobs:
             --paths src `
             scripts/launcher.py
 
+      # چرا onedir و نه onefile: بسته‌ی تک‌فایلی هر بار اجرا خودش را در پوشه‌ی
+      # موقت باز می‌کند و همین چند ثانیه‌ی اولِ «هیچ کاری نمی‌کند» را می‌سازد.
+      # onedir همان لحظه بالا می‌آید. بهایش این است که خروجی یک پوشه است، پس
+      # برای دانلود zip می‌شود.
+
       # «ساخته شد» با «بالا می‌آید» یکی نیست. این دو فرمان خودِ exe را اجرا
       # می‌کنند: اگر PySide6 داخلش نرفته باشد یا فایل‌های JSON با --add-data
       # همراه نشده باشند، همین‌جا می‌افتد، نه روی کامپیوترِ کاربر.
       - name: آزمایشِ خودِ exe
         run: |
-          $exe = (Resolve-Path "dist\mlqvoice.exe").Path
+          $exe = (Resolve-Path "dist\mlqvoice\mlqvoice.exe").Path
           if (-not (Test-Path $exe)) { throw "exe ساخته نشد" }
 
           # چرا Start-Process و نه `& $exe`: بسته با --windowed ساخته می‌شود، یعنی
@@ -162,8 +167,9 @@ jobs:
           # کارتِ صدا نیست، پس «خاموش» انتظارِ درستی است، نه شکست.
           if ($t -notmatch 'مکثِ پخش') { throw "selftest وضعیتِ مکثِ پخش را نگفت" }
 
-          $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
-          Write-Host "اندازه: $size مگابایت"
+          Compress-Archive -Path "dist\mlqvoice\*" -DestinationPath "dist\mlqvoice.zip" -Force
+          $size = [math]::Round((Get-Item "dist\mlqvoice.zip").Length / 1MB, 1)
+          Write-Host "اندازه‌ی بسته: $size مگابایت"
           "EXE_SIZE=$size" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       # این مرحله از یک اشتباه زاده شد: یک بار آرگومان‌ها به exe نرسیدند، برنامه
@@ -176,7 +182,7 @@ jobs:
       # زنده می‌مانَد — یعنی «هنوز اجرا می‌شود» شاهدِ راه‌اندازیِ موفق نیست.
       - name: آزمایشِ راه‌اندازیِ کاملِ برنامه
         run: |
-          $exe = (Resolve-Path "dist\mlqvoice.exe").Path
+          $exe = (Resolve-Path "dist\mlqvoice\mlqvoice.exe").Path
           $err = Join-Path $env:RUNNER_TEMP 'app-err.txt'
           $out = Join-Path $env:RUNNER_TEMP 'app-out.txt'
           $before = @(Get-Process chrome, msedge -ErrorAction SilentlyContinue).Id
@@ -222,7 +228,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mlqvoice-exe
-          path: voice/dist/mlqvoice.exe
+          path: voice/dist/mlqvoice.zip
           if-no-files-found: error
           retention-days: 30
 
@@ -244,7 +250,7 @@ jobs:
   # Release پاک نمی‌شود. و عمداً یک برچسبِ **چرخان** است (`voice-latest`) نه
   # نسخه‌دار، چون خواسته یک **نشانیِ ثابت** بود که بشود ذخیره‌اش کرد:
   #
-  #   https://github.com/mhmdpwrpdram801-cpu/modlandqeshm/releases/download/voice-latest/mlqvoice.exe
+  #   https://github.com/mhmdpwrpdram801-cpu/modlandqeshm/releases/download/voice-latest/mlqvoice.zip
   #
   # بهایش این است که نسخه‌ی قبلی نگه داشته نمی‌شود — با یک کاربر و یک exe که
   # همیشه از آخرین main ساخته می‌شود، معامله‌ی درستی است.
@@ -269,13 +275,14 @@ jobs:
           TAG: voice-latest
         run: |
           set -euo pipefail
-          size=$(stat -c %s mlqvoice.exe)
+          size=$(stat -c %s mlqvoice.zip)
           notes="ساخته‌شده از \`${GITHUB_SHA:0:7}\` — $(date -u '+%Y-%m-%d %H:%M UTC')
 
-          این برچسب همیشه به تازه‌ترین نسخه اشاره می‌کند، پس نشانی‌اش عوض نمی‌شود:
+          zip را باز کن و داخلش mlqvoice.exe را اجرا کن. این برچسب همیشه به
+          تازه‌ترین نسخه اشاره می‌کند، پس نشانی‌اش عوض نمی‌شود:
 
           \`\`\`
-          https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/mlqvoice.exe
+          https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/mlqvoice.zip
           \`\`\`
 
           ویندوز اخطارِ SmartScreen می‌دهد چون فایل امضای دیجیتال ندارد:
@@ -288,12 +295,15 @@ jobs:
           #
           # جایگزینی به‌جای حذف و ساختِ دوباره: پاک کردنِ Release یک فاصله‌ی
           # چندثانیه‌ای می‌سازد که در آن همان نشانیِ «ثابت» ۴۰۴ می‌دهد.
+          # onefile گذشته یک mlqvoice.exe روی همین Release گذاشته بود؛ اگر بماند،
+          # لینکِ قدیمی یک نسخه‌ی منجمد را برای همیشه سرو می‌کند.
+          gh release delete-asset "$TAG" mlqvoice.exe --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" mlqvoice.exe --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" mlqvoice.zip --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
               --notes "$notes" --title "mlqvoice (تازه‌ترین)"
           else
-            gh release create "$TAG" mlqvoice.exe --repo "$GITHUB_REPOSITORY" \
+            gh release create "$TAG" mlqvoice.zip --repo "$GITHUB_REPOSITORY" \
               --title "mlqvoice (تازه‌ترین)" --notes "$notes" --latest
           fi
           echo "منتشر شد: $size بایت"
@@ -306,8 +316,8 @@ jobs:
           TAG: voice-latest
         run: |
           set -euo pipefail
-          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/mlqvoice.exe"
-          expected=$(stat -c %s mlqvoice.exe)
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/mlqvoice.zip"
+          expected=$(stat -c %s mlqvoice.zip)
           # tolower، نه IGNORECASE: آن یکی افزونه‌ی gawk است و mawk — که awkِ
           # پیش‌فرضِ اوبونتوست — بی‌صدا نادیده‌اش می‌گیرد. نتیجه‌اش این می‌شد که
           # فقط `content-length` کوچکِ پاسخِ ۳۰۲ می‌خواند، یعنی صفر، و این وارسی

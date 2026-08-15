@@ -239,3 +239,52 @@ class TestTeardownLeavesNothingRunning:
         shutdown(voice)
         after = sum(isinstance(w, Overlay) for w in QApplication.topLevelWidgets())
         assert after == before
+
+
+class TestOurOwnWindowIsNeverTheDestination:
+    """From a photo the owner sent: the box said «مقصد: mlqvoice — تشخیص گفتار».
+
+    Chrome steals the foreground for a moment while it cold-starts. A hotkey
+    press in that window captured *it* as the destination, so "تمام شد" would
+    have typed the sentence into an off-screen window the user cannot see —
+    and the box announced that as if it were a normal destination.
+    """
+
+    def test_a_window_owned_by_us_is_refused(self, monkeypatch):
+        from mlqvoice import inject
+
+        monkeypatch.setattr(inject, "user32", lambda: _FakeUser32(foreground=77))
+        monkeypatch.setattr(inject, "window_pid", lambda _hwnd: 4321)
+        assert inject.capture_target({4321, 999}) == 0
+
+    def test_somebody_else_window_is_kept(self, monkeypatch):
+        from mlqvoice import inject
+
+        monkeypatch.setattr(inject, "user32", lambda: _FakeUser32(foreground=77))
+        monkeypatch.setattr(inject, "window_pid", lambda _hwnd: 5555)
+        assert inject.capture_target({4321}) == 77
+
+    def test_with_no_reject_list_nothing_is_refused(self, monkeypatch):
+        from mlqvoice import inject
+
+        monkeypatch.setattr(inject, "user32", lambda: _FakeUser32(foreground=77))
+        assert inject.capture_target() == 77
+
+    def test_the_app_passes_its_own_pids_in(self, app, monkeypatch):
+        # The wiring, not just the helper: the guard is useless if the app never
+        # tells it which processes are ours.
+        from mlqvoice import inject
+
+        seen = []
+        monkeypatch.setattr(inject, "capture_target", lambda pids=None: seen.append(pids) or 0)
+        app.overlay.hide()
+        app.start_recording()
+        assert seen and os.getpid() in seen[0]
+
+
+class _FakeUser32:
+    def __init__(self, foreground: int):
+        self._foreground = foreground
+
+    def GetForegroundWindow(self):  # mirrors the Win32 name
+        return self._foreground

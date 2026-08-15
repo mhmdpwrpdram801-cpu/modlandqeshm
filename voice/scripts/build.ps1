@@ -2,7 +2,10 @@
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 #
-# خروجی: dist\mlqvoice.exe  (تک‌فایل، بدونِ پنجره‌ی کنسول)
+# خروجی: dist\mlqvoice\mlqvoice.exe  (یک پوشه، بدونِ پنجره‌ی کنسول)
+#
+# onedir و نه onefile: بسته‌ی تک‌فایلی هر بار خودش را در پوشه‌ی موقت باز می‌کند
+# و همان چند ثانیه‌ی اولِ «هیچ کاری نمی‌کند» را می‌سازد.
 
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
@@ -27,7 +30,7 @@ if ($LASTEXITCODE -ne 0) { throw "لینت قرمز است." }
 
 Write-Host "ساختِ exe…" -ForegroundColor Cyan
 & $py -m PyInstaller `
-    --noconfirm --clean --onefile --windowed `
+    --noconfirm --clean --onedir --windowed `
     --name mlqvoice `
     --add-data "src/mlqvoice/text/data;mlqvoice/text/data" `
     --add-data "src/mlqvoice/web;mlqvoice/web" `
@@ -47,7 +50,7 @@ Write-Host "ساختِ exe…" -ForegroundColor Cyan
 
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller شکست خورد." }
 
-$exe = "dist\mlqvoice.exe"
+$exe = "dist\mlqvoice\mlqvoice.exe"
 $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
 Write-Host ""
 Write-Host "آماده شد: $exe  ($size مگابایت)" -ForegroundColor Green

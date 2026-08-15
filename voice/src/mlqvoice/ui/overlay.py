@@ -72,10 +72,8 @@ def _qss() -> str:
     border-radius: 18px;
 }}
 #title  {{ color: {INK};     font-size: 15px; font-weight: 600; }}
-#target {{ color: {INK_DIM}; font-size: 11px; }}
 #state  {{ font-size: 12px; font-weight: 500; }}
 #interim {{ color: {INK_DIM}; font-size: 12px; font-style: italic; }}
-#hint   {{ color: #5d6678;   font-size: 11px; }}
 
 QTextEdit {{
     background: #0f1218;
@@ -189,14 +187,9 @@ class Overlay(QWidget):
         root.setSpacing(12)
 
         header = QHBoxLayout()
-        titles = QVBoxLayout()
-        titles.setSpacing(3)
         self._title = QLabel("گفتار به متن", objectName="title")
         self._title.setFont(ui_font(12, QFont.Weight.DemiBold))
-        self._target = QLabel("", objectName="target")
-        titles.addWidget(self._title)
-        titles.addWidget(self._target)
-        header.addLayout(titles)
+        header.addWidget(self._title)
         header.addStretch(1)
         self._state = QLabel("", objectName="state")
         header.addWidget(self._state)
@@ -223,15 +216,6 @@ class Overlay(QWidget):
         option.setTextDirection(Qt.LayoutDirection.RightToLeft)
         self._text.document().setDefaultTextOption(option)
         root.addWidget(self._text, 1)
-
-        # The guess used to live on its own line here. It is inside the box now,
-        # so this row carries only the hint.
-        underline = QHBoxLayout()
-        underline.setSpacing(12)
-        underline.addStretch(1)
-        self._hint = QLabel("Ctrl+Enter تمام شد · Esc ببند", objectName="hint")
-        underline.addWidget(self._hint, 0)
-        root.addLayout(underline)
 
         buttons = QHBoxLayout()
         buttons.setSpacing(9)
@@ -442,10 +426,6 @@ class Overlay(QWidget):
         self._state.setText(message)
         self._state.setStyleSheet(f"color:{REC};" if bad else f"color:{INK_DIM};")
 
-    def set_target(self, title: str) -> None:
-        self._target.setText(f"مقصد: {title}" if title else "مقصدی شناسایی نشد")
-        self._sync_insert_enabled()
-
     def _sync_insert_enabled(self) -> None:
         self._insert.setEnabled(bool(self._text.toPlainText().strip()))
 
@@ -463,7 +443,7 @@ class Overlay(QWidget):
         frame.moveCenter(geo.center())
         self.move(frame.topLeft())
 
-    def begin_session(self, target_title: str = "") -> None:
+    def begin_session(self) -> None:
         """Open the box for a fresh dictation.
 
         This is the fix for text from a previous dictation still sitting in the
@@ -471,7 +451,6 @@ class Overlay(QWidget):
         the successful-insert path — so closing with Esc kept the text forever.
         """
         self.clear()
-        self.set_target(target_title)
         self.present()
 
     def present(self) -> None:

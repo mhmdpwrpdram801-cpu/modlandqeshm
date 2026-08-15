@@ -82,7 +82,7 @@ def find_browser(explicit: str = "") -> str:
     for path in candidates:
         if Path(path).exists():
             return path
-    for name in ("chrome", "google-chrome", "msedge", "chromium"):
+    for name in ("chrome", "msedge"):
         found = shutil.which(name)
         if found:
             return found
