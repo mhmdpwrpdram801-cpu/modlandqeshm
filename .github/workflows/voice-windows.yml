@@ -236,3 +236,86 @@ jobs:
             "- exe: ``$env:EXE_SIZE`` مگابایت"
             '- از بخشِ Artifacts همین اجرا دانلودش کن'
           ) -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+  # artifactها موقت‌اند: با `retention-days: 30` گیت‌هاب خودش پاکشان می‌کند و
+  # لینک ۴۰۴ می‌دهد. برای فایلی که مالک باید هر وقت خواست دوباره نصبش کند،
+  # این یعنی هر بار باید وارد Actions شود و یک build تازه بزند.
+  #
+  # Release پاک نمی‌شود. و عمداً یک برچسبِ **چرخان** است (`voice-latest`) نه
+  # نسخه‌دار، چون خواسته یک **نشانیِ ثابت** بود که بشود ذخیره‌اش کرد:
+  #
+  #   https://github.com/mhmdpwrpdram801-cpu/modlandqeshm/releases/download/voice-latest/mlqvoice.exe
+  #
+  # بهایش این است که نسخه‌ی قبلی نگه داشته نمی‌شود — با یک کاربر و یک exe که
+  # همیشه از آخرین main ساخته می‌شود، معامله‌ی درستی است.
+  release:
+    needs: build
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    # تنها جایی در این گردش‌کار که اجازه‌ی نوشتن دارد؛ کارِ build فقط‌خواندنی می‌مانَد.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mlqvoice-exe
+
+      - name: انتشار روی نشانیِ ثابت
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: voice-latest
+        run: |
+          set -euo pipefail
+          size=$(stat -c %s mlqvoice.exe)
+          notes="ساخته‌شده از \`${GITHUB_SHA:0:7}\` — $(date -u '+%Y-%m-%d %H:%M UTC')
+
+          این برچسب همیشه به تازه‌ترین نسخه اشاره می‌کند، پس نشانی‌اش عوض نمی‌شود:
+
+          \`\`\`
+          https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/mlqvoice.exe
+          \`\`\`
+
+          ویندوز اخطارِ SmartScreen می‌دهد چون فایل امضای دیجیتال ندارد:
+          More info ← Run anyway."
+
+          # جایگزینی به‌جای حذف و ساختِ دوباره: پاک کردنِ Release یک فاصله‌ی
+          # چندثانیه‌ای می‌سازد که در آن همان نشانیِ «ثابت» ۴۰۴ می‌دهد.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" mlqvoice.exe --clobber
+            gh release edit "$TAG" --notes "$notes" --title "mlqvoice (تازه‌ترین)"
+          else
+            gh release create "$TAG" mlqvoice.exe \
+              --title "mlqvoice (تازه‌ترین)" --notes "$notes" --latest
+          fi
+
+      # «فرمان خطا نداد» با «فایل واقعاً آنجاست» یکی نیست. این مرحله همان
+      # نشانیِ عمومی را می‌گیرد و اندازه‌اش را با فایلِ ساخته‌شده مقابله می‌کند —
+      # وگرنه یک Releaseِ خالی یا نیمه‌آپلود سبز رد می‌شد.
+      - name: وارسیِ اینکه لینک واقعاً کار می‌کند
+        env:
+          TAG: voice-latest
+        run: |
+          set -euo pipefail
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/mlqvoice.exe"
+          expected=$(stat -c %s mlqvoice.exe)
+          # tolower، نه IGNORECASE: آن یکی افزونه‌ی gawk است و mawk — که awkِ
+          # پیش‌فرضِ اوبونتوست — بی‌صدا نادیده‌اش می‌گیرد. نتیجه‌اش این می‌شد که
+          # فقط `content-length` کوچکِ پاسخِ ۳۰۲ می‌خواند، یعنی صفر، و این وارسی
+          # روی یک Releaseِ کاملاً سالم قرمز می‌داد. اندازه گرفته شد.
+          for attempt in 1 2 3 4 5; do
+            served=$(curl -sIL "$url" | awk '
+              { line = tolower($0); if (line ~ /^content-length:/) v = $2 }
+              END { gsub(/\r/, "", v); print v + 0 }')
+            if [ "$served" = "$expected" ]; then
+              echo "لینک جواب داد و اندازه خواند: $expected بایت"
+              echo "- دانلودِ دائمی: <$url>" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "تلاشِ $attempt: اندازه‌ی سرو‌شده «${served:-هیچ}» با $expected نخواند؛ صبر…"
+            sleep 5
+          done
+          echo "::error::لینکِ Release بعد از ۵ تلاش فایلِ درست را نداد: $url"
+          exit 1
