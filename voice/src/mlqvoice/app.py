@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -15,15 +16,16 @@ from .bridge import BrowserNotFound, RecognizerBridge
 from .config import Config, ConfigError, load, save
 from .hotkey import HotkeyError, HotkeyListener
 from .media import MediaGuard, process_tree
-from .paths import config_file, learned_file, user_dictionary_file
+from .paths import config_file, learned_file, stats_file, user_dictionary_file
 from .text import (
     Options,
     build_lexicon,
     finglish_to_persian,
     has_latin,
     learning,
-    transform,
+    transform_hits,
 )
+from .text import stats as usage
 from .ui.overlay import Overlay
 from .ui.tray import Tray
 from .win32 import IS_WINDOWS
@@ -71,6 +73,12 @@ class VoiceApp:
         # What the recogniser actually said, kept so that the difference between
         # it and what the user finally inserted can become a dictionary entry.
         self._heard: list[str] = []
+        # And what the pipeline made of it, so "did the user have to fix this?"
+        # can be answered by comparison rather than by asking them.
+        self._produced: list[str] = []
+        self._hits: list[str] = []
+        self._spoke_seconds = 0.0
+        self._started_at = 0.0
 
         self.inbox = _Inbox()
         self.inbox.result.connect(self._on_result, Qt.ConnectionType.QueuedConnection)
@@ -162,7 +170,7 @@ class VoiceApp:
             # begin_session, not present: a new dictation starts empty. Closing
             # the box with Esc used to leave the text in the widget, so the next
             # hotkey press showed the previous session's words.
-            self._heard.clear()
+            self._new_session()
             self.overlay.begin_session(inject.window_title(self.target_hwnd))
         if not self.bridge.browser_alive():
             self.overlay.set_status("مرورگرِ تشخیصِ گفتار بسته شده — دوباره بازش می‌کنم", bad=True)
@@ -175,11 +183,15 @@ class VoiceApp:
         # path that then bails out would leave the music stopped for nothing.
         self.media.pause_if_playing()
         self.recording = True
+        self._started_at = time.monotonic()
         self.bridge.start_recording()
         self.overlay.set_recording(True)
         self.tray.set_recording(True)
 
     def stop_recording(self) -> None:
+        if self._started_at:
+            self._spoke_seconds += time.monotonic() - self._started_at
+            self._started_at = 0.0
         self.recording = False
         self._silence.stop()
         self.bridge.stop_recording()
@@ -204,11 +216,15 @@ class VoiceApp:
         # has not started yet. Restarting on finals alone would cut off anyone
         # mid-sentence.
         self._restart_silence_timer()
-        cleaned = transform(text, self.lexicon, self.opts)
+        cleaned, hits = transform_hits(text, self.lexicon, self.opts)
         if not cleaned:
             return
         if final:
             self._heard.append(text.strip())
+            # Finals only: interim guesses are rewritten continuously, and
+            # counting them would report one sentence as twenty dictionary hits.
+            self._produced.append(cleaned)
+            self._hits.extend(hits)
             self.overlay.append_final(cleaned)
         else:
             self.overlay.set_interim(cleaned)
@@ -247,7 +263,7 @@ class VoiceApp:
             self.overlay.present()
             return
         self.target_hwnd = inject.capture_target()
-        self._heard.clear()
+        self._new_session()
         self.overlay.begin_session(inject.window_title(self.target_hwnd))
 
     def _insert(self, text: str) -> None:
@@ -266,10 +282,43 @@ class VoiceApp:
             self.overlay.set_status(str(exc), bad=True)
             return
         self._learn_from(text)
+        self._count(text)
         if self.cfg.close_after_insert:
             self.overlay.clear()
         else:
             self.overlay.present()
+
+    def _new_session(self) -> None:
+        """Forget the previous dictation entirely — text, hits and clock."""
+        self._heard.clear()
+        self._produced.clear()
+        self._hits.clear()
+        self._spoke_seconds = 0.0
+        self._started_at = 0.0
+
+    def _count(self, inserted: str) -> None:
+        """Tally one dictation, so the dictionary can be judged on evidence.
+
+        Never fatal, like the learning file: a lost count is nothing next to a
+        lost sentence. Numbers only — see :mod:`mlqvoice.text.stats` for what is
+        deliberately not written here.
+        """
+        if not self.cfg.stats:
+            return
+        produced = " ".join(self._produced)
+        try:
+            usage.record(
+                stats_file(),
+                words=len(inserted.split()),
+                # Whitespace-insensitive: re-wrapping a line is not a correction,
+                # and counting it as one would quietly depress the number this
+                # whole file exists to report.
+                edited=" ".join(produced.split()) != " ".join(inserted.split()),
+                seconds=round(self._spoke_seconds),
+                terms=list(self._hits),
+            )
+        except OSError as exc:
+            log.warning("ثبتِ آمار نشد: %s", exc)
 
     def _learn_from(self, inserted: str) -> None:
         """Turn the user's hand edits into proposed dictionary entries.

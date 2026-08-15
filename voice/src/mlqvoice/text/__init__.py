@@ -4,7 +4,7 @@ from .finglish import convert as finglish_to_persian
 from .finglish import has_latin
 from .lexicon import Entry, Lexicon, build_lexicon, spoken_key
 from .normalize import ZWNJ, normalize, strip_zwnj
-from .pipeline import Options, render, transform
+from .pipeline import Options, render, transform, transform_hits
 
 __all__ = [
     "ZWNJ",
@@ -19,4 +19,5 @@ __all__ = [
     "spoken_key",
     "strip_zwnj",
     "transform",
+    "transform_hits",
 ]

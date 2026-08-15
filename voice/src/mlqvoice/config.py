@@ -102,6 +102,8 @@ class Config:
     restore_clipboard: bool = True
     close_after_insert: bool = True
     learn: bool = True
+    # Local usage counts, for judging the dictionary. Numbers only, never text.
+    stats: bool = True
     # Pause whatever is playing while you dictate, and put it back afterwards.
     pause_media: bool = True
     # Seconds of silence, after you have started speaking, that end the
