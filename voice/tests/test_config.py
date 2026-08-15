@@ -71,6 +71,35 @@ class TestValidate:
         with pytest.raises(ConfigError, match="lang"):
             Config(lang="  ").validate()
 
+    def test_negative_silence_timeout(self):
+        with pytest.raises(ConfigError, match="auto_stop_seconds"):
+            Config(auto_stop_seconds=-1).validate()
+
+    def test_zero_silence_timeout_is_allowed(self):
+        # It is how you turn the feature off, not a mistake.
+        assert Config(auto_stop_seconds=0).validate()
+
+    def test_an_absurd_silence_timeout(self):
+        with pytest.raises(ConfigError, match="auto_stop_seconds"):
+            Config(auto_stop_seconds=99999).validate()
+
+    def test_a_number_written_as_text_names_the_field(self):
+        # The file is hand-edited, so quoting a number is an easy slip. Comparing
+        # a string against an int raises TypeError, which used to escape as a
+        # traceback with no clue which setting caused it.
+        with pytest.raises(ConfigError, match="auto_stop_seconds"):
+            Config(auto_stop_seconds="4").validate()
+
+    def test_and_so_does_a_quoted_port(self):
+        with pytest.raises(ConfigError, match="port"):
+            Config(port="8080").validate()
+
+    def test_true_is_not_a_number(self):
+        # bool is an int subclass, so `0 <= True <= 600` passes happily and the
+        # timer would silently become one millisecond.
+        with pytest.raises(ConfigError, match="auto_stop_seconds"):
+            Config(auto_stop_seconds=True).validate()
+
     def test_missing_browser_path_is_reported_not_ignored(self, tmp_path):
         with pytest.raises(ConfigError, match="browser_path"):
             Config(browser_path=str(tmp_path / "nope.exe")).validate()
@@ -84,6 +113,12 @@ class TestValidate:
 class TestLoadSave:
     def test_missing_file_gives_defaults(self, tmp_path):
         assert load(tmp_path / "none.json") == Config()
+
+    def test_media_pause_is_on_by_default(self, tmp_path):
+        assert Config().pause_media
+
+    def test_the_silence_timeout_has_a_sane_default(self, tmp_path):
+        assert Config().auto_stop_seconds == 4
 
     def test_round_trip(self, tmp_path):
         path = tmp_path / "config.json"

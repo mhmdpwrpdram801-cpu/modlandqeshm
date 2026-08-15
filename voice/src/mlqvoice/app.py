@@ -7,13 +7,14 @@ import os
 import subprocess
 import sys
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import APP_NAME, __version__, inject
 from .bridge import BrowserNotFound, RecognizerBridge
 from .config import Config, ConfigError, load, save
 from .hotkey import HotkeyError, HotkeyListener
+from .media import MediaGuard, process_tree
 from .paths import config_file, learned_file, user_dictionary_file
 from .text import (
     Options,
@@ -84,6 +85,16 @@ class VoiceApp:
             on_status=lambda s, d: self.inbox.status.emit(s, d),
         )
 
+        self.media = MediaGuard(enabled=cfg.pause_media, ignore_pids=self._own_pids)
+
+        # Ends the recording once the user stops talking, so the music comes back
+        # without them having to reach for the hotkey again. Started by the first
+        # recognition result, never before: someone who presses the hotkey and
+        # then thinks for five seconds has not "finished speaking".
+        self._silence = QTimer()
+        self._silence.setSingleShot(True)
+        self._silence.timeout.connect(self._on_silence)
+
         self.overlay = Overlay()
         self.overlay.insertRequested.connect(self._insert)
         self.overlay.copyRequested.connect(self._copy)
@@ -116,11 +127,22 @@ class VoiceApp:
         log.info("%s %s ready on %s", APP_NAME, __version__, self.hotkey)
 
     def quit(self) -> None:
+        # Before anything else: quitting mid-dictation must not leave the user's
+        # music paused with nothing left running to un-pause it.
+        self.media.resume_if_paused()
         try:
             self.listener.stop()
         finally:
             self.bridge.stop()
         QApplication.quit()
+
+    def _own_pids(self) -> set[int]:
+        """Us and the recogniser browser — never mistaken for somebody's music."""
+        pids = {os.getpid()}
+        browser = self.bridge.browser_pid
+        if browser:
+            pids |= process_tree(browser)
+        return pids
 
     # -- hotkey ----------------------------------------------------------
 
@@ -147,6 +169,9 @@ class VoiceApp:
             except BrowserNotFound as exc:
                 self.overlay.set_status(str(exc), bad=True)
                 return
+        # Only once we are certain recording is actually starting: pausing on a
+        # path that then bails out would leave the music stopped for nothing.
+        self.media.pause_if_playing()
         self.recording = True
         self.bridge.start_recording()
         self.overlay.set_recording(True)
@@ -154,13 +179,29 @@ class VoiceApp:
 
     def stop_recording(self) -> None:
         self.recording = False
+        self._silence.stop()
         self.bridge.stop_recording()
         self.overlay.set_recording(False)
         self.tray.set_recording(False)
+        # Every way out of recording passes through here — the hotkey, the
+        # button, "بنویس", Esc, a fatal recogniser error — which is what makes
+        # this the one place playback has to be handed back.
+        self.media.resume_if_paused()
+
+    def _on_silence(self) -> None:
+        if not self.recording:
+            return
+        self.stop_recording()
+        self.overlay.set_status("سکوت — ضبط تمام شد")
 
     # -- recogniser ------------------------------------------------------
 
     def _on_result(self, text: str, final: bool) -> None:
+        # Interim guesses count as speech: Chrome emits them continuously while
+        # a sentence is being spoken, so they are the evidence that the silence
+        # has not started yet. Restarting on finals alone would cut off anyone
+        # mid-sentence.
+        self._restart_silence_timer()
         cleaned = transform(text, self.lexicon, self.opts)
         if not cleaned:
             return
@@ -169,6 +210,11 @@ class VoiceApp:
             self.overlay.append_final(cleaned)
         else:
             self.overlay.set_interim(cleaned)
+
+    def _restart_silence_timer(self) -> None:
+        if not self.recording or self.cfg.auto_stop_seconds <= 0:
+            return
+        self._silence.start(self.cfg.auto_stop_seconds * 1000)
 
     def _on_status(self, state: str, detail: str) -> None:
         if state == "__toggle__":

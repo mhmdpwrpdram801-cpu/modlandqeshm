@@ -32,6 +32,9 @@ Write-Host "ساختِ exe…" -ForegroundColor Cyan
     --add-data "src/mlqvoice/text/data;mlqvoice/text/data" `
     --add-data "src/mlqvoice/web;mlqvoice/web" `
     --add-data "src/mlqvoice/assets;mlqvoice/assets" `
+    --collect-all comtypes `
+    --hidden-import pycaw `
+    --hidden-import pycaw.pycaw `
     --exclude-module tkinter `
     --exclude-module PySide6.QtQml `
     --exclude-module PySide6.QtQuick `
