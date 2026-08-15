@@ -63,15 +63,24 @@ def render(entries: list[Entry]) -> str:
     return "\n".join(line.strip() for line in text.split("\n")).strip()
 
 
-def transform(text: str, lex: Lexicon | None = None, opts: Options | None = None) -> str:
-    """Run the full pipeline over one chunk of recognised speech."""
+def transform_hits(
+    text: str, lex: Lexicon | None = None, opts: Options | None = None
+) -> tuple[str, list[str]]:
+    """The pipeline's output, plus which dictionary entries actually fired.
+
+    The second value answers a question nothing else could: *does the glossary
+    earn its keep?* A dictionary can grow for years without anybody knowing
+    which of its entries have ever been used. These are our own canonical
+    outputs — ``commit``, ``.`` — never the user's words, so counting them
+    carries nothing private with it.
+    """
     opts = opts or Options()
     if lex is None:
         lex = build_lexicon(glossary=opts.glossary, punctuation=opts.punctuation)
 
     normalised = normalize(text, digits=opts.digits, zwnj=opts.zwnj)
     if not normalised:
-        return ""
+        return "", []
 
     tokens = normalised.split(" ")
     # Match on ZWNJ-free keys so "ری‌اکت" and "ری اکت" both find React, but keep
@@ -79,14 +88,21 @@ def transform(text: str, lex: Lexicon | None = None, opts: Options | None = None
     keys = [strip_zwnj(t) for t in tokens]
 
     entries: list[Entry] = []
+    hits: list[str] = []
     i = 0
     while i < len(tokens):
         hit = _match_at(lex, keys, i)
         if hit is not None:
             entry, length = hit
             entries.append(entry)
+            hits.append(entry.text)
             i += length
         else:
             entries.append(Entry(text=tokens[i], attach="word"))
             i += 1
-    return render(entries)
+    return render(entries), hits
+
+
+def transform(text: str, lex: Lexicon | None = None, opts: Options | None = None) -> str:
+    """Run the full pipeline over one chunk of recognised speech."""
+    return transform_hits(text, lex, opts)[0]

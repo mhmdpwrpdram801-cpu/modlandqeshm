@@ -38,6 +38,15 @@ def learned_file() -> Path:
     return data_dir() / "learned.json"
 
 
+def stats_file() -> Path:
+    """Usage counts, for judging the dictionary on evidence rather than feel.
+
+    Numbers only — see :mod:`mlqvoice.text.stats` for what is deliberately not
+    in it. Never leaves the machine.
+    """
+    return data_dir() / "stats.json"
+
+
 def browser_profile_dir() -> Path:
     """A private Chrome profile, so we never touch the user's own one."""
     path = data_dir() / "browser-profile"

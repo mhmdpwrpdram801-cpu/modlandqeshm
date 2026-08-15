@@ -14,7 +14,7 @@ import sys
 
 from . import APP_NAME, __version__
 from .config import ConfigError, load, parse_hotkey
-from .paths import config_file, data_dir, learned_file, user_dictionary_file
+from .paths import config_file, data_dir, learned_file, stats_file, user_dictionary_file
 from .text import build_lexicon, transform
 from .text.pipeline import Options
 
@@ -57,6 +57,7 @@ def cmd_say(args) -> int:
 def cmd_paths(_args) -> int:
     print(f"تنظیمات:  {config_file()}")
     print(f"دیکشنری:  {user_dictionary_file()}")
+    print(f"آمار:     {stats_file()}")
     print(f"پوشه:     {data_dir()}")
     return 0
 
@@ -214,6 +215,67 @@ def cmd_selftest(_args) -> int:
     return 0
 
 
+def _fa(number) -> str:
+    """A number the way it is read here: Persian digits, grouped thousands."""
+    from .text.normalize import to_persian_digits
+
+    return to_persian_digits(f"{number:,}".replace(",", "\u066c"))
+
+
+def cmd_stats(args) -> int:
+    """What the tool has actually done, so the dictionary is judged on evidence.
+
+    ``learn`` shows the corrections — the failures. On its own that is half a
+    fraction: it cannot say whether twelve corrections came out of fifteen
+    dictations or five hundred. This is the other half.
+    """
+    from .dates import format_iso
+    from .text import stats as usage
+
+    path = stats_file()
+    data = usage.load(path)
+
+    if args.forget:
+        path.unlink(missing_ok=True)
+        print("آمار پاک شد.")
+        return 0
+
+    if not data.dictations:
+        print("هنوز چیزی ثبت نشده. یک بار دیکته کن و «بنویس» را بزن.")
+        print(f"(فایل: {path})")
+        return 0
+
+    days = sorted(data.days)
+    clean = data.dictations - data.edited
+    print("گزارشِ استفاده")
+    print()
+    print(f"  دیکته:         {_fa(data.dictations)} بار")
+    rate = data.clean_rate
+    print(f"  بدونِ ویرایش:   {_fa(clean)}  ({_fa(round(rate * 100))}٪)")
+    print(f"  واژه:          {_fa(data.words)}")
+    wpm = data.words_per_minute
+    if wpm is not None:
+        print(f"  سرعت:          حدودِ {_fa(round(wpm))} واژه در دقیقه")
+    print(
+        f"  بازه:          {format_iso(days[0])} تا {format_iso(days[-1])}  ({_fa(len(days))} روز)"
+    )
+
+    top = data.top_terms(args.top)
+    if top:
+        print()
+        print("  پرکاربردترین واژه‌های دیکشنری:")
+        width = max(len(str(count)) for _term, count in top)
+        for term, count in top:
+            print(f"    {_fa(count):>{width + 2}}×  {term}")
+        print()
+        print(f"  ({_fa(len(data.terms))} واژه‌ی متفاوت تا حالا به کار آمده)")
+
+    print()
+    print("  هیچ متنی که گفته‌ای اینجا نیست — فقط عدد و واژه‌های خودِ دیکشنری.")
+    print(f"  (فایل: {path})")
+    return 0
+
+
 def cmd_hotkey(args) -> int:
     try:
         hk = parse_hotkey(args.spec)
@@ -246,6 +308,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--min-count", type=int, default=1, help="فقط پیشنهادهایی که این‌قدر تکرار شده‌اند"
     )
     learn.set_defaults(func=cmd_learn)
+
+    stats = sub.add_parser("stats", help="چقدر ازش استفاده شده و دیکشنری چقدر کمک کرده")
+    stats.add_argument("--top", type=int, default=15, help="چند واژه‌ی پرکاربرد نشان بده")
+    stats.add_argument("--forget", action="store_true", help="همه‌ی آمار را پاک کن")
+    stats.set_defaults(func=cmd_stats)
 
     fa = sub.add_parser("fa", help="فینگلیش را فارسی کن")
     fa.add_argument("words", nargs="*", help="اگر ندهی، از ورودیِ استاندارد می‌خواند")

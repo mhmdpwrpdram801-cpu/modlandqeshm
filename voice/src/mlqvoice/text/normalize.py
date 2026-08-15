@@ -43,6 +43,12 @@ _LATIN_DIGITS = "0123456789"
 _TO_PERSIAN_DIGITS = str.maketrans(_ARABIC_INDIC + _LATIN_DIGITS, _PERSIAN_DIGITS * 2)
 _TO_LATIN_DIGITS = str.maketrans(_ARABIC_INDIC + _PERSIAN_DIGITS, _LATIN_DIGITS * 2)
 
+
+def to_persian_digits(text: str) -> str:
+    """Digits as a Persian reader expects them. Display only — never storage."""
+    return text.translate(_TO_PERSIAN_DIGITS)
+
+
 # ``می``/``نمی`` bind to the verb that follows them with a ZWNJ.
 _PREFIX_RE = re.compile(rf"(?<![{_LETTER}])(ن?می)\s+(?=[{_LETTER}]{{2,}})")
 

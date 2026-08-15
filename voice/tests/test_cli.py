@@ -61,6 +61,59 @@ class TestPaths:
         out = capsys.readouterr().out
         assert "config.json" in out
         assert "dictionary.json" in out
+        assert "stats.json" in out
+
+
+class TestStats:
+    def test_says_so_plainly_when_there_is_nothing_yet(self, capsys):
+        # Not a table of zeros: "0 dictations, 0% clean" reads like a verdict on
+        # the dictionary rather than an empty file.
+        assert main(["stats"]) == 0
+        assert "هنوز چیزی ثبت نشده" in capsys.readouterr().out
+
+    def test_reports_the_numbers_once_there_are_some(self, capsys, tmp_path):
+        from mlqvoice.paths import stats_file
+        from mlqvoice.text import stats as usage
+
+        for _ in range(8):
+            usage.record(stats_file(), words=10, edited=False, seconds=6, today="2026-08-14")
+        usage.record(
+            stats_file(), words=10, edited=True, seconds=6, terms=["commit"], today="2026-08-15"
+        )
+
+        assert main(["stats"]) == 0
+        out = capsys.readouterr().out
+        assert "۹ بار" in out  # nine dictations
+        assert "۸۹٪" in out  # eight of nine clean, computed by hand
+        assert "commit" in out
+
+    def test_dates_are_jalali_never_iso(self, capsys, tmp_path):
+        from mlqvoice.paths import stats_file
+        from mlqvoice.text import stats as usage
+
+        usage.record(stats_file(), words=3, edited=False, today="2026-08-14")
+        assert main(["stats"]) == 0
+        out = capsys.readouterr().out
+        assert "۱۴۰۵/۰۵/۲۳" in out
+        assert "2026-08-14" not in out
+
+    def test_it_repeats_the_privacy_promise_where_the_user_reads_it(self, capsys, tmp_path):
+        from mlqvoice.paths import stats_file
+        from mlqvoice.text import stats as usage
+
+        usage.record(stats_file(), words=3, edited=False, today="2026-08-14")
+        assert main(["stats"]) == 0
+        assert "هیچ متنی" in capsys.readouterr().out
+
+    def test_forget_empties_it(self, capsys, tmp_path):
+        from mlqvoice.paths import stats_file
+        from mlqvoice.text import stats as usage
+
+        usage.record(stats_file(), words=3, edited=False, today="2026-08-14")
+        assert main(["stats", "--forget"]) == 0
+        assert not stats_file().exists()
+        assert main(["stats"]) == 0
+        assert "هنوز چیزی ثبت نشده" in capsys.readouterr().out
 
 
 class TestVersion:
