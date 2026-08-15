@@ -2,10 +2,15 @@
 
 Two decisions here are worth stating up front.
 
-Recognised text lands in the editable box only when it is *final*.  Interim
-guesses go to a separate line underneath.  Web Speech revises its interim text
-constantly, so writing it into the box would fight the user for the cursor and
-quietly undo their edits — and editing is the whole point of showing a box.
+Recognised text — final *and* interim — lands in the one box, because the owner
+asked to watch the words appear where they will stay rather than on a separate
+line underneath.
+
+That was the earlier design for a real reason: Web Speech rewrites its interim
+text constantly, and dropping it into the box naively would fight the user for
+the cursor. So the guess lives as a *tail*: a tracked run at the very end that
+is replaced wholesale on each revision and committed when the final arrives.
+Anything the user edits sits before it and is never touched.
 
 And the box is emptied when a session *begins*, not when it ends.  Clearing on
 close would throw the text away the instant somebody hits Esc by accident;
@@ -124,7 +129,6 @@ class Overlay(QWidget):
 
     insertRequested = Signal(str)
     copyRequested = Signal(str)
-    finglishRequested = Signal(str)
     toggleRequested = Signal()
     dismissed = Signal()
 
@@ -157,6 +161,9 @@ class Overlay(QWidget):
         # nearest space and would happily rewrite a dictated word the moment the
         # user pressed space after it.
         self._typed_from: int | None = None
+        # How many characters at the end of the box are the recogniser's current
+        # guess rather than settled text. Replaced on every revision.
+        self._tail = 0
 
         self._build()
         self._shortcuts()
@@ -217,23 +224,21 @@ class Overlay(QWidget):
         self._text.document().setDefaultTextOption(option)
         root.addWidget(self._text, 1)
 
-        # The interim guess and the keyboard hint share one row. The hint used to
-        # sit between two buttons, where it read as clutter; here it costs no
-        # extra height because this row is reserved anyway.
+        # The guess used to live on its own line here. It is inside the box now,
+        # so this row carries only the hint.
         underline = QHBoxLayout()
         underline.setSpacing(12)
-        self._interim = QLabel("", objectName="interim")
-        self._interim.setWordWrap(True)
-        self._interim.setMinimumHeight(18)
-        underline.addWidget(self._interim, 1)
-        self._hint = QLabel("Ctrl+Enter بنویس · Ctrl+L فارسی · Esc ببند", objectName="hint")
+        underline.addStretch(1)
+        self._hint = QLabel("Ctrl+Enter تمام شد · Esc ببند", objectName="hint")
         underline.addWidget(self._hint, 0)
         root.addLayout(underline)
 
         buttons = QHBoxLayout()
         buttons.setSpacing(9)
-        self._insert = QPushButton("بنویس", objectName="primary")
-        self._insert.setToolTip("متن را در همان پنجره‌ای بنویس که قبلش توش بودی (Ctrl+Enter)")
+        self._insert = QPushButton("تمام شد", objectName="primary")
+        self._insert.setToolTip(
+            "ضبط را تمام کن و متن را در همان پنجره‌ای بنویس که قبلش توش بودی (Ctrl+Enter)"
+        )
         self._insert.clicked.connect(self._emit_insert)
         buttons.addWidget(self._insert)
 
@@ -241,13 +246,6 @@ class Overlay(QWidget):
         self._toggle.setToolTip("شروع/توقفِ ضبط — همان کاری که کلیدِ میان‌بُر می‌کند")
         self._toggle.clicked.connect(self.toggleRequested)
         buttons.addWidget(self._toggle)
-
-        self._finglish = QPushButton("فارسی‌ش کن")
-        self._finglish.setToolTip(
-            "حروفِ لاتینِ فینگلیش را فارسی کن (Ctrl+L) — کد و واژه‌های فنی دست نمی‌خورند"
-        )
-        self._finglish.clicked.connect(lambda: self.finglishRequested.emit(self.text()))
-        buttons.addWidget(self._finglish)
 
         copy = QPushButton("کپی")
         copy.clicked.connect(lambda: self.copyRequested.emit(self.text()))
@@ -270,7 +268,6 @@ class Overlay(QWidget):
         QShortcut(QKeySequence("Ctrl+Return"), self, self._emit_insert)
         QShortcut(QKeySequence("Ctrl+Enter"), self, self._emit_insert)
         QShortcut(QKeySequence("Esc"), self, self.dismiss)
-        QShortcut(QKeySequence("Ctrl+L"), self, lambda: self.finglishRequested.emit(self.text()))
 
     # -- typing in Finglish ----------------------------------------------
 
@@ -349,16 +346,33 @@ class Overlay(QWidget):
     def text(self) -> str:
         return self._text.toPlainText().strip()
 
+    def settled_text(self) -> str:
+        """What the box holds without the guess still being revised."""
+        full = self._text.toPlainText()
+        return (full[: len(full) - self._tail] if self._tail else full).strip()
+
     def clear(self) -> None:
         self._text.clear()
-        self._interim.clear()
         self._typed_from = None
+        self._tail = 0
+
+    def _drop_tail(self) -> None:
+        """Remove the provisional guess from the end of the box, if any."""
+        if not self._tail:
+            return
+        doc = self._text.document()
+        cut = QTextCursor(doc)
+        cut.setPosition(max(0, doc.characterCount() - 1 - self._tail))
+        cut.movePosition(QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor)
+        cut.removeSelectedText()
+        self._tail = 0
 
     def append_final(self, chunk: str) -> None:
         """Add a finished phrase, keeping the user's cursor and edits intact."""
         chunk = chunk.strip()
         if not chunk:
             return
+        self._drop_tail()
         current = self._text.toPlainText()
         joiner = "" if not current or current.endswith(("\n", " ")) else " "
         cursor = self._text.textCursor()
@@ -367,7 +381,6 @@ class Overlay(QWidget):
         self._text.insertPlainText(joiner + chunk)
         if not at_end:
             self._text.setTextCursor(cursor)
-        self._interim.clear()
         # What just arrived was not typed, so it is not part of any typed run.
         self._typed_from = None
 
@@ -376,9 +389,29 @@ class Overlay(QWidget):
         self._text.setPlainText(text)
         self._text.moveCursor(self._text.textCursor().MoveOperation.End)
         self._typed_from = None
+        self._tail = 0
 
     def set_interim(self, text: str) -> None:
-        self._interim.setText(text.strip())
+        """Show the recogniser's current guess at the end of the box.
+
+        Replaced wholesale each time rather than appended: Web Speech revises
+        the same phrase over and over, and appending would spell out every
+        revision. Whatever sits before the tail — dictation already settled, or
+        the user's own edits — is left exactly where it is.
+        """
+        guess = text.strip()
+        cursor = self._text.textCursor()
+        at_end = cursor.atEnd()
+        self._drop_tail()
+        if guess:
+            current = self._text.toPlainText()
+            joiner = "" if not current or current.endswith(("\n", " ")) else " "
+            self._text.moveCursor(QTextCursor.MoveOperation.End)
+            self._text.insertPlainText(joiner + guess)
+            self._tail = len(joiner) + len(guess)
+        if not at_end:
+            # The user was editing further back; do not drag them to the end.
+            self._text.setTextCursor(cursor)
 
     def set_recording(self, recording: bool) -> None:
         if recording:
@@ -391,7 +424,9 @@ class Overlay(QWidget):
             self._state.setText("■ متوقف")
             self._state.setStyleSheet(f"color:{INK_DIM};")
             self._toggle.setText("ادامه")
-            self._interim.clear()
+            # A half-finished guess is not something to leave sitting in the box
+            # once nobody is listening any more.
+            self._drop_tail()
 
     def _tick_pulse(self) -> None:
         self._pulse_on = not self._pulse_on

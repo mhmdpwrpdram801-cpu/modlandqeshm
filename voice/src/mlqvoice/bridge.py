@@ -30,6 +30,7 @@ import secrets
 import shutil
 import subprocess
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -41,6 +42,11 @@ from .paths import browser_profile_dir
 log = logging.getLogger(__name__)
 
 MAX_BODY = 64 * 1024  # a spoken chunk is tiny; anything larger is not ours
+
+#: How long a command waits for a browser that has not connected yet. Long
+#: enough to cover Chrome starting cold, short enough that a page reconnecting
+#: minutes later does not suddenly start recording on its own.
+PENDING_TTL = 30.0
 
 
 @dataclass(frozen=True)
@@ -216,6 +222,8 @@ class RecognizerBridge:
         self._thread: threading.Thread | None = None
         self._browser: subprocess.Popen | None = None
         self._clients: list[queue.Queue] = []
+        # The last command, kept only for a client that has yet to arrive.
+        self._pending: tuple[dict, float] | None = None
         self._lock = threading.Lock()
 
     # -- lifecycle -------------------------------------------------------
@@ -299,6 +307,15 @@ class RecognizerBridge:
         q: queue.Queue = queue.Queue()
         with self._lock:
             self._clients.append(q)
+            # Hand over a command that arrived before the page was listening.
+            # Chrome takes a few seconds to start and connect, and every hotkey
+            # press in that window used to vanish into an empty client list —
+            # the user pressed the key, nothing happened, and nothing said why.
+            pending = self._pending
+        if pending is not None:
+            payload, sent_at = pending
+            if time.monotonic() - sent_at <= PENDING_TTL:
+                q.put(payload)
         return q
 
     def unsubscribe(self, q: queue.Queue) -> None:
@@ -314,8 +331,20 @@ class RecognizerBridge:
     def _broadcast(self, payload: dict) -> None:
         with self._lock:
             clients = list(self._clients)
+            # Only worth keeping when nobody heard it. Holding on to a command
+            # that *was* delivered would replay it at the next reconnection.
+            self._pending = None if clients else (payload, time.monotonic())
         for q in clients:
             q.put(payload)
+
+    @property
+    def pending_command(self) -> dict | None:
+        """The command still waiting for a browser, if any."""
+        with self._lock:
+            if self._pending is None:
+                return None
+            payload, sent_at = self._pending
+        return payload if time.monotonic() - sent_at <= PENDING_TTL else None
 
     def start_recording(self) -> None:
         self._broadcast({"cmd": "start", "lang": self.lang, "interim": self.interim})
