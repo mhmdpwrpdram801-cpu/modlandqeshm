@@ -41,6 +41,12 @@ VERSION_RE = re.compile(r"^\d{4}\.\d{2}\.\d+$")
 
 FA_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
 
+# CORE-12: بررسی‌ای که اجرا نشود، پاس نشده است. شمارنده‌ی پایینِ گزارش خودش را
+# نمی‌بیند — اگر بررسی‌ای بی‌صدا اجرا نشود، هم صورت و هم مخرج کم می‌شوند و
+# «۳۱/۳۱ پاس شد» همان‌قدر سبز به نظر می‌رسد. پس کف پین می‌شود: کمتر از این یعنی
+# چیزی رد شده. عدد فقط اجازه دارد **بالا** برود.
+MIN_CHECKS = 32
+
 results: list[tuple[bool, str, str]] = []
 
 
@@ -359,6 +365,15 @@ def main() -> int:
     check(bool(mh) and bool(mp) and mh.group(1) == mp.group(1),
           "تاریخِ سرآیندِ HTML با تاریخِ سرصفحه یکی است",
           f"سرآیند={mh.group(1) if mh else '؟'} · سرصفحه={mp.group(1) if mp else '؟'}")
+
+    ran = len(results)
+    if ran < MIN_CHECKS:
+        check(False, f"هر {MIN_CHECKS} بررسی واقعاً اجرا شد",
+              f"فقط {ran} بررسی اجرا شد — یکی بی‌صدا رد شده است (CORE-12)")
+    elif ran > MIN_CHECKS:
+        check(True, f"بررسی‌ها از {MIN_CHECKS} به {ran} رسید — MIN_CHECKS را بالا ببر")
+    else:
+        check(True, f"هر {MIN_CHECKS} بررسی واقعاً اجرا شد")
 
     report(args.verbose)
     return 0 if all(ok for ok, _, _ in results) else 1
