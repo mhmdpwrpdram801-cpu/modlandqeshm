@@ -105,6 +105,7 @@ class Overlay(QWidget):
 
     insertRequested = Signal(str)
     copyRequested = Signal(str)
+    finglishRequested = Signal(str)
     toggleRequested = Signal()
     dismissed = Signal()
 
@@ -197,7 +198,7 @@ class Overlay(QWidget):
         self._interim.setWordWrap(True)
         self._interim.setMinimumHeight(18)
         underline.addWidget(self._interim, 1)
-        self._hint = QLabel("Ctrl+Enter بنویس · Esc ببند", objectName="hint")
+        self._hint = QLabel("Ctrl+Enter بنویس · Ctrl+L فارسی · Esc ببند", objectName="hint")
         underline.addWidget(self._hint, 0)
         root.addLayout(underline)
 
@@ -212,6 +213,13 @@ class Overlay(QWidget):
         self._toggle.setToolTip("شروع/توقفِ ضبط — همان کاری که کلیدِ میان‌بُر می‌کند")
         self._toggle.clicked.connect(self.toggleRequested)
         buttons.addWidget(self._toggle)
+
+        self._finglish = QPushButton("فارسی‌ش کن")
+        self._finglish.setToolTip(
+            "حروفِ لاتینِ فینگلیش را فارسی کن (Ctrl+L) — کد و واژه‌های فنی دست نمی‌خورند"
+        )
+        self._finglish.clicked.connect(lambda: self.finglishRequested.emit(self.text()))
+        buttons.addWidget(self._finglish)
 
         copy = QPushButton("کپی")
         copy.clicked.connect(lambda: self.copyRequested.emit(self.text()))
@@ -234,6 +242,7 @@ class Overlay(QWidget):
         QShortcut(QKeySequence("Ctrl+Return"), self, self._emit_insert)
         QShortcut(QKeySequence("Ctrl+Enter"), self, self._emit_insert)
         QShortcut(QKeySequence("Esc"), self, self.dismiss)
+        QShortcut(QKeySequence("Ctrl+L"), self, lambda: self.finglishRequested.emit(self.text()))
 
     # -- state -----------------------------------------------------------
 
@@ -258,6 +267,11 @@ class Overlay(QWidget):
         if not at_end:
             self._text.setTextCursor(cursor)
         self._interim.clear()
+
+    def set_text(self, text: str) -> None:
+        """Replace the whole box — used by conversions that rewrite in place."""
+        self._text.setPlainText(text)
+        self._text.moveCursor(self._text.textCursor().MoveOperation.End)
 
     def set_interim(self, text: str) -> None:
         self._interim.setText(text.strip())

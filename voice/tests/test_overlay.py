@@ -314,3 +314,20 @@ class TestCaretSide:
         QApplication.processEvents()
         x, width = overlay._text.cursorRect().x(), overlay._text.viewport().width()
         assert x > width / 2, f"caret at {x} of {width} after clear"
+
+
+class TestFinglishButton:
+    def test_the_button_emits_the_box_contents(self, overlay):
+        got = []
+        overlay.finglishRequested.connect(got.append)
+        overlay._text.setPlainText("salam chetori")
+        overlay._finglish.click()
+        assert got == ["salam chetori"]
+
+    def test_set_text_replaces_the_whole_box(self, overlay):
+        overlay.append_final("salam")
+        overlay.set_text("سلام")
+        assert overlay.text() == "سلام"
+
+    def test_the_shortcut_is_advertised_in_the_hint(self, overlay):
+        assert "Ctrl+L" in overlay._hint.text()

@@ -150,6 +150,15 @@ class Lexicon:
     def phonetic_conflicts(self) -> set[str]:
         return set(self._phonetic_conflicts)
 
+    def outputs(self) -> set[str]:
+        """Every canonical word this lexicon can emit.
+
+        Finglish conversion uses it as a skip-list: without it, pressing the
+        button after dictating would turn the glossary's own ``commit`` back
+        into ``کممیت``.
+        """
+        return {e.text for e in self._entries.values() if e.attach == "word"}
+
     def phrases(self) -> Iterable[tuple[str, Entry]]:
         return self._entries.items()
 
