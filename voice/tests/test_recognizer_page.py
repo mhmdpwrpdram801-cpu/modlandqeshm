@@ -12,13 +12,28 @@ would pass happily while the page users actually get stays broken.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 SIM = Path(__file__).parent / "recsim" / "run.mjs"
+
+
+def _show(raw: bytes) -> None:
+    """Put the simulator's own report in the log, in bytes.
+
+    Not ``print``: the report is in Persian, and Windows hands a test process a
+    cp1252 stdout — the first version of this file died with UnicodeEncodeError
+    while the thing it was reporting on had passed 13/13. The app already learned
+    this lesson once (``force_utf8`` in ``__main__``); a test may not quietly
+    forget it. GitHub's log is UTF-8, so raw bytes come out right.
+    """
+    sys.stdout.buffer.write(b"\n" + raw)
+    sys.stdout.buffer.flush()
 
 
 def test_the_simulator_is_shipped():
@@ -35,18 +50,23 @@ def test_node_is_available():
     assert shutil.which("node"), "node نصب نیست — بررسی‌های صفحه‌ی تشخیص اجرا نشدند"
 
 
-def test_the_page_behaves(capsys):
-    proc = subprocess.run(
-        ["node", str(SIM)],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=60,
-    )
-    with capsys.disabled():
-        print("\n" + proc.stdout.rstrip())
+def test_the_page_behaves():
+    # Bytes throughout, decoded explicitly: text=True would decode with the
+    # parent's locale, which on Windows is not UTF-8. That exact mistake once
+    # sent this project chasing a phantom encoding bug in the app itself.
+    proc = subprocess.run(["node", str(SIM)], capture_output=True, timeout=60)
+    report = proc.stdout.decode("utf-8", "replace")
+
     if proc.returncode != 0:
-        pytest.fail(f"بررسی‌های صفحه‌ی تشخیص افتادند:\n{proc.stdout}\n{proc.stderr}")
+        _show(proc.stdout + proc.stderr)
+        # ASCII-only message: this string reaches the terminal writer directly,
+        # and a failure report that cannot be printed is not a failure report.
+        failures = report.count("❌")
+        pytest.fail(f"recsim: {failures} check(s) failed, exit {proc.returncode} (report above)")
+
+    passed = re.search(r"(\d+)/(\d+)", report)
+    assert passed, f"recsim printed no tally:\n{report}"
+    assert passed.group(1) == passed.group(2), f"recsim: only {passed.group(0)} passed"
 
 
 def test_the_simulator_reads_the_file_that_ships():
