@@ -149,13 +149,11 @@ class TestState:
         overlay.set_recording(False)
         assert overlay.text() == "سلام"
 
-    def test_target_title_is_shown(self, overlay):
-        overlay.set_target("VS Code")
-        assert "VS Code" in overlay._target.text()
-
-    def test_missing_target_says_so_rather_than_showing_nothing(self, overlay):
-        overlay.set_target("")
-        assert overlay._target.text().strip() != ""
+    def test_the_destination_line_is_gone(self, overlay):
+        # Removed at the owner's request. It also read wrong: our own recogniser
+        # browser could be captured as the destination, and the label announced
+        # that as if it were fine.
+        assert not hasattr(overlay, "_target")
 
 
 class TestWindow:
@@ -191,27 +189,23 @@ class TestSessionLifecycle:
 
     def test_begin_session_starts_empty(self, overlay):
         overlay.append_final("متنِ دفعه‌ی قبل")
-        overlay.begin_session("Notepad")
+        overlay.begin_session()
         assert overlay.text() == ""
 
     def test_begin_session_clears_a_leftover_guess_too(self, overlay):
         overlay.set_interim("حدسِ نیمه‌کاره")
-        overlay.begin_session("Notepad")
+        overlay.begin_session()
         assert overlay.text() == ""
 
-    def test_begin_session_sets_the_target(self, overlay):
-        overlay.begin_session("VS Code")
-        assert "VS Code" in overlay._target.text()
-
     def test_begin_session_shows_the_box(self, overlay):
-        overlay.begin_session("Notepad")
+        overlay.begin_session()
         assert overlay.isVisible()
 
     def test_closing_then_beginning_again_does_not_carry_text_over(self, overlay):
-        overlay.begin_session("Notepad")
+        overlay.begin_session()
         overlay.append_final("سلام")
         overlay.dismiss()
-        overlay.begin_session("Notepad")
+        overlay.begin_session()
         assert overlay.text() == ""
 
     def test_present_alone_keeps_the_text(self, overlay):
@@ -356,11 +350,11 @@ class TestButtons:
         overlay.set_text("سلام")
         assert overlay.text() == "سلام"
 
-    def test_the_hint_names_the_one_shortcut_that_matters(self, overlay):
-        assert "Ctrl+Enter" in overlay._hint.text()
-
-    def test_the_hint_no_longer_advertises_a_button_that_is_gone(self, overlay):
-        assert "Ctrl+L" not in overlay._hint.text()
+    def test_the_hint_line_is_gone(self, overlay):
+        # Also removed at the owner's request. Ctrl+Enter still works; it is on
+        # the primary button's tooltip instead of taking up a row of its own.
+        assert not hasattr(overlay, "_hint")
+        assert "Ctrl+Enter" in overlay._insert.toolTip()
 
 
 class TestGuessAndEditingTogether:

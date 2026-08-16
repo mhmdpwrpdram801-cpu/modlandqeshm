@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
 import sys
 import time
 
@@ -179,12 +178,12 @@ class VoiceApp:
     def start_recording(self) -> None:
         if not self.overlay.isVisible():
             # Must happen before the overlay steals the foreground.
-            self.target_hwnd = inject.capture_target()
+            self.target_hwnd = inject.capture_target(self._own_pids())
             # begin_session, not present: a new dictation starts empty. Closing
             # the box with Esc used to leave the text in the widget, so the next
             # hotkey press showed the previous session's words.
             self._new_session()
-            self.overlay.begin_session(inject.window_title(self.target_hwnd))
+            self.overlay.begin_session()
         if not self.bridge.browser_alive():
             self.overlay.set_status("مرورگرِ تشخیصِ گفتار بسته شده — دوباره بازش می‌کنم", bad=True)
             try:
@@ -277,9 +276,9 @@ class VoiceApp:
         if self.overlay.isVisible():
             self.overlay.present()
             return
-        self.target_hwnd = inject.capture_target()
+        self.target_hwnd = inject.capture_target(self._own_pids())
         self._new_session()
-        self.overlay.begin_session(inject.window_title(self.target_hwnd))
+        self.overlay.begin_session()
 
     def _insert(self, text: str) -> None:
         if self.recording:
@@ -403,10 +402,7 @@ def _explain(error: str) -> str:
 
 
 def _open_in_editor(path) -> None:
-    if sys.platform == "win32":
-        os.startfile(path)
-    else:
-        subprocess.Popen(["xdg-open", str(path)])
+    os.startfile(path)
 
 
 def run() -> int:

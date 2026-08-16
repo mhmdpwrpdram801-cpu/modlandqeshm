@@ -36,9 +36,29 @@ class InjectError(RuntimeError):
     """Something in the focus/clipboard/typing chain refused to co-operate."""
 
 
-def capture_target() -> int:
-    """The window the user was in — call this *before* showing the overlay."""
-    return int(user32().GetForegroundWindow())
+def window_pid(hwnd: int) -> int:
+    """Which process owns *hwnd*, or 0 if it cannot be told."""
+    if not hwnd:
+        return 0
+    pid = wintypes.DWORD(0)
+    user32().GetWindowThreadProcessId(wintypes.HWND(hwnd), ctypes.byref(pid))
+    return int(pid.value)
+
+
+def capture_target(reject_pids: set[int] | None = None) -> int:
+    """The window the user was in — call this *before* showing the overlay.
+
+    *reject_pids* is how our own recogniser browser is kept out. It steals the
+    foreground for a moment while Chrome cold-starts, and a hotkey press in that
+    window captured **it** as the destination: the box then offered to type the
+    user's sentence into an off-screen window they could not even see. Refusing
+    those windows returns 0, which the insert path already reports as "no
+    destination" rather than typing somewhere random.
+    """
+    hwnd = int(user32().GetForegroundWindow())
+    if reject_pids and window_pid(hwnd) in reject_pids:
+        return 0
+    return hwnd
 
 
 def window_title(hwnd: int) -> str:

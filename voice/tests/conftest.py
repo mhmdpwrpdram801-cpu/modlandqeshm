@@ -86,8 +86,7 @@ def shutdown():
 @pytest.fixture
 def make_app(qt_app, monkeypatch, tmp_path):
     """Builds VoiceApps and guarantees every one of them is torn down."""
-    monkeypatch.setattr(inject, "capture_target", lambda: 1234)
-    monkeypatch.setattr(inject, "window_title", lambda _hwnd: "Notepad")
+    monkeypatch.setattr(inject, "capture_target", lambda *_a: 1234)
     monkeypatch.setattr("mlqvoice.app.user_dictionary_file", lambda: tmp_path / "d.json")
     built = []
 
