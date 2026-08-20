@@ -120,7 +120,7 @@ jobs:
           if [ "$FILES" = "__UNKNOWN__" ] || [ -z "$FILES" ]; then
             echo "::warning::فهرستِ تغییرات معلوم نشد — بازرس‌ها را محتاطانه اجرا می‌کنیم"
             echo "run=yes" >> "$GITHUB_OUTPUT"
-          elif echo "$FILES" | grep -qE '^(panel/|expenses/|auditor/)'; then
+          elif echo "$FILES" | grep -qE '^(panel/|expenses/|importer/|auditor/)'; then
             echo "run=yes" >> "$GITHUB_OUTPUT"
           else
             echo "run=no" >> "$GITHUB_OUTPUT"
@@ -147,6 +147,13 @@ jobs:
       - name: بازرسِ ابزارِ خرج
         if: steps.changed.outputs.run == 'yes'
         run: python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json
+
+      # این یکی محصولِ کاربر نیست، **زمینِ آزمایشِ خودِ دستورالعمل** است: جایی که
+      # قاعده‌های کم‌فشارخورده — به‌ویژه API-07 و SEC-07 — با کدِ اجراشدنی زیرِ فشار
+      # می‌روند. سه هشدارِ نادرست در خودِ `audit.py` را همین پیدا کرد.
+      - name: بازرسِ ابزارِ واردکردنِ فایل
+        if: steps.changed.outputs.run == 'yes'
+        run: python3 auditor/audit.py importer/index.html -c importer/audit.config.json
 
       # بازرس پنل و خرج را می‌سنجد؛ این یکی **خودِ بازرس** را. هر بررسی دو نمونه
       # دارد: یکی معیوب که باید گرفته شود، یکی سالم که نباید قرمز بدهد. اولین

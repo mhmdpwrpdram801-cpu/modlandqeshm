@@ -1,0 +1,126 @@
+{
+  "name": "واردکردنِ فایل",
+  "assets": [],
+  "narrow_width": 320,
+  "_note_hscroll": "`.scroll` عمدی است: جدولِ پهن باید **داخلِ خودش** بلغزد، نه اینکه کلِ صفحه را افقی کند. ستونِ «متنِ خام» ذاتاً بلند است.",
+  "allow_hscroll": [".scroll"],
+  "_note_login": "ورود ندارد، ولی همین «آماده شدن» سنجیده می‌شود: اگر boot نرسیده باشد هر بررسیِ محتوایی صفر می‌دهد و ده‌ها باگِ جعلی می‌سازد (CORE-05).",
+  "login_done": "()=>{try{return !!(window.IMP&&window.IMP.ready)}catch(e){return false}}",
+
+  "_note_reset": "قبل از هر بررسی: زبانه‌ی اول، حالتِ خالی، تمِ روشن. هر بررسی وضعیتِ خودش را می‌سازد و به جامانده‌ی قبلی تکیه نمی‌کند (TEST-03).",
+  "reset": "(()=>{window.IMP.setTheme('light');window.IMP.clear();window.IMP.gotoTab(0);return 0})()",
+
+  "screens": [
+    ["فایل",     "(()=>window.IMP.gotoTab(0))()"],
+    ["نتیجه",    "(()=>{window.IMP.importText('date,title,amount\\n1405/05/09,کرایه,1200000\\n','csv');return window.IMP.gotoTab(1)})()"],
+    ["ردشده‌ها",  "(()=>{window.IMP.importText('date,title,amount\\n1405/05/09,قبض,12.5\\n','csv');return window.IMP.gotoTab(2)})()"],
+    ["در حالِ خواندن", "(()=>{window.IMP.setPhase('loading');return window.IMP.gotoTab(1)})()"],
+    ["خطا",      "(()=>{window.IMP.setPhase('error','فایل خوانده نشد.');return window.IMP.gotoTab(1)})()"]
+  ],
+
+  "themes": [
+    {"name": "تاریک", "js": "window.IMP.setTheme('dark')"},
+    {"name": "روشن",  "js": "window.IMP.setTheme('light')"}
+  ],
+
+  "_note_click": "کلیکِ واقعی، نه صدا زدنِ تابع (TEST-02). دو نکته که اولین بار اشتباه نوشتم و بازرس درست قرمز داد: (۱) زبانه‌ای که همین حالا انتخاب است با کلیک **باید** بی‌اثر باشد، پس از فهرست بیرون است — نه اینکه بررسی را ضعیف کنیم. (۲) `before` قبلاً خودِ `sample()` را صدا می‌زد، یعنی دکمه‌ی «نمونه بگذار» همان چیزی را می‌گذاشت که از قبل بود و بی‌اثر به نظر می‌رسید؛ حالا متنِ **متفاوتی** می‌گذارد تا هم «وارد کن» و هم «پاک کن» و هم «نمونه بگذار» تغییرِ دیدنی بسازند.",
+  "click_test": {
+    "selector": ".tabs button:not([aria-selected=\"true\"]), #goBtn, #sampleBtn, #clearBtn, #themeBtn",
+    "before": "(()=>{document.getElementById('pasteIn').value='date,title,amount\\n1405/05/09,کرایه,1200000\\n';return 0})()"
+  },
+
+  "checks": [
+    {
+      "name": "پارسرِ آدم نرم است — سه شکلِ ۸۵۰٬۰۰۰",
+      "js": "()=>[window.IMP.parseHumanAmount('850000'),window.IMP.parseHumanAmount('۸۵۰٬۰۰۰'),window.IMP.parseHumanAmount('850,000'),window.IMP.parseHumanAmount('850.000')].join('/')",
+      "expect": "850000/850000/850000/850000"
+    },
+    {
+      "_why": "قلبِ API-07: **یک رشته، دو جواب.** «850.000» را آدم که تایپ کند یعنی هشتصدوپنجاه هزار و حدس زدنش لطف است؛ همان رشته در فایل ممکن است ممیزِ اعشاری باشد و حدس زدنش یک عددِ *معتبرِ غلط* می‌سازد که هیچ‌جا خطا نمی‌دهد. پس مرزِ فایل پارسرِ خودش را دارد و رد می‌کند.",
+      "name": "API-07 — «850.000» را پارسرِ آدم می‌خواند ولی مرزِ فایل ردش می‌کند",
+      "js": "()=>{const m=window.IMP.parseMachineAmount('850.000');const h=window.IMP.parseHumanAmount('850.000');return [m.ok,String(h)].join('|')}",
+      "expect": "false|850000"
+    },
+    {
+      "name": "API-07 — «12.5» هیچ‌کدام از دو پارسر را گول نمی‌زند",
+      "js": "()=>{const m=window.IMP.parseMachineAmount('12.5');const h=window.IMP.parseHumanAmount('12.5');return [m.ok,String(h)].join('|')}",
+      "expect": "false|NaN"
+    },
+    {
+      "name": "API-07 — همان ردیف در فایل رد می‌شود و شمرده می‌شود",
+      "js": "()=>{const s=window.IMP.importText('date,title,amount\\n1405/05/09,قبض,12.5\\n','csv');const b=window.IMP.bad();return [s.accepted,s.rejected,b.length&&b[0].why.indexOf('حدس زده نمی‌شود')>=0].join('/')}",
+      "expect": "0/1/true"
+    },
+    {
+      "name": "مبلغِ اعشاری در JSON هم رد می‌شود (DATA-03)",
+      "js": "()=>{const s=window.IMP.importText(JSON.stringify([{date:'1405/05/09',title:'x',amount:12.5}]),'json');return [s.accepted,s.rejected].join('/')}",
+      "expect": "0/1"
+    },
+    {
+      "name": "جمع با عددِ دستی‌حساب‌شده می‌خواند (TEST-06)",
+      "js": "()=>{const s=window.IMP.importText('date,title,amount\\n1405/05/09,a,1200000\\n1405/05/10,b,350000\\n1405/05/11,c,7000\\n','csv');return [s.accepted,s.total].join('/')}",
+      "expect": "3/1557000"
+    },
+    {
+      "name": "ردیفِ خراب کلِ فایل را نمی‌اندازد — بقیه وارد می‌شوند",
+      "js": "()=>{const s=window.IMP.importText('date,title,amount\\n1405/05/09,a,1000\\n1405/13/01,b,2000\\n1405/05/11,,3000\\n1405/05/12,d,4000\\n','csv');return [s.accepted,s.rejected,s.total].join('/')}",
+      "expect": "2/2/5000"
+    },
+    {
+      "name": "سرصفحه‌ی ناقص با پیامِ روشن رد می‌شود، نه با صفرِ خاموش",
+      "js": "()=>{const s=window.IMP.importText('date,title\\n1405/05/09,a\\n','csv');return [s.accepted,s.phase].join('/')}",
+      "expect": "0/error"
+    },
+    {
+      "name": "JSONِ خراب پیامِ روشن می‌دهد",
+      "js": "()=>{const s=window.IMP.importText('{ناقص','json');return s.phase}",
+      "expect": "error"
+    },
+    {
+      "name": "قالبِ تاریخِ ناشناخته حدس زده نمی‌شود",
+      "js": "()=>[window.IMP.parseMachineDate('1405/05/09').ok,window.IMP.parseMachineDate('2026-08-14').ok,window.IMP.parseMachineDate('۱۴۰۵/۰۵/۰۹').ok,window.IMP.parseMachineDate('نهمِ مرداد').ok].join('/')",
+      "expect": "true/true/true/false"
+    },
+    {
+      "name": "نامِ بدقواره متن می‌مانَد، HTML نمی‌شود (SEC-04)",
+      "js": "()=>{window.IMP.importText('date,title,amount\\n1405/05/09,\"<b>پررنگ</b> & \"\"نقل\"\"\",1000\\n','csv');window.IMP.gotoTab(1);const td=document.querySelector('#okBody tr td:nth-child(2)');return [document.querySelectorAll('#okBody b').length,td?td.textContent.slice(0,3):'?'].join('/')}",
+      "expect": "0/<b>"
+    },
+    {
+      "name": "هر چهار حالتِ ناهمگام نما دارد (UI-07)",
+      "js": "()=>{const r=[];window.IMP.clear();window.IMP.gotoTab(1);r.push(!document.getElementById('okEmpty').classList.contains('hidden'));window.IMP.setPhase('loading');r.push(!document.getElementById('okLoad').classList.contains('hidden'));window.IMP.setPhase('error','x');r.push(!document.getElementById('okError').classList.contains('hidden'));window.IMP.importText('date,title,amount\\n1405/05/09,a,1\\n','csv');r.push(!document.getElementById('okTable').classList.contains('hidden'));return r.join('/')}",
+      "expect": "true/true/true/true"
+    },
+    {
+      "_why": "نامِ این بررسی اولش «هیچ رقمِ لاتینی در متنِ دیده‌شدنی نیست» بود و بیش از کاری که می‌کرد ادعا می‌کرد: فقط زبانه‌ی «نتیجه» را می‌بیند. زبانه‌ی «ردشده‌ها» عمداً **متنِ خامِ** ردیف را نشان می‌دهد و فارسی‌کردنش دروغ می‌شد — کاربر باید همان چیزی را ببیند که در فایل بود. بررسی‌ای که اسمش از کارش بزرگ‌تر باشد خودش یک سبزِ توخالی است.",
+      "name": "در جدولِ نتیجه هیچ رقمِ لاتینی نمی‌مانَد (UI-05)",
+      "js": "()=>{window.IMP.importText('date,title,amount\\n1405/05/09,a,1200000\\n1405/13/01,b,5\\n','csv');window.IMP.gotoTab(1);const t=document.body.innerText;return /[0-9]/.test(t.replace(/[۰-۹]/g,''))?'رقمِ لاتین دارد: '+(t.match(/[^\\n]*[0-9][^\\n]*/)||[''])[0].slice(0,40):'بدونِ رقمِ لاتین'}",
+      "expect": "بدونِ رقمِ لاتین"
+    },
+    {
+      "name": "هر متغیرِ رنگ در هر دو تم تعریف شده",
+      "js": "()=>{const names=['--bg','--panel','--fg','--muted','--line','--accent','--ok','--danger','--chip'];const get=()=>names.map(n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()).filter(Boolean).length;window.IMP.setTheme('dark');const d=get();window.IMP.setTheme('light');const l=get();return [d,l,names.length].join('/')}",
+      "expect": "9/9/9"
+    },
+    {
+      "name": "هدفِ لمسیِ هر دکمه دستِ‌کم ۴۴ پیکسل است (UI-01)",
+      "js": "()=>{const bad=[...document.querySelectorAll('button')].filter(b=>{const r=b.getBoundingClientRect();return r.height<44||r.width<44});return bad.length?bad.map(b=>b.id||b.textContent.trim().slice(0,10)).join(','):'همه ۴۴ یا بیشتر'}",
+      "expect": "همه ۴۴ یا بیشتر"
+    },
+    {
+      "name": "هر ورودی لیبلِ وصل‌شده دارد (UI-01)",
+      "js": "()=>{const bad=[...document.querySelectorAll('input,textarea')].filter(e=>{if(e.type==='hidden')return false;const l=e.id&&document.querySelector('label[for=\"'+e.id+'\"]');return !(l||e.getAttribute('aria-label'))});return bad.length?bad.map(e=>e.id||e.type).join(','):'همه لیبل دارند'}",
+      "expect": "همه لیبل دارند"
+    },
+    {
+      "name": "فایلِ بزرگ‌تر از سقف رد می‌شود (SEC-07)",
+      "js": "()=>{const big=new File([new Uint8Array(2*1024*1024+10)],'x.csv',{type:'text/csv'});const dt=new DataTransfer();dt.items.add(big);const el=document.getElementById('fileIn');el.files=dt.files;el.dispatchEvent(new Event('change'));const e=document.getElementById('fileErr');return e.classList.contains('hidden')?'رد نشد':'رد شد'}",
+      "expect": "رد شد"
+    },
+    {
+      "name": "پسوند کافی نیست — محتوا سنجیده می‌شود (SEC-07)",
+      "js": "()=>{const f=new File(['این فقط یک جمله است'],'x.csv',{type:'text/csv'});const dt=new DataTransfer();dt.items.add(f);const el=document.getElementById('fileIn');el.files=dt.files;el.dispatchEvent(new Event('change'));return new Promise(r=>setTimeout(()=>r(window.IMP.state().phase),120))}",
+      "expect": "error"
+    }
+  ]
+}

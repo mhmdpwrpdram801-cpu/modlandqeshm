@@ -1,0 +1,20 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>نمونه</title>
+<style>
+ :root{--bg:#fff;--fg:#111}
+ html[data-theme="dark"]{--bg:#111;--fg:#eee}
+ .force-light{--bg:#fff;--fg:#111}
+ @media print{:root{--bg:#fff;--fg:#111}}
+ body{background:var(--bg);color:var(--fg);font:16px system-ui;margin:0;padding:16px}
+ button{min-height:44px;min-width:44px}
+</style></head><body>
+<h1 id="t">نمونه</h1>
+<div id="tab0">یک</div>
+<div id="tab1">دو</div>
+<button id="b1" onclick="go()">دکمه</button>
+<script>window.APP={ready:true};
+/* اینجا شناسه **کامل** در همان رشته است و چنین عنصری وجود ندارد.
+   این همان باگی است که بررسی برای گرفتنش نوشته شده و باید بگیردش. */
+function go(){var e=document.getElementById('tab7');if(e)e.textContent='x';
+document.getElementById("t").textContent="زده شد"}
+</script></body></html>

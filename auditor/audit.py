@@ -89,6 +89,12 @@ def static_checks(html_path, cfg):
     _h = src
     for _b in re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', _h, flags=re.S | re.I): _h = _h.replace(_b, '')
     for _b in re.findall(r'<style[^>]*>(.*?)</style>', _h, flags=re.S | re.I): _h = _h.replace(_b, '')
+    # توضیحِ HTML هم باید برداشته شود، وگرنه یک کامنتِ کاملاً بی‌ضرر که در متنش
+    # نامِ یک تگ آمده — «<!-- تم روی <html> می‌نشیند -->» — پشته‌ی تگ‌ها را به‌هم
+    # می‌ریزد و بازرس «تگِ بسته‌نشده: html» اعلام می‌کند. هشدارِ نادرست روی کدی
+    # که هیچ ایرادی ندارد (CORE-04). تگِ واقعیِ بسته‌نشده بیرونِ کامنت است، پس
+    # این کار چیزی را پنهان نمی‌کند.
+    _h = re.sub(r'<!--.*?-->', '', _h, flags=re.S)
     VOID = {'br','hr','img','input','meta','link','source','track','area','base','col','embed','param','wbr','path','svg','use','circle','rect','line','polygon','polyline','ellipse'}
     _stack, _bad = [], []
     for m in re.finditer(r'<(/?)([a-zA-Z][\w-]*)([^>]*?)(/?)>', _h):
@@ -110,7 +116,13 @@ def static_checks(html_path, cfg):
     dup = sorted({i for i in ids if ids.count(i) > 1})
     ok(f"هیچ‌کدام از {len(ids)} شناسه تکراری نیست") if not dup else bad("شناسه‌ی تکراری: " + ', '.join(dup))
 
-    want = set(re.findall(r"getElementById\(\s*['\"]([A-Za-z][\w-]*)['\"]", app))
+    # فقط فراخوانی‌ای سنجیده می‌شود که شناسه **تمامش** در همان رشته باشد:
+    # `getElementById('x')`. اگر بعدش `+` بیاید — `getElementById('tab'+k)` —
+    # شناسه در زمانِ اجرا ساخته می‌شود و اینجا اصلاً معلوم نیست چیست؛ الگوی
+    # قبلی «tab» را می‌خواند و **عنصرِ گمشده** اعلامش می‌کرد. یک هشدارِ نادرستِ
+    # تمام‌عیار روی کدِ کاملاً عادی (CORE-04). قرارِ قبلی این بود که پیشوند به
+    # `-` ختم شود؛ ولی این قاعده‌ی خودِ ما بود، نه قاعده‌ی جاواسکریپت.
+    want = set(re.findall(r"getElementById\(\s*['\"]([A-Za-z][\w-]*)['\"]\s*\)", app))
     have = (set(ids) | set(re.findall(r'id="([\w-]+)"', app)) | set(re.findall(r"id='([\w-]+)'", app))
             | set(re.findall(r"\.id\s*=\s*['\"]([\w-]+)['\"]", app)) | set(cfg['allow_missing_ids']))
     miss = sorted(w for w in want - have if not w.endswith('-'))
@@ -215,6 +227,35 @@ JUNK_ATTR_SCAN = """()=>{
   });
   return out.slice(0,3);
 }"""
+
+# ───────────────────────────── «بعد از کلیک چیزی عوض شد؟»
+# نسخه‌ی اول فقط `document.body.innerHTML.length` را می‌شمرد و به سه دسته‌ی کاملِ
+# تغییر **کور** بود — هر سه در همین مخزن پیدا شدند، روی کدِ سالم:
+#
+#   ۱. جابه‌جاییِ کلاس  — زبانه‌ای که `active` را از یکی می‌گیرد و به دیگری می‌دهد،
+#      طولِ innerHTML را دقیقاً همان‌قدر نگه می‌دارد. صفر تغییر، ولی کاربر عوض شدنش
+#      را می‌بیند.
+#   ۲. ویژگیِ ریشه       — عوض کردنِ تم روی `<html data-theme>` می‌نشیند و اصلاً
+#      داخلِ `body.innerHTML` نیست.
+#   ۳. مقدارِ فیلد       — `textarea.value` یک **ویژگیِ شیء** است نه صفتِ HTML، پس
+#      «پاک کن» متن را می‌بُرد و امضا تکان نمی‌خورد.
+#
+# پس امضا اینها را هم می‌گیرد. جهتِ این تغییر یک‌طرفه است و همین مهم است: امضای
+# حساس‌تر فقط می‌تواند «مرده» را به «زنده» برگرداند، پس دکمه‌ی واقعاً مرده‌ای که
+# قبلاً گرفته می‌شد از دست نمی‌رود.
+CLICK_SIG = """()=>{
+  const s=document.body.innerHTML;
+  let h=0; for(let i=0;i<s.length;i++) h=(Math.imul(h,31)+s.charCodeAt(i))|0;
+  const root=[...document.documentElement.attributes].map(a=>a.name+'='+a.value).join(',');
+  const cs=getComputedStyle(document.body);
+  const fields=[...document.querySelectorAll('input,textarea,select')]
+    .map(e=>e.type==='checkbox'||e.type==='radio'?(e.checked?'1':'0'):String(e.value).length+':'+String(e.value).slice(0,24)).join('~');
+  const ov=[...document.querySelectorAll('.overlay,dialog,.modal')].filter(o=>!o.classList.contains('hidden')).length;
+  return [s.length,h,root,cs.backgroundColor,cs.color,fields,ov,location.hash].join('|');
+}"""
+# عمداً `document.activeElement` در امضا **نیست**: کلیک خودش دکمه را فوکوس می‌کند،
+# پس هر دکمه‌ای — حتی دکمه‌ای که هیچ کاری نمی‌کند — امضا را عوض می‌کرد و بررسی
+# دیگر هیچ‌وقت قرمز نمی‌شد. یک سبزِ توخالیِ تمام‌عیار (CORE-12).
 
 # ───────────────────────────── کشوی افقیِ ناخواسته
 # بررسیِ scrollWidth روی کلِ سند، پنجره‌ای که خودش کشوی افقی دارد را نمی‌بیند:
@@ -524,9 +565,9 @@ def runtime_checks(url, cfg, html_path, engine='chromium', repeat=1):
             for el in els:
                 lbl = ((el.inner_text() or '').split(chr(10))[0].strip() or 'دکمه')[:22]
                 try:
-                    sig0 = pg.evaluate("()=>document.body.innerHTML.length + '|' + [...document.querySelectorAll('.overlay,dialog,.modal')].filter(o=>!o.classList.contains('hidden')).length")
+                    sig0 = pg.evaluate(CLICK_SIG)
                     el.click(timeout=2500); pg.wait_for_timeout(ct.get('settle', 450))
-                    sig1 = pg.evaluate("()=>document.body.innerHTML.length + '|' + [...document.querySelectorAll('.overlay,dialog,.modal')].filter(o=>!o.classList.contains('hidden')).length")
+                    sig1 = pg.evaluate(CLICK_SIG)
                     if sig0 == sig1: dead.append(lbl + ' (هیچ اتفاقی نیفتاد)')
                     if cfg['reset']: pg.evaluate(cfg['reset'])
                     if ct.get('before'): pg.evaluate(ct['before']); pg.wait_for_timeout(200)
