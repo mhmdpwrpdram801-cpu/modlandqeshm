@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f1216" id="tc">
+<title>واردکردنِ فایل</title>
+<style>
+/* هر رنگ در چهار جا تعریف می‌شود: :root، تمِ تاریک، force-light و چاپ.
+   متغیرِ تعریف‌نشده خطا نمی‌دهد — مرورگر بی‌صدا رهایش می‌کند و رنگ به ارث می‌رسد. */
+:root{
+  --bg:#f4f5f7; --panel:#ffffff; --fg:#14181d; --muted:#4a5560;
+  --line:#d7dce2; --accent:#7a4b00; --ok:#1c6b3a; --danger:#a3221f;
+  --chip:#eef1f5;
+}
+html[data-theme="dark"]{
+  --bg:#0f1216; --panel:#171c22; --fg:#e8edf2; --muted:#a3b0bd;
+  --line:#2a323b; --accent:#f0b95b; --ok:#5fd08a; --danger:#ff8b86;
+  --chip:#1f262e;
+}
+.force-light{
+  --bg:#f4f5f7; --panel:#ffffff; --fg:#14181d; --muted:#4a5560;
+  --line:#d7dce2; --accent:#7a4b00; --ok:#1c6b3a; --danger:#a3221f;
+  --chip:#eef1f5;
+}
+@media print{
+  :root{--bg:#fff; --panel:#fff; --fg:#000; --muted:#333;
+        --line:#999; --accent:#000; --ok:#000; --danger:#000; --chip:#fff}
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font:16px/1.7 system-ui,'Segoe UI',Tahoma,sans-serif;
+  padding-block:12px; padding-inline:12px;   /* منطقی، نه left/right */
+}
+header{display:flex; align-items:center; gap:10px; margin-block-end:14px}
+h1{font-size:19px; margin:0; flex:1}
+.btn{
+  font:inherit; min-height:44px; min-inline-size:44px; padding-inline:14px;
+  border:1px solid var(--line); border-radius:10px;
+  background:var(--panel); color:var(--fg); cursor:pointer;
+}
+.btn:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.btn.primary{background:var(--accent); color:var(--panel); border-color:var(--accent)}
+html[data-theme="dark"] .btn.primary{color:#14181d}
+.tabs{display:flex; gap:8px; margin-block-end:12px; flex-wrap:wrap}
+.tab[aria-selected="true"]{border-color:var(--accent); font-weight:700}
+.card{
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:12px; padding:14px; margin-block-end:12px;
+}
+label{display:block; margin-block-end:6px; color:var(--muted); font-size:14px}
+input[type=text],textarea{
+  font:inherit; inline-size:100%; padding:10px; min-height:44px;
+  border:1px solid var(--line); border-radius:10px;
+  background:var(--bg); color:var(--fg);
+}
+textarea{min-height:120px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:14px}
+/* سافاری به `input[type=file]` یک عرضِ ذاتیِ درشت می‌دهد که به `max-width` هم
+   گوش نمی‌کند مگر `min-inline-size` را صفر کنی. کرومیوم این را نشان نمی‌داد و
+   فقط وب‌کیت گرفتش — همان دلیلی که هر تغییرِ رابط با هر دو موتور زده می‌شود. */
+input[type=file]{
+  inline-size:100%; max-inline-size:100%; min-inline-size:0; min-height:44px;
+  font:inherit; padding:10px; border:1px solid var(--line);
+  border-radius:10px; background:var(--bg); color:var(--fg);
+}
+table{inline-size:100%; border-collapse:collapse; font-size:14px}
+th,td{padding:8px 6px; border-block-end:1px solid var(--line); text-align:start}
+th{color:var(--muted); font-weight:600}
+.num{font-variant-numeric:tabular-nums; white-space:nowrap}
+.tag{display:inline-block; padding:2px 8px; border-radius:999px; background:var(--chip); font-size:12.5px}
+.tag.bad{color:var(--danger)}
+.tag.good{color:var(--ok)}
+.muted{color:var(--muted)}
+.scroll{overflow-x:auto}
+.state{padding:18px; text-align:center; color:var(--muted)}
+.hidden{display:none}
+.err{color:var(--danger)}
+.sum{display:flex; gap:10px; flex-wrap:wrap; margin-block-end:10px}
+.sum div{background:var(--chip); border-radius:10px; padding:8px 12px}
+.sum b{font-size:18px; display:block}
+footer{color:var(--muted); font-size:13px; margin-block-start:18px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>واردکردنِ فایل</h1>
+  <button class="btn" id="themeBtn" onclick="impTheme()" aria-label="عوض کردنِ تم">🌓</button>
+</header>
+
+<div class="tabs" role="tablist">
+  <button class="btn tab" id="tab0" role="tab" aria-selected="true"  onclick="impTab(0)">۱. فایل</button>
+  <button class="btn tab" id="tab1" role="tab" aria-selected="false" onclick="impTab(1)">۲. نتیجه</button>
+  <button class="btn tab" id="tab2" role="tab" aria-selected="false" onclick="impTab(2)">۳. ردشده‌ها</button>
+</div>
+
+<!-- ۱) ورودی -->
+<section id="scr0">
+  <div class="card">
+    <label for="fileIn">فایلِ CSV یا JSON</label>
+    <input type="file" id="fileIn" accept=".csv,.json,text/csv,application/json"
+           onchange="impPick(this)">
+    <p class="muted" id="fileNote">حداکثر ۲ مگابایت. پسوند کافی نیست — خودِ محتوا هم سنجیده می‌شود.</p>
+    <p class="err hidden" id="fileErr" role="alert"></p>
+  </div>
+
+  <div class="card">
+    <label for="pasteIn">یا متن را همین‌جا بچسبان</label>
+    <textarea id="pasteIn" placeholder="date,title,amount&#10;1405/05/09,کرایه,1200000"></textarea>
+    <div style="display:flex;gap:8px;margin-block-start:10px;flex-wrap:wrap">
+      <button class="btn primary" id="goBtn" onclick="impRun()">وارد کن</button>
+      <button class="btn" id="sampleBtn" onclick="impSample()">نمونه بگذار</button>
+      <button class="btn" id="clearBtn" onclick="impClear()">پاک کن</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label for="manualAmt">افزودنِ دستی — مبلغ (تومان)</label>
+    <input type="text" id="manualAmt" inputmode="numeric" placeholder="۸۵۰٬۰۰۰ یا 850000">
+    <p class="muted" id="manualHint">—</p>
+    <p class="muted" style="font-size:13px">
+      اینجا آدم تایپ می‌کند، پس جداکننده‌ی هزار و رقمِ فارسی فهمیده می‌شود.
+      <b>ولی همین نرمش روی فایل اعمال نمی‌شود</b> — آنجا حدس زدن یعنی عددِ غلطِ خاموش.
+    </p>
+  </div>
+</section>
+
+<!-- ۲) نتیجه -->
+<section id="scr1" class="hidden">
+  <div class="sum" id="sum">
+    <div><span class="muted">پذیرفته</span><b class="num" id="nOk">—</b></div>
+    <div><span class="muted">ردشده</span><b class="num" id="nBad">—</b></div>
+    <div><span class="muted">جمع</span><b class="num" id="nSum">—</b></div>
+  </div>
+  <div class="card">
+    <div id="okEmpty"  class="state">هنوز چیزی وارد نشده — از زبانه‌ی «۱. فایل» شروع کن.</div>
+    <div id="okLoad"   class="state hidden">⏳ دارم می‌خوانم…</div>
+    <div id="okError"  class="state hidden err" role="alert"></div>
+    <div class="scroll"><table id="okTable" class="hidden">
+      <thead><tr><th>تاریخ</th><th>بابت</th><th class="num">مبلغ (تومان)</th></tr></thead>
+      <tbody id="okBody"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ۳) ردشده‌ها -->
+<section id="scr2" class="hidden">
+  <div class="card">
+    <p class="muted">هر ردیفی که فهمیده نشد اینجاست، با دلیلش. <b>هیچ‌کدام حدس زده نشدند.</b></p>
+    <div id="badEmpty" class="state">ردیفِ ردشده‌ای نیست.</div>
+    <div class="scroll"><table id="badTable" class="hidden">
+      <thead><tr><th>سطر</th><th>دلیل</th><th>متنِ خام</th></tr></thead>
+      <tbody id="badBody"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<footer>داده جایی نمی‌رود — همه‌چیز در همین مرورگر می‌مانَد.</footer>
+
+<script>
+'use strict';
+
+/* ───────────────────────── پایه ───────────────────────── */
+var FA = '۰۱۲۳۴۵۶۷۸۹';
+function faNum(n){ return String(n).replace(/\d/g, function(d){ return FA[+d]; }); }
+function faMoney(n){
+  var s = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '٬');
+  return (n < 0 ? '−' : '') + faNum(s);
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* ─────────────── دو پارسر، عمداً جدا (API-07) ───────────────
+   پارسرِ آدم نرم است، چون آدم «۸۵۰٬۰۰۰» و «850,000» می‌نویسد و حدس زدن لطف است.
+   پارسرِ ماشین سخت است، چون فایل را ماشین نوشته و همان نرمش آنجا یک عددِ
+   **معتبرِ غلط** می‌سازد: «12.5» در فایل ممیز است، ولی پارسرِ آدم آن را
+   جداکننده‌ی هزار می‌خواند و بی‌صدا ۱۲۵ می‌کند.
+   یک تابعِ خواندن برای دو قرارداد ننویس. */
+
+function parseHumanAmount(s){                       // نرم — فقط برای ورودیِ تایپی
+  if (s == null) return NaN;
+  var t = String(s).trim();
+  if (!t) return NaN;
+  for (var i = 0; i < 10; i++) t = t.split(FA[i]).join(String(i));
+  t = t.replace(/[٬,\s‌]/g, '');               // جداکننده‌ی هزار
+  t = t.replace(/[٫.](?=\d{3}\b)/g, '');            // «850.000» یعنی هشتصدوپنجاه هزار
+  if (!/^-?\d+$/.test(t)) return NaN;
+  return parseInt(t, 10);
+}
+
+function parseMachineAmount(s){                     // سخت — برای هر چیزی که ماشین نوشته
+  if (typeof s === 'number') {
+    if (!Number.isInteger(s)) return { ok:false, why:'مبلغِ اعشاری — پول عددِ صحیح است' };
+    return { ok:true, v:s };
+  }
+  var t = String(s == null ? '' : s).trim();
+  if (!t) return { ok:false, why:'مبلغ خالی است' };
+  if (!/^-?\d+$/.test(t)) {
+    return { ok:false, why:'مبلغ فقط رقم می‌پذیرد — «' + t + '» حدس زده نمی‌شود' };
+  }
+  var n = parseInt(t, 10);
+  if (!Number.isSafeInteger(n)) return { ok:false, why:'مبلغ بزرگ‌تر از حدِ امن' };
+  return { ok:true, v:n };
+}
+
+/* تاریخ: جلالی یا میلادیِ ISO. شکلِ ناشناخته رد می‌شود، ترمیم نمی‌شود. */
+function parseMachineDate(s){
+  var t = String(s == null ? '' : s).trim();
+  if (!t) return { ok:false, why:'تاریخ خالی است' };
+  for (var i = 0; i < 10; i++) t = t.split(FA[i]).join(String(i));
+  var m = t.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if (!m) return { ok:false, why:'قالبِ تاریخ شناخته نشد: «' + t + '»' };
+  var y = +m[1], mo = +m[2], d = +m[3];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return { ok:false, why:'تاریخِ نامعتبر: «' + t + '»' };
+  var jalali = y < 1700;                            // ۱۴۰۵ جلالی، ۲۰۲۶ میلادی
+  var pad = function(x){ return (x < 10 ? '0' : '') + x; };
+  return { ok:true, v:y + '/' + pad(mo) + '/' + pad(d), jalali:jalali };
+}
+
+/* ───────────────────────── حالت ───────────────────────── */
+var ST = { rows:[], bad:[], phase:'empty', err:'' };
+
+function impState(){
+  return { accepted:ST.rows.length, rejected:ST.bad.length,
+           total:ST.rows.reduce(function(s,r){ return s + r.amount; }, 0),
+           phase:ST.phase };
+}
+
+/* ─────────────── خواندنِ CSV (بدونِ کتابخانه) ─────────────── */
+function splitCsvLine(line){
+  var out = [], cur = '', q = false;
+  for (var i = 0; i < line.length; i++){
+    var c = line[i];
+    if (q){
+      if (c === '"' && line[i+1] === '"'){ cur += '"'; i++; }
+      else if (c === '"') q = false;
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ','){ out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+function rowsFromCsv(text){
+  var lines = text.split(/\r?\n/).filter(function(l){ return l.trim() !== ''; });
+  if (!lines.length) return { rows:[], why:'فایل خالی است' };
+  var head = splitCsvLine(lines[0]).map(function(h){ return h.trim().toLowerCase(); });
+  var need = ['date','title','amount'];
+  for (var i = 0; i < need.length; i++){
+    if (head.indexOf(need[i]) < 0){
+      return { rows:[], why:'ستونِ «' + need[i] + '» در سرصفحه نیست' };
+    }
+  }
+  var out = [];
+  for (var r = 1; r < lines.length; r++){
+    var cells = splitCsvLine(lines[r]);
+    var o = {};
+    for (var c = 0; c < head.length; c++) o[head[c]] = cells[c];
+    out.push({ n:r + 1, raw:lines[r], o:o });
+  }
+  return { rows:out };
+}
+
+function rowsFromJson(text){
+  var data;
+  try { data = JSON.parse(text); }
+  catch (e){ return { rows:[], why:'JSONِ سالم نیست: ' + e.message }; }
+  if (!Array.isArray(data)) return { rows:[], why:'JSON باید آرایه باشد' };
+  return { rows: data.map(function(o, i){
+    return { n:i + 1, raw:JSON.stringify(o), o:(o && typeof o === 'object') ? o : {} };
+  }) };
+}
+
+/* ─────────────── مرز: رد کن، ترمیم نکن (API-07) ─────────────── */
+function parseRow(rec){
+  var o = rec.o || {};
+  var d = parseMachineDate(o.date);
+  if (!d.ok) return { ok:false, n:rec.n, why:d.why, raw:rec.raw };
+  var t = String(o.title == null ? '' : o.title).trim();
+  if (!t) return { ok:false, n:rec.n, why:'بابت خالی است', raw:rec.raw };
+  if (t.length > 120) return { ok:false, n:rec.n, why:'بابت بیش از ۱۲۰ نویسه', raw:rec.raw };
+  var a = parseMachineAmount(o.amount);
+  if (!a.ok) return { ok:false, n:rec.n, why:a.why, raw:rec.raw };
+  if (a.v <= 0) return { ok:false, n:rec.n, why:'مبلغ باید بزرگ‌تر از صفر باشد', raw:rec.raw };
+  return { ok:true, row:{ date:d.v, jalali:d.jalali, title:t, amount:a.v } };
+}
+
+function importText(text, kind){
+  ST.rows = []; ST.bad = []; ST.err = '';
+  var got = (kind === 'json') ? rowsFromJson(text) : rowsFromCsv(text);
+  if (got.why){ ST.phase = 'error'; ST.err = got.why; render(); return impState(); }
+  for (var i = 0; i < got.rows.length; i++){
+    var r = parseRow(got.rows[i]);
+    if (r.ok) ST.rows.push(r.row);
+    else ST.bad.push({ n:r.n, why:r.why, raw:r.raw });
+  }
+  ST.phase = ST.rows.length ? 'ok' : (ST.bad.length ? 'ok' : 'empty');
+  render();
+  return impState();
+}
+
+/* ───────────────────────── نما ───────────────────────── */
+function show(id, on){ var e = document.getElementById(id); if (e) e.classList.toggle('hidden', !on); }
+
+function render(){
+  var s = impState();
+  document.getElementById('nOk').textContent  = faNum(s.accepted);
+  document.getElementById('nBad').textContent = faNum(s.rejected);
+  document.getElementById('nSum').textContent = faMoney(s.total);
+
+  show('okEmpty', ST.phase === 'empty');
+  show('okLoad',  ST.phase === 'loading');
+  show('okError', ST.phase === 'error');
+  show('okTable', ST.phase === 'ok' && ST.rows.length > 0);
+  if (ST.phase === 'error') document.getElementById('okError').textContent = ST.err;
+
+  document.getElementById('okBody').innerHTML = ST.rows.map(function(r){
+    return '<tr><td class="num">' + faNum(r.date) + '</td><td>' + esc(r.title) +
+           '</td><td class="num">' + faMoney(r.amount) + '</td></tr>';
+  }).join('');
+
+  show('badEmpty', ST.bad.length === 0);
+  show('badTable', ST.bad.length > 0);
+  document.getElementById('badBody').innerHTML = ST.bad.map(function(b){
+    return '<tr><td class="num">' + faNum(b.n) + '</td><td class="tag bad">' + esc(b.why) +
+           '</td><td class="muted">' + esc(String(b.raw).slice(0, 60)) + '</td></tr>';
+  }).join('');
+}
+
+/* ───────────────────────── کنش‌ها ───────────────────────── */
+var MAX_BYTES = 2 * 1024 * 1024;
+
+function impPick(el){
+  var f = el && el.files && el.files[0];
+  show('fileErr', false);
+  if (!f) return;
+  // SEC-07: فایل نامعتبر است تا خلافش ثابت شود — سقفِ حجم، و نوعِ **واقعی**
+  // از روی محتوا، نه پسوند.
+  if (f.size > MAX_BYTES){
+    document.getElementById('fileErr').textContent =
+      'فایل بزرگ‌تر از ۲ مگابایت است (' + faNum(Math.round(f.size / 1024)) + ' کیلوبایت).';
+    show('fileErr', true); return;
+  }
+  ST.phase = 'loading'; render();
+  var fr = new FileReader();
+  fr.onerror = function(){
+    ST.phase = 'error'; ST.err = 'فایل خوانده نشد.'; render();
+  };
+  fr.onload = function(){
+    var text = String(fr.result || '');
+    var kind = sniff(text);
+    if (!kind){
+      ST.phase = 'error';
+      ST.err = 'محتوای فایل نه CSVِ معتبر است نه JSON — پسوند به‌تنهایی کافی نیست.';
+      render(); return;
+    }
+    importText(text, kind);
+  };
+  fr.readAsText(f);
+}
+
+function sniff(text){
+  var t = String(text || '').trim();
+  if (!t) return null;
+  if (t[0] === '[' || t[0] === '{') return 'json';
+  if (/(^|\n)[^\n]*,[^\n]*/.test(t)) return 'csv';
+  return null;
+}
+
+function impRun(){
+  var t = document.getElementById('pasteIn').value;
+  var kind = sniff(t);
+  if (!kind){
+    ST.phase = 'error'; ST.err = 'متن نه CSV است نه JSON.'; ST.rows = []; ST.bad = [];
+    render(); impTab(1); return;
+  }
+  importText(t, kind);
+  impTab(1);
+}
+
+function impSample(){
+  document.getElementById('pasteIn').value =
+    'date,title,amount\n' +
+    '1405/05/09,کرایه‌ی حمل,1200000\n' +
+    '1405/05/10,"نایلون, بسته‌بندی",350000\n' +
+    '1405/05/11,قبضِ «برق»,12.5\n' +          /* ← دامِ API-07 */
+    '1405/13/01,تاریخِ غلط,5000\n' +
+    '1405/05/12,,7000\n';
+}
+
+function impClear(){
+  document.getElementById('pasteIn').value = '';
+  ST.rows = []; ST.bad = []; ST.phase = 'empty'; ST.err = '';
+  render();
+}
+
+function impTab(i){
+  for (var k = 0; k < 3; k++){
+    show('scr' + k, k === i);
+    var tb = document.getElementById('tab' + k);
+    if (tb) tb.setAttribute('aria-selected', k === i ? 'true' : 'false');
+  }
+  return i;
+}
+
+function impTheme(t){
+  var next = t || (document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  if (next === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('imp_theme', next); } catch (e) { /* حالتِ خصوصی */ }
+  var tc = document.getElementById('tc');
+  if (tc) tc.setAttribute('content', next === 'dark' ? '#0f1216' : '#f4f5f7');
+  return next;
+}
+
+function impHint(){
+  var el = document.getElementById('manualAmt'), out = document.getElementById('manualHint');
+  if (!el || !out) return;
+  var v = parseHumanAmount(el.value);
+  out.textContent = el.value.trim() === '' ? '—'
+    : (isNaN(v) ? 'خوانده نشد' : faMoney(v) + ' تومان');
+}
+
+/* ───────────────────────── راه‌اندازی ───────────────────────── */
+(function boot(){
+  try { impTheme(localStorage.getItem('imp_theme') === 'dark' ? 'dark' : 'light'); }
+  catch (e) { impTheme('light'); }
+  var ma = document.getElementById('manualAmt');
+  if (ma) ma.addEventListener('input', impHint);
+  render();
+  window.IMP = {
+    ready:true, importText:importText, state:impState,
+    parseHumanAmount:parseHumanAmount, parseMachineAmount:parseMachineAmount,
+    parseMachineDate:parseMachineDate, parseRow:parseRow,
+    setTheme:impTheme, gotoTab:impTab, clear:impClear, sample:impSample,
+    rows:function(){ return ST.rows.slice(); }, bad:function(){ return ST.bad.slice(); },
+    setPhase:function(p, msg){ ST.phase = p; ST.err = msg || ''; render(); }
+  };
+})();
+</script>
+</body>
+</html>
