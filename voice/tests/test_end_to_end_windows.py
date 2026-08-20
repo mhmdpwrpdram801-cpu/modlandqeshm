@@ -38,6 +38,15 @@ pytestmark = [
     ),
 ]
 
+if os.environ.get("MLQ_E2E") == "1":
+    # Clearing this in the workflow is not enough, and the first run proved it:
+    # ``conftest.py`` sets it from *inside* the process, before this module is
+    # imported, so the step arrived with an empty environment and Qt still went
+    # offscreen. Undo it here, where the requirement actually lives — and only
+    # under the opt-in, because this module is still imported (and skipped)
+    # during ordinary runs, where every other file does need offscreen.
+    os.environ.pop("QT_QPA_PLATFORM", None)
+
 if os.name == "nt" and os.environ.get("MLQ_E2E") == "1":
     from PySide6.QtWidgets import QApplication
 
@@ -74,12 +83,16 @@ def type_keys(app, text: str) -> None:
 
 @pytest.fixture(scope="module")
 def qt_app():
-    # Guards the premise rather than trusting the env: an offscreen QApplication
-    # would make every assertion below meaningless while still passing some of
-    # them, which is the worst way for this file to fail.
-    assert not os.environ.get("QT_QPA_PLATFORM"), "این فایل باید با پلتفرمِ واقعی اجرا شود"
+    # Guards the premise, and asks Qt rather than the environment: the variable
+    # is only how the platform gets chosen, `platformName()` is what was
+    # actually chosen. An offscreen QApplication would make every assertion
+    # below meaningless while still letting some of them pass, which is the
+    # worst way for this file to fail.
     app = QApplication.instance() or QApplication([])
-    assert app.platformName() != "offscreen", f"پلتفرم offscreen است: {app.platformName()}"
+    assert app.platformName() != "offscreen", (
+        f"پلتفرمِ Qt «{app.platformName()}» است — بدونِ پنجره‌ی واقعی، "
+        "کلیدهای SendInput به جایی نمی‌رسند و نتیجه‌ی این فایل بی‌معنی است"
+    )
     return app
 
 
