@@ -449,7 +449,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
         <div id="custMatchHint" class="words-hint"></div>
       </div>
       <div class="ir-grid">
-        <div class="f field" style="flex:1"><label>شماره تماس</label><input id="nPhone" class="inp" dir="ltr" inputmode="numeric" placeholder="0912..." oninput="checkCustomerMatch()"></div>
+        <div class="f field" style="flex:1"><label>شماره تماس</label><input id="nPhone" class="inp" dir="ltr" inputmode="numeric" placeholder="0912..." oninput="phoneInput(this);checkCustomerMatch()"></div>
         <div class="f field" style="flex:1"><label>شهر</label><input id="nCity" class="inp" placeholder="بندرعباس"></div>
       </div>
     </div>
@@ -768,6 +768,44 @@ function normalizeDigits(s){ return String(s==null?'':s).replace(/[۰-۹]/g,d=>'
 function canonicalPhone(v){ let d=normalizeDigits(v||'').replace(/\D/g,''); if(!d)return '';
   if(d.startsWith('0098'))d=d.slice(4); else if(d.startsWith('98')&&d.length>=12)d=d.slice(2);
   if(d.startsWith('9')&&d.length===10)d='0'+d; return d; }
+/* شماره را خوانا نشان می‌دهد: ۰۹۱۷ ۲۱۲ ۸۷۰۸ — مثلِ واتساپ.
+   این فقط **جلوه** است. چیزی که ذخیره می‌شود همیشه خروجیِ canonicalPhone است
+   (فقط رقم)، و هر جایی که شماره را ماشین مصرف می‌کند — canonicalPhone برای
+   ذخیره و جست‌وجو، waLink برای نشانیِ wa.me — خودش غیرِ‌رقم را دور می‌ریزد،
+   پس فاصله‌ها به آن‌ها آسیبی نمی‌زند.
+   دو قاعده‌ی سختِ این تکه:
+   ۱. **هیچ رقمی خورده نمی‌شود.** اگر شماره از قالب بلندتر بود، باقی‌اش دست‌نخورده
+      ته رشته می‌آید. شماره‌ی بریده بدتر از شماره‌ی بدقواره است.
+   ۲. **شکلی که نمی‌شناسیم را حدس نمی‌زنیم** — رشته‌ی خام برمی‌گردد، نه یک
+      گروه‌بندیِ ساختگی. (شماره‌ی خارجی مثلِ +971… همان‌طور که تایپ شده می‌ماند.) */
+function phoneShape(d){
+  if(/^09/.test(d)) return [4,3,4];   /* موبایل: ۰۹۱۷ ۲۱۲ ۸۷۰۸ */
+  if(/^0/.test(d))  return [3,4,4];   /* ثابت:   ۰۷۶ ۳۵۱۲ ۳۴۵۶ */
+  return null;
+}
+function phoneFmt(v){
+  const raw=String(v==null?'':v);
+  const d=canonicalPhone(raw);
+  const g=d?phoneShape(d):null;
+  if(!g)return raw;
+  const out=[]; let i=0;
+  for(let k=0;k<g.length&&i<d.length;k++){ out.push(d.slice(i,i+g[k])); i+=g[k]; }
+  if(i<d.length)out.push(d.slice(i));
+  return out.join(' ');
+}
+/* موقعِ تایپ، مکان‌نمای متن نباید بپرد — مثلِ grpInput، تعدادِ رقمِ پیش از
+   مکان‌نما را می‌شمارد و بعد از قالب‌بندی دوباره همان‌جا می‌نشاندش. */
+function phoneInput(el){
+  if(!el)return;
+  const start=el.selectionStart;
+  const before=el.value.slice(0,start==null?el.value.length:start);
+  const dBefore=normalizeDigits(before).replace(/\D/g,'').length;
+  const f=phoneFmt(el.value);
+  if(el.value!==f)el.value=f;
+  let pos=0,seen=0;
+  while(pos<f.length&&seen<dBefore){ if(/\d/.test(f[pos]))seen++; pos++; }
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+}
 function faPct(n){ const v=Number(n||0); const s=(Math.round(v*100)/100).toString(); return faDigits(s); }
 function faFloat(v){ let c=normalizeDigits(String(v==null?'':v)).replace(/[٬,\s]/g,'').replace(/٫/g,'.').replace(/[^\d.\-]/g,''); if((c.match(/\./g)||[]).length>1) c=c.replace(/\./g,''); const n=parseFloat(c); return isNaN(n)?NaN:n; }
 function parseNum(v){ let c=normalizeDigits(v).replace(/[٬,\s]/g,'').replace(/٫/g,'.').replace(/[^\d.\-]/g,''); if(/^-?\d{1,3}(\.\d{3})+$/.test(c)) c=c.replace(/\./g,''); else if((c.match(/\./g)||[]).length>1) c=c.replace(/\./g,''); const n=Number(c); return Math.max(0, Math.round(isNaN(n)?0:n)); }
@@ -1419,7 +1457,7 @@ async function renderDashboard(){
     else html+=debtors.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(193,57,43,.06);border-color:rgba(193,57,43,.25);cursor:pointer" onclick="openCustomer('${r.cid}')"><span style="flex:1">${esc(r.name||'؟')}<br><b style="color:#b5340a">${faNum(r.amount)} ت</b></span><button onclick="event.stopPropagation();waReminderFor('${r.cid}',${r.amount})" style="background:#25d366;color:#fff;border:0;border-radius:9px;padding:8px 12px;font-family:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer">📲 یادآوری</button></div>`; }).join('')+(debtors.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(debtors.length-15)} بدهکارِ دیگر…</div>`:'');
     html+=`<div class="block-title">🔔 مشتری‌های غیرفعال (${faNum(inactive.length)}) <span style="font-weight:400;color:var(--muted);font-size:11.5px">بیش از ۳۰ روز خرید نکرده‌اند</span></div>`;
     if(inactive.length===0) html+=`<div class="empty" style="padding:16px">همه‌ی مشتری‌ها فعال‌اند 👌</div>`;
-    else html+=inactive.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(181,134,11,.07);border-color:rgba(181,134,11,.3);cursor:pointer" onclick="openCustomer('${r.cid}')"><span>${esc(r.name||'؟')}${r.phone?' — '+esc(r.phone):''}</span><span>${r.days==null?'<b>هنوز خرید نکرده</b>':'آخرین خرید: <b>'+faNum(r.days)+' روز پیش</b>'}</span></div>`; }).join('')+(inactive.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(inactive.length-15)} مشتریِ دیگر…</div>`:'');
+    else html+=inactive.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(181,134,11,.07);border-color:rgba(181,134,11,.3);cursor:pointer" onclick="openCustomer('${r.cid}')"><span>${esc(r.name||'؟')}${r.phone?' — '+esc(phoneFmt(r.phone)):''}</span><span>${r.days==null?'<b>هنوز خرید نکرده</b>':'آخرین خرید: <b>'+faNum(r.days)+' روز پیش</b>'}</span></div>`; }).join('')+(inactive.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(inactive.length-15)} مشتریِ دیگر…</div>`:'');
     html+=`<div class="block-title">🔥 پرفروش‌ترین کالاها <span style="font-weight:400;color:var(--muted);font-size:11.5px">در ۶۰ روزِ اخیر</span></div>`;
     if(top.length===0) html+=`<div class="empty" style="padding:16px">هنوز فروشی ثبت نشده</div>`;
     else html+=top.map((t,i)=>`<div class="mini"><span><span class="rank">${faNum(i+1)}</span>${esc(t.name)}</span><b class="num">${faNum(t.qty)} عدد</b></div>`).join('');
@@ -1555,7 +1593,7 @@ function checkCustomerMatch(){
   const _pe=document.getElementById('nPhone'); const _ph=canonicalPhone(_pe?_pe.value:'');
   const byPhone=_ph?CUSTOMERS.find(c=>canonicalPhone(c.phone||'')===_ph):null;
   if(m.length===1){ const c=m[0]; const np=document.getElementById('nPhone'), nc=document.getElementById('nCity');
-    if(c.phone&&(!np.value||np.dataset.auto===np.value)){ np.value=c.phone; np.dataset.auto=c.phone; }
+    if(c.phone&&(!np.value||np.dataset.auto===np.value)){ const _pf=phoneFmt(c.phone); np.value=_pf; np.dataset.auto=_pf; }
     if(c.city&&(!nc.value||nc.dataset.auto===nc.value)){ nc.value=c.city; nc.dataset.auto=c.city; }
   }
   if(byPhone&&m.length===1&&m[0].id!==byPhone.id){
@@ -2011,13 +2049,13 @@ function buildInvoiceHTML(d, opts){
   return `<div class="invoice"><div class="ring"></div><div class="inv-pad">
     <div class="inv-head"><div class="inv-brand"><div class="inv-logo"><img src="img4.png" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block"></div><div><h2>${esc(shop)}</h2><div class="s1">${esc(sub)}</div><div class="s2">واردکننده مستقیم پوشاک بنگلادش</div></div></div>
     <div class="inv-meta"><div class="t">${isQuote?'پیش‌فاکتور':'فاکتور فروش'}</div>${isQuote?'':`<div class="r">شماره: <b>${faNum(d.invoice_number)}</b></div>`}<div class="r">تاریخ: <b>${esc(d.date||'')}</b></div><div class="inv-badge" style="${isQuote?'color:var(--gold-dp);background:rgba(192,144,28,.13)':'color:'+stC+';background:'+stB}">${isQuote?'هنوز فاکتور نشده':STATUS_FA[st]}</div></div></div>
-    <div class="inv-buyer"><div class="bf"><div class="k">نام خریدار</div><div class="v">${esc(d.buyer_name||'—')}</div></div>${d.buyer_phone?`<div class="bf"><div class="k">تماس</div><div class="v" dir="ltr">${esc(d.buyer_phone)}</div></div>`:''}${d.buyer_city?`<div class="bf"><div class="k">شهر</div><div class="v">${esc(d.buyer_city)}</div></div>`:''}</div>
+    <div class="inv-buyer"><div class="bf"><div class="k">نام خریدار</div><div class="v">${esc(d.buyer_name||'—')}</div></div>${d.buyer_phone?`<div class="bf"><div class="k">تماس</div><div class="v" dir="ltr">${esc(phoneFmt(d.buyer_phone))}</div></div>`:''}${d.buyer_city?`<div class="bf"><div class="k">شهر</div><div class="v">${esc(d.buyer_city)}</div></div>`:''}</div>
     <table class="inv-tbl"><thead><tr><th>#</th><th class="d">شرح کالا</th><th>تعداد</th><th>قیمت واحد</th><th>قیمت کل</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="inv-tot"><div class="box"><div class="tr"><span>جمع کل اقلام</span><b>${faNum(d.items_total)}</b></div>${d.discount?`<div class="tr"><span>تخفیف</span><b style="color:var(--credit)">− ${faNum(d.discount)}</b></div>`:''}<div class="grand"><span class="gl">مبلغ نهایی</span><span class="gv">${faNum(d.total_amount)} <span style="font-size:11px;color:var(--muted)">تومان</span></span></div><div style="font-size:11px;color:var(--gold-lt);font-weight:700;text-align:right;margin-top:4px;padding:2px 2px 0">به حروف: ${numToFaWords(d.total_amount)} تومان</div>${payLines}</div></div>
     ${(!isQuote&&st==='cancelled')?'<div class="inv-cancel">⛔ این فاکتور باطل شده است<br><button class="btn sm" style="margin-top:8px;background:var(--paid);color:#fff" onclick="restoreCurrentInvoice()">↺ برگرداندنِ فاکتور</button></div>':''}
     ${isQuote?`<div class="inv-note">📋 این <b>پیش‌فاکتور</b> است، نه سندِ فروش — هنوز پرداختی روی آن ثبت نشده و قیمت‌ها مالِ تاریخِ بالاست.<br>اگر تأیید می‌کنی یا می‌خواهی چیزی کم و زیاد شود، از راه‌های تماسِ پایین خبر بده.</div>`:''}
     ${(isQuote&&d.note)?`<div class="inv-note" style="border-style:solid;background:var(--panel)">📝 ${esc(d.note)}</div>`:''}
-    <div class="inv-foot"><div><div class="inv-qrs"><div class="inv-qr"><img src="${QR_TG}" alt="بارکدِ تلگرامِ فروشگاه" width="78" height="78"><div class="c">تلگرام</div></div><div class="inv-qr"><img src="${QR_IG}" alt="بارکدِ اینستاگرامِ فروشگاه" width="78" height="78"><div class="c">اینستاگرام</div></div></div><div class="inv-addr">${esc(addr)}${phone?`<br><span style="white-space:nowrap">تماس: <b dir="ltr">${esc(phone)}</b></span>${phone2?` · <span style="white-space:nowrap"><b dir="ltr">${esc(phone2)}</b></span>`:''}`:(phone2?`<br>تماس: <b dir="ltr">${esc(phone2)}</b>`:'')}<br><span style="white-space:nowrap">اینستاگرام: <b dir="ltr">${esc(ig)}@</b></span> · <span style="white-space:nowrap">تلگرام: <b dir="ltr">${esc(tg)}@</b></span></div></div>
+    <div class="inv-foot"><div><div class="inv-qrs"><div class="inv-qr"><img src="${QR_TG}" alt="بارکدِ تلگرامِ فروشگاه" width="78" height="78"><div class="c">تلگرام</div></div><div class="inv-qr"><img src="${QR_IG}" alt="بارکدِ اینستاگرامِ فروشگاه" width="78" height="78"><div class="c">اینستاگرام</div></div></div><div class="inv-addr">${esc(addr)}${phone?`<br><span style="white-space:nowrap">تماس: <b dir="ltr">${esc(phoneFmt(phone))}</b></span>${phone2?` · <span style="white-space:nowrap"><b dir="ltr">${esc(phoneFmt(phone2))}</b></span>`:''}`:(phone2?`<br>تماس: <b dir="ltr">${esc(phoneFmt(phone2))}</b>`:'')}<br><span style="white-space:nowrap">اینستاگرام: <b dir="ltr">${esc(ig)}@</b></span> · <span style="white-space:nowrap">تلگرام: <b dir="ltr">${esc(tg)}@</b></span></div></div>
     <div class="inv-policy"><div class="pl">شرایط مرجوعی</div><div class="pb">${esc(policy)}</div></div></div>
   </div></div>`;
 }
@@ -2385,7 +2423,7 @@ async function renderCustomers(){
     else if(b>0)badge=`<span class="pill credit">طلب: ${faNum(b)}</span>`;
     else if(b<0)badge=`<span class="pill paid">بستانکار: ${faNum(-b)}</span>`;
     else badge=`<span class="pill paid">تسویه</span>`;
-    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?esc(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}</div></div>`;
+    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+phoneFmt(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone)):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}</div></div>`;
   }).join('');
 }
 async function renderCustomersByProduct(productId, box){
@@ -2400,7 +2438,7 @@ async function renderCustomersByProduct(productId, box){
     const ranked=Object.keys(agg).map(cid=>({cid,qty:agg[cid].qty,total:agg[cid].total})).sort((a,b)=>b.qty-a.qty);
     let html=`<div class="card" style="background:var(--panel);border-color:var(--line)"><div style="font-weight:700">🔎 خریدارانِ «${esc(prod?prod.name:'')}»</div><div style="font-size:12px;color:var(--muted);margin-top:3px">به ترتیبِ بیشترین تعدادِ خرید — روی هرکدام بزن</div></div>`;
     if(ranked.length===0){ html+='<div class="empty">هنوز هیچ مشتریِ ثبت‌شده‌ای این کالا را نخریده.<br><span style="font-size:12px">(فقط فاکتورهایی که به یک مشتری وصل شده‌اند شمرده می‌شوند)</span></div>'; box.innerHTML=html; return; }
-    html+=ranked.map((r,i)=>{ const c=CUSTOMERS.find(x=>x.id===r.cid)||{}; return `<div class="list-item" onclick="openCustomer('${r.cid}')"><div><div class="li-main"><span class="rank">${faNum(i+1)}</span>${esc(c.name||'؟')}</div><div class="li-sub">${c.phone?esc(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end"><div class="num" style="font-weight:700;color:var(--gold-lt);font-size:15px">${faNum(r.qty)} عدد</div><div class="li-sub num">${faNum(r.total)} تومان</div></div></div>`; }).join('');
+    html+=ranked.map((r,i)=>{ const c=CUSTOMERS.find(x=>x.id===r.cid)||{}; return `<div class="list-item" onclick="openCustomer('${r.cid}')"><div><div class="li-main"><span class="rank">${faNum(i+1)}</span>${esc(c.name||'؟')}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone)):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end"><div class="num" style="font-weight:700;color:var(--gold-lt);font-size:15px">${faNum(r.qty)} عدد</div><div class="li-sub num">${faNum(r.total)} تومان</div></div></div>`; }).join('');
     box.innerHTML=html;
   }catch(e){ if(seqStale('custList',_q))return; box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
 }
@@ -2409,7 +2447,7 @@ function openCustomerForm(id){
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${c?'ویرایشِ مشتری':'مشتری جدید'}</div>${c?`<div class="form-title">${esc(c.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeCustomerForm()">‹ برگشت به لیست</button></div>
     <div class="field"><label>نام مشتری / فروشگاه *</label><input id="cName" class="inp" value="${c?esc(c.name):''}"></div>
-    <div class="ir-grid"><div class="f field" style="flex:1"><label>شماره تماس</label><input id="cPhone" class="inp" dir="ltr" inputmode="numeric" value="${c?esc(c.phone||''):''}"></div><div class="f field" style="flex:1"><label>شهر</label><input id="cCity" class="inp" value="${c?esc(c.city||''):''}"></div></div>
+    <div class="ir-grid"><div class="f field" style="flex:1"><label>شماره تماس</label><input id="cPhone" class="inp" dir="ltr" inputmode="numeric" oninput="phoneInput(this)" value="${c?esc(phoneFmt(c.phone||'')):''}"></div><div class="f field" style="flex:1"><label>شهر</label><input id="cCity" class="inp" value="${c?esc(c.city||''):''}"></div></div>
     <div class="field"><label>آدرس</label><input id="cAddr" class="inp" value="${c?esc(c.address||''):''}"></div>
     <div class="rowline" style="margin-top:6px"><button class="btn" style="flex:1" onclick="saveCustomer('${c?c.id:''}')">${c?'ذخیره تغییرات':'افزودن مشتری'}</button><button class="btn sec sm" onclick="closeCustomerForm()">انصراف</button></div>
     <div id="cMsg" class="msg"></div></div>`;
@@ -2461,7 +2499,7 @@ async function openCustomer(id){
     const balLabel=!balOk?'ماندهٔ حساب — نامشخص':(bal>0?'طلبِ ما از این مشتری':bal<0?'بستانکار (ما بدهکاریم)':'تسویه شده');
     let html=`<div class="ov-sheet">
       <div style="font-size:18px;font-weight:700">${esc(c.name||'')}</div>
-      <div style="font-size:12.5px;color:var(--muted);margin-top:3px">${c.phone?esc(c.phone)+' · ':''}${esc(c.city||'')}</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:3px">${c.phone?esc(phoneFmt(c.phone))+' · ':''}${esc(c.city||'')}</div>
       <div class="stat ${balOk&&bal>0?'danger':''}" style="margin-top:14px;text-align:center"><div class="lbl">${balLabel}</div><div class="val num" style="color:${balColor}">${balOk?(faNum(Math.abs(bal))+' <small>تومان</small>'):'؟'}</div>${balOk?'':'<div class="sw" style="color:var(--danger)">بارگذاری نشد — اینترنت رو چک کن</div>'}</div>
       ${profileCard}
       ${bal>0?`<button onclick="waReminderFor('${id}',${bal})" style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:0;border-radius:12px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">📲 ارسالِ یادآوریِ بدهی در واتساپ</button>`:''}
@@ -2521,8 +2559,8 @@ function renderSettings(){
     <div class="field"><label>نام فروشگاه</label><input id="sShop" class="inp" value="${esc(S.shop_name||'مدلند قشم')}"></div>
     <div class="field"><label>زیرعنوان</label><input id="sSub" class="inp" value="${esc(S.subtitle||'پخش عمده پوشاک')}"></div>
     <div class="field"><label>آدرس</label><input id="sAddr" class="inp" value="${esc(S.address||'')}"></div>
-    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" type="tel" inputmode="tel" value="${esc(S.phone||'')}"></div>
-    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" type="tel" inputmode="tel" value="${esc(S.phone2||'')}"></div>
+    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone||''))}"></div>
+    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone2||''))}"></div>
     <div class="ir-grid"><div class="f field" style="flex:1"><label>اینستاگرام</label><input id="sIg" class="inp" dir="ltr" value="${esc(S.instagram||'')}"></div><div class="f field" style="flex:1"><label>تلگرام</label><input id="sTg" class="inp" dir="ltr" value="${esc(S.telegram||'')}"></div></div>
     <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" class="inp" value="${esc(S.return_policy||'')}"></div>
     <button class="btn" onclick="saveSettings()">ذخیره تنظیمات</button>
@@ -2836,7 +2874,7 @@ async function gsRun(){ const q=(document.getElementById('gsInput').value||'').t
   let h='';
   const _cap=(n)=>n>=15?' <span style="font-weight:400;color:var(--muted);font-size:11px">(۱۵ تای اول)</span>':'';
   if(prods.length){ h+='<div class="block-title">کالاها ('+faNum(prods.length)+')'+_cap(prods.length)+'</div>'+prods.map(p=>`<div class="list-item" onclick="closeSearch();openProductForm('${p.id}')"><div><div class="li-main">${esc(p.name)}</div></div><div class="li-end num">${faNum(p.price||0)}</div></div>`).join(''); }
-  if(custs.length){ h+='<div class="block-title" style="margin-top:14px">مشتری‌ها ('+faNum(custs.length)+')'+_cap(custs.length)+'</div>'+custs.map(c=>`<div class="list-item" onclick="closeSearch();openCustomer('${c.id}')"><div><div class="li-main">${esc(c.name||'')}</div><div class="li-sub">${c.phone?esc(c.phone)+' · ':''}${esc(c.city||'')}</div></div><div class="li-end" style="color:var(--muted)">›</div></div>`).join(''); }
+  if(custs.length){ h+='<div class="block-title" style="margin-top:14px">مشتری‌ها ('+faNum(custs.length)+')'+_cap(custs.length)+'</div>'+custs.map(c=>`<div class="list-item" onclick="closeSearch();openCustomer('${c.id}')"><div><div class="li-main">${esc(c.name||'')}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone))+' · ':''}${esc(c.city||'')}</div></div><div class="li-end" style="color:var(--muted)">›</div></div>`).join(''); }
   const _stFa={paid:'پرداخت‌شده',partial:'پرداخت جزئی',credit:'نسیه',cancelled:'باطل شده'};
   if(invs.length){ h+='<div class="block-title" style="margin-top:14px">فاکتورها ('+faNum(invs.length)+')'+_cap(invs.length)+'</div>'+invs.map(v=>`<div class="list-item" onclick="closeSearch();openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)} · ${esc(v.buyer_name||'')}</div><div class="li-sub">${esc(v.date||'')} · ${_stFa[safeStatus(v.status)]}</div></div><div class="li-end num">${faNum(v.total_amount||0)}</div></div>`).join(''); }
   body.innerHTML=h||'<div class="empty" style="padding:18px">چیزی پیدا نشد</div>';
@@ -3011,7 +3049,7 @@ async function shareStatement(id){
       ${logoHTML(50)}
       <div><div style="font-size:19px;font-weight:700">${esc(S.shop_name||'مدلند قشم')}</div><div style="font-size:12.5px;color:#9a6f08;font-weight:700">صورت‌حسابِ مشتری — ${esc(todayJalali())}</div></div>
     </div>
-    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(c.name||'')}${c.phone?` <span style="font-size:12px;color:#888;font-weight:400">${esc(c.phone)}</span>`:''}</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(c.name||'')}${c.phone?` <span style="font-size:12px;color:#888;font-weight:400">${esc(phoneFmt(c.phone))}</span>`:''}</div>
     <div style="font-weight:700;font-size:13px;color:#9a6f08;margin:8px 0 2px">فاکتورها</div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#888;font-size:11px"><td style="padding:4px 8px">شماره</td><td style="padding:4px 8px">تاریخ</td><td style="padding:4px 8px;text-align:left">مبلغ</td><td style="padding:4px 8px;text-align:left">پرداختی</td></tr></thead><tbody>${invRows||'<tr><td colspan="4" style="padding:6px 8px;color:var(--rep-dim)">—</td></tr>'}</tbody></table>
     ${pays.length?`<div style="font-weight:700;font-size:13px;color:#9a6f08;margin:12px 0 2px">پرداخت‌ها</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#888;font-size:11px"><td style="padding:4px 8px">تاریخ</td><td style="padding:4px 8px;text-align:left">مبلغ</td></tr></thead><tbody>${payRows}</tbody></table>`:''}
@@ -3063,7 +3101,7 @@ async function renderQuotes(){
 }
 async function _getQuote(id){ try{ return (await sbGet("quotes?select=*&id=eq."+encodeURIComponent(id)))[0]; }catch(e){ return null; } }
 function _fillFormFromQuote(q){
-  document.getElementById('nName').value=q.buyer_name||''; document.getElementById('nPhone').value=q.buyer_phone||''; document.getElementById('nCity').value=q.buyer_city||''; document.getElementById('nNote').value=q.note||'';
+  document.getElementById('nName').value=q.buyer_name||''; document.getElementById('nPhone').value=phoneFmt(q.buyer_phone||''); document.getElementById('nCity').value=q.buyer_city||''; document.getElementById('nNote').value=q.note||'';
   // تخفیفِ پیش‌فاکتور همیشه «تومان» ذخیره شده (saveQuote خودش درصد را تبدیل می‌کند).
   // اگر حالتِ انتخابگر روی «درصد» مانده باشد، ۵۰٬۰۰۰ تومان به ۵۰٬۰۰۰٪ خوانده می‌شود،
   // به ۱۰۰٪ چفت می‌شود و کلِ فاکتور مجانی می‌شود. پس حتماً برش گردان روی تومان.
@@ -3188,7 +3226,7 @@ async function shareCatalog(){
 }
 async function saveSettings(){
   const msg=document.getElementById('sMsg'); msg.className='msg'; msg.textContent='';
-  const row={ shop_name:document.getElementById('sShop').value.trim(), subtitle:document.getElementById('sSub').value.trim(), address:document.getElementById('sAddr').value.trim(), instagram:document.getElementById('sIg').value.trim(), telegram:document.getElementById('sTg').value.trim(), phone:document.getElementById('sPhone').value.trim(), phone2:document.getElementById('sPhone2').value.trim(), return_policy:document.getElementById('sPolicy').value.trim(), updated_at:new Date().toISOString() };
+  const row={ shop_name:document.getElementById('sShop').value.trim(), subtitle:document.getElementById('sSub').value.trim(), address:document.getElementById('sAddr').value.trim(), instagram:document.getElementById('sIg').value.trim(), telegram:document.getElementById('sTg').value.trim(), phone:canonicalPhone(document.getElementById('sPhone').value), phone2:canonicalPhone(document.getElementById('sPhone2').value), return_policy:document.getElementById('sPolicy').value.trim(), updated_at:new Date().toISOString() };
   try{ await sbUpsert('settings',{id:1,...row}); SETTINGS=Object.assign(SETTINGS,row); applyBrand(); msg.className='msg ok'; msg.textContent='تنظیمات ذخیره شد ✅'; }catch(e){ msg.className='msg err'; msg.textContent=e.message; }
 }
 function csvText(x){ x=String(x==null?'':x); if(x==='')return ''; const f='="'+x.replace(/"/g,'""')+'"'; return '"'+f.replace(/"/g,'""')+'"'; }

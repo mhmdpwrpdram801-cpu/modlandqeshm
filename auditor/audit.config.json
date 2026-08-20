@@ -516,8 +516,8 @@
     {
       "_note": "با تستِ جهشی پیدا شد: recalc دو جهشِ زنده داشت (dm==='p'&&disc>0 که || شد، و nDiscMode||{} که && شد) و هیچ بررسی‌ای صدایش درنیامد، چون فقط حالتِ تومانی سنجیده می‌شد. اینجا هر دو حالت با عددِ دستی مقابله می‌شوند: ۳×۸۵۰٬۰۰۰=۲٬۵۵۰٬۰۰۰؛ تومانی ۵۰٬۰۰۰ → ۲٬۵۰۰٬۰۰۰؛ درصدی ۱۰٪ → ۲٬۲۹۵٬۰۰۰. ردیفِ تخفیف هم فقط در حالتِ درصدی دیده می‌شود.",
       "name": "تخفیف در هر دو حالت با حسابِ دستی می‌خواند",
-      "_before_removed": "همه‌ی وضعیت داخلِ js ساخته می‌شود (TEST-03)"
-      , "before": "nav('new')",
+      "_before_removed": "همه‌ی وضعیت داخلِ js ساخته می‌شود (TEST-03)",
+      "before": "nav('new')",
       "js": "()=>{const g=id=>document.getElementById(id);g('itemsWrap').innerHTML='';addItemRow();const r=document.querySelector('.itemrow'),sel=r.querySelector('.ir-prod');sel.value='p1';onPickProduct(sel);r.querySelector('.ir-qty').value='۳';const unit=(PRODUCTS.find(x=>x.id==='p1')||{}).price;const set=(m,v)=>{g('nDiscMode').value=m;g('nDiscount').value=v;recalc();};const vis=()=>{const e=g('tDiscRow');return e?getComputedStyle(e).display!=='none':false};set('t','50,000');const items=g('tItems').textContent,a=g('tFinal').textContent,av=vis();set('p','10');const b=g('tFinal').textContent,bv=vis();set('t','0');const c=g('tFinal').textContent;const want=unit*3;const fa=n=>String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g,'٬').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[+d]);const got=[items,a,av?'ردیف':'بی‌ردیف',b,bv?'ردیف':'بی‌ردیف',c].join('/');const exp=[fa(want),fa(want-50000),'بی‌ردیف',fa(Math.round(want*0.9)),'ردیف',fa(want)].join('/');return got===exp?'درست':('دیده شد '+got+' ≠ حسابِ دستی '+exp)}",
       "expect": "درست"
     },
@@ -580,6 +580,20 @@
       "name": "وقتی فروشی نیست، داشبورد صفر نشان می‌دهد نه یک",
       "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;window.fetch=function(u,o){const s=String(u);if(s.indexOf('dashboard_stats')>=0)return Promise.resolve(new Response(JSON.stringify([{sales_today:0,sales_month:0,count_today:0,count_month:0,debt_total:0}]),{headers:{'Content-Type':'application/json'}}));if(s.indexOf('/rest/v1/invoices')>=0||s.indexOf('/rest/v1/returns')>=0)return Promise.resolve(new Response('[]',{headers:{'Content-Type':'application/json'}}));return f.apply(this,arguments)};try{await nav('dashboard');await w(1200);const t=(document.getElementById('dashStats')||document.body).innerText;const L=t.split('\\n').map(x=>x.trim());const grab=re=>{const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i+1;j<Math.min(L.length,i+3);j++)if(/[۰-۹\\d]/.test(L[j]))return L[j].replace(/[^۰-۹\\d]/g,'');return null};const a=grab(/فروش امروز/),b=grab(/فروش این ماه/);if(a===null||b===null)return 'برچسب پیدا نشد';return (a==='۰'&&b==='۰')?'هر دو صفر':('امروز '+a+'، این ماه '+b)}finally{window.fetch=f;await nav('dashboard');await w(400)}}",
       "expect": "هر دو صفر"
+    },
+    {
+      "name": "شماره موقعِ تایپ گروه می‌شود ولی چیزی که ذخیره می‌شود فقط رقم است",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "()=>{const el=document.getElementById('nPhone');if(!el)return 'ورودیِ شماره نیست';const wired=/phoneInput/.test(el.getAttribute('oninput')||'');const fire=(v)=>{el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));return el.value;};const shown=fire('09171234567');const saved=canonicalPhone(el.value);const long=fire('091712345678901');const kept=normalizeDigits(long).replace(/\\D/g,'').length;const foreign=fire('+971501234567');el.value='';el.dispatchEvent(new Event('input',{bubbles:true}));return (wired?'وصل':'وصل‌نیست')+'|'+shown+'|'+saved+'|'+(kept===15?'رقم کامل':'رقم خورد:'+kept)+'|'+(foreign==='+971501234567'?'خارجی دست‌نخورده':'خارجی خراب شد');}",
+      "expect": "وصل|0917 123 4567|09171234567|رقم کامل|خارجی دست‌نخورده"
+    },
+    {
+      "name": "شماره همه‌جا یک‌شکل دیده می‌شود و هیچ‌جا با فاصله ذخیره نمی‌شود",
+      "before": "nav('customers')",
+      "wait": 900,
+      "js": "()=>{const list=(document.getElementById('custList')||{}).innerText||'';const inList=list.indexOf('0917 111 2233')>=0;const raw=/0917111\\d/.test(list);const doc=buildInvoiceHTML({invoice_number:1,date:'۱۴۰۵/۰۵/۰۹',buyer_name:'ت',buyer_phone:'09171112233',items_total:100,discount:0,total_amount:100,paid_amount:0,status:'credit',items:[{name:'ک',quantity:1,unit_price:100}]});const inDoc=doc.indexOf('0917 111 2233')>=0;const bare=(doc.match(/>0\\d{10}</g)||[]).length;const saves=canonicalPhone('0917 111 2233');return (inList?'لیست گروه‌شده':'لیست خام')+'|'+(raw?'خامِ جامانده':'بدونِ خامِ جامانده')+'|'+(inDoc?'سند گروه‌شده':'سند خام')+'|'+(bare===0?'سند یک‌شکل':'سندِ دوشکل:'+bare)+'|'+(/\\s/.test(saves)?'ذخیره با فاصله':'ذخیره فقط رقم');}",
+      "expect": "لیست گروه‌شده|بدونِ خامِ جامانده|سند گروه‌شده|سند یک‌شکل|ذخیره فقط رقم"
     }
   ],
   "click_test": {
