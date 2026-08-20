@@ -346,7 +346,13 @@ jobs:
 
           ## نصب — یک خط، بدونِ اخطارِ ویندوز
 
-          این خط را در PowerShell بزن:
+          **اول PowerShell را باز کن** (این خط در مرورگر کار نمی‌کند):
+
+          1. کلیدِ **ویندوز** را با **R** بزن
+          2. بنویس \`powershell\` و اینتر
+          3. پنجره‌ای باز می‌شود که اولِ خطش \`PS C:\\Users\\...>\` است — همان‌جا
+
+          حالا این را بچسبان و اینتر بزن:
 
           \`\`\`powershell
           irm https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/install.ps1 | iex
