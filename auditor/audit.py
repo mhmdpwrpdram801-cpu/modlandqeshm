@@ -116,7 +116,12 @@ def static_checks(html_path, cfg):
     miss = sorted(w for w in want - have if not w.endswith('-'))
     ok(f"هر {len(want)} عنصری که کد صدا می‌زند وجود دارد") if not miss else bad("عنصرِ گمشده: " + ', '.join(miss))
 
-    defined = set(re.findall(r'\n\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(', app))
+    # الگو قبلاً **نیوخط** قبل از function می‌خواست، پس تابعی که بعد از `;` یا `{`
+    # روی همان خط تعریف شود «تعریف‌نشده» شمرده می‌شد و بررسی هشدارِ نادرست می‌داد.
+    # در پنل هیچ‌وقت نزد چون آنجا هر تابع سرِ خط است — تستِ خودِ بازرس لو دادش.
+    # این تغییر فقط **مجموعه‌ی تعریف‌شده‌ها را بزرگ‌تر** می‌کند، پس نمی‌تواند
+    # باگِ تازه‌ای پنهان کند: تابعی که تعریف شده باشد، مرده نیست (CORE-04).
+    defined = set(re.findall(r'(?:^|[\n;{}()])\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(', app))
     defined |= set(re.findall(r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function|\()', app))
     EVT = r'on(?:click|change|input|submit|keyup|keydown|keypress|blur|focus|paste|dblclick|contextmenu|scroll|load|error|ended)'
     called = {}
@@ -586,17 +591,36 @@ def runtime_checks(url, cfg, html_path, engine='chromium', repeat=1):
             try:
                 if cfg['reset']: pg.evaluate(cfg['reset'])
                 pg.evaluate(js); pg.wait_for_timeout(190)
+                # دو باگ که تستِ خودِ بازرس لو داد:
+                #
+                # ۱. فیلتر فقط `r.right > w` را می‌دید. در صفحه‌ی **راست‌به‌چپ**
+                #    بیرون‌زدگی از سمتِ **چپ** می‌رود (left=-596 ولی right=304،
+                #    یعنی داخلِ کادر). این پروژه تماماً RTL است، پس بررسی عملاً
+                #    نسبت به بیرون‌زدگیِ واقعی کور بود.
+                # ۲. وقتی مقصر پیدا نمی‌شد، فهرست خالی برمی‌گشت و بررسی
+                #    **«چیزی بیرون نمی‌زند»** می‌گفت — در حالی که خودش چند خط
+                #    بالاتر ثابت کرده بود بیرون‌زدگی هست. حالا اگر نتواند عنصر را
+                #    نام ببرد، باز هم گزارش می‌دهد (CORE-12).
                 r = pg.evaluate("""()=>{ const w=document.documentElement.clientWidth;
-                  if(document.documentElement.scrollWidth<=w+2) return null;
+                  const sw=document.documentElement.scrollWidth;
+                  if(sw<=w+2) return null;
                   const off=[...document.querySelectorAll('body *')].filter(e=>{
-                    const r=e.getBoundingClientRect(); return r.width>0 && r.right>w+2 && getComputedStyle(e).position!=='fixed'; })
+                    const r=e.getBoundingClientRect();
+                    return r.width>0 && (r.right>w+2 || r.left<-2) && getComputedStyle(e).position!=='fixed'; })
                     .map(e=>(e.className&&String(e.className).slice(0,24))||e.tagName);
-                  return off.slice(0,2); }""")
+                  return off.length ? off.slice(0,2) : ['?نامعلوم(' + (sw-w) + 'px)']; }""")
                 if r: overflow.append(f"{nm}: {r}")
-            except Exception: pass
+            except Exception as e:
+                # catchِ خالی همین بررسی را یک بار بی‌صدا خواباند (OPS-03).
+                overflow.append(f"{nm}: سنجش نشد — {type(e).__name__}")
         pg.set_viewport_size({'width': 412, 'height': 900})
+        # از «هشدار» به «ایراد» ارتقا یافت: تاریخِ خودِ پروژه می‌گوید بیرون‌زدگی در
+        # ۳۲۰ پیکسل باگِ واقعی است — نامِ بلندِ کالا ستونِ «قیمت کل» را از کادرِ
+        # فاکتور بیرون زد و چون `.invoice` مقدارِ overflow:hidden دارد، عدد
+        # **بریده** شد. هشداری که قرمز نمی‌دهد بعد از چند بار خوانده نمی‌شود.
+        # هر دو برنامه‌ی این مخزن موقعِ ارتقا تمیز بودند، پس چیزی نشکست.
         ok("در صفحه‌ی باریک چیزی از کادر بیرون نمی‌زند") if not overflow \
-            else [warn("بیرون‌زدگی: " + o) for o in overflow[:4]]
+            else [bad("بیرون‌زدگی: " + o) for o in overflow[:4]]
 
         head("۸.۵) کشوی افقیِ ناخواسته")
         skip = cfg['allow_hscroll']

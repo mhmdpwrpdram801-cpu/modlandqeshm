@@ -1,0 +1,23 @@
+{
+ "name": "نمونه",
+ "assets": [],
+ "narrow_width": 320,
+ "login_done": "()=>!!window.APP",
+ "reset": "(()=>0)()",
+ "screens": [
+  [
+   "تنها صفحه",
+   "(()=>0)()"
+  ]
+ ],
+ "themes": [
+  {
+   "name": "روشن",
+   "js": "document.documentElement.removeAttribute('data-theme')"
+  }
+ ],
+ "click_test": {
+  "selector": "#b1"
+ },
+ "checks": []
+}
