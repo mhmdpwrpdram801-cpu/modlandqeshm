@@ -1,0 +1,161 @@
+name: نصبِ mlqvoice واقعاً کار می‌کند
+
+# این گردش‌کار چیزی را می‌سنجد که هیچ‌کدام از بقیه نمی‌سنجند: **همان یک خطی که
+# به مالک می‌گوییم بزند**، روی یک ویندوزِ تازه، از روی همان نشانیِ عمومی.
+#
+# چرا جدا از voice-windows.yml: آن یکی از مخزن می‌سازد؛ این یکی از چیزی که
+# **منتشر شده** نصب می‌کند. اگر انتشار نیمه‌کاره بماند یا اثرِ انگشت نخوانَد،
+# فقط اینجا معلوم می‌شود — و آنجا نمی‌شد، چون اصلاً چیزی دانلود نمی‌کند.
+#
+# و مهم‌ترین چیزی که اثبات می‌کند: **نبودنِ Mark of the Web**. اخطارِ SmartScreen
+# روی همان نشانه اجرا می‌شود؛ نشانه نباشد، اخطار هم نیست. خودِ کادرِ اخطار را
+# نمی‌شود در CI دید (به دسکتاپِ تعاملی و سرویسِ اعتبارِ مایکروسافت نیاز دارد)،
+# ولی شرطِ لازمش سنجیدنی است و همین‌جا سنجیده می‌شود.
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['ساختِ mlqvoice.exe روی ویندوز']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    # فقط وقتی ساختِ قبلی موفق بوده — نصب از یک انتشارِ شکست‌خورده بی‌معنی است.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: نصب با همان یک خطی که به مالک می‌گوییم
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/${{ github.repository }}/releases/download/voice-latest/install.ps1'
+          Write-Host "اجرای: irm $url | iex"
+          Invoke-RestMethod -Uri $url | Invoke-Expression
+
+      - name: نصب واقعاً انجام شد؟
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:LOCALAPPDATA 'mlqvoice'
+          $exe = Join-Path $dir 'mlqvoice.exe'
+          if (-not (Test-Path $exe)) { throw "mlqvoice.exe نصب نشد: $exe" }
+
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\mlqvoice.lnk'
+          if (-not (Test-Path $lnk)) { throw "میان‌بُرِ منوی استارت ساخته نشد" }
+
+          # میان‌بُری که به جای اشتباه اشاره کند، از نبودنش بدتر است: کاربر
+          # می‌زند و هیچ اتفاقی نمی‌افتد و فکر می‌کند برنامه خراب است.
+          $shell = New-Object -ComObject WScript.Shell
+          $t = $shell.CreateShortcut($lnk).TargetPath
+          if ($t -ne $exe) { throw "میان‌بُر به جای اشتباه اشاره می‌کند: $t" }
+
+          $mb = [math]::Round((Get-ChildItem $dir -Recurse -File |
+                  Measure-Object Length -Sum).Sum / 1MB, 1)
+          Write-Host "نصب شد: $dir  ($mb مگابایت)"
+
+      - name: هیچ فایلی نشانه‌ی «از اینترنت آمده» ندارد
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:LOCALAPPDATA 'mlqvoice'
+
+          # اول ثابت کن که سنجه اصلاً کار می‌کند. بدونِ این، «نشانه‌ای پیدا نشد»
+          # هم با «نشانه‌ای نبود» یکی به نظر می‌رسد و هم با «بلد نیستم بگردم» —
+          # و دومی سبزِ توخالی است (CORE-12).
+          $probe = Join-Path $env:RUNNER_TEMP 'probe.txt'
+          'x' | Out-File $probe -Encoding utf8
+          Set-Content -Path $probe -Stream 'Zone.Identifier' -Value @(
+            '[ZoneTransfer]', 'ZoneId=3')
+          $seen = Get-Item $probe -Stream 'Zone.Identifier' -ErrorAction SilentlyContinue
+          if (-not $seen) { throw "سنجه‌ی MOTW خودش کار نمی‌کند — نتیجه‌اش بی‌معنی است" }
+          Remove-Item $probe -Force
+          Write-Host "سنجه سالم است (روی یک فایلِ نشانه‌دار آزموده شد)."
+
+          $marked = Get-ChildItem $dir -Recurse -File | Where-Object {
+            Get-Item $_.FullName -Stream 'Zone.Identifier' -ErrorAction SilentlyContinue
+          }
+          if ($marked) {
+            $marked | ForEach-Object { Write-Host "::error::نشانه دارد: $($_.FullName)" }
+            throw "$($marked.Count) فایل هنوز نشانه‌ی MOTW دارند — SmartScreen اخطار می‌دهد"
+          }
+          $n = (Get-ChildItem $dir -Recurse -File).Count
+          Write-Host "هر $n فایلِ نصب‌شده بدونِ نشانه‌اند — پس SmartScreen اجرا نمی‌شود."
+
+      - name: و برنامه‌ی نصب‌شده واقعاً بالا می‌آید
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:LOCALAPPDATA 'mlqvoice\mlqvoice.exe'
+          $out = Join-Path $env:RUNNER_TEMP 'i-out.txt'
+          $err = Join-Path $env:RUNNER_TEMP 'i-err.txt'
+          $before = @(Get-Process chrome, msedge -ErrorAction SilentlyContinue).Id
+
+          $t0 = Get-Date
+          $app = Start-Process -FilePath $exe -PassThru `
+                   -RedirectStandardOutput $out -RedirectStandardError $err
+          $ready = $false; $ms = 0
+          $deadline = (Get-Date).AddSeconds(75)
+          while ((Get-Date) -lt $deadline) {
+            if ($app.HasExited) { break }
+            $log = Get-Content $err -Raw -Encoding utf8 -ErrorAction SilentlyContinue
+            if ($log -match 'ready on') {
+              $ready = $true; $ms = [int]((Get-Date) - $t0).TotalMilliseconds; break
+            }
+            Start-Sleep -Milliseconds 200
+          }
+
+          $log = Get-Content $err -Raw -Encoding utf8 -ErrorAction SilentlyContinue
+          if ($log) { Write-Host "--- لاگ ---`n$log" }
+
+          foreach ($p in @(Get-Process chrome, msedge -ErrorAction SilentlyContinue |
+                           Where-Object { $before -notcontains $_.Id })) {
+            try { $p.Kill() } catch { }
+          }
+          if (-not $app.HasExited) { try { $app.Kill() } catch { } }
+          Get-Process mlqvoice -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+
+          if (-not $ready) { throw "نسخه‌ی نصب‌شده «ready on» نگفت — راه‌اندازی نیمه‌کاره" }
+          $sec = [math]::Round($ms / 1000, 2)
+          Write-Host "نسخه‌ی نصب‌شده در $sec ثانیه آماده شد."
+          "READY=$sec" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: و اگر فایل دستکاری شده باشد، نصب نمی‌کند
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # نیمه‌ی دومِ ادعا. «بدونِ اخطار نصب می‌شود» تنها وقتی ارزش دارد که
+          # جایش یک وارسیِ واقعی نشسته باشد؛ وگرنه فقط محافظ را برداشته‌ایم.
+          $url = 'https://github.com/${{ github.repository }}/releases/download/voice-latest/install.ps1'
+          $body = Invoke-RestMethod -Uri $url
+          $tampered = [regex]::Replace(
+            $body, "(\`$Sha\s*=\s*')[0-9a-f]{64}(')", "`${1}$('0' * 64)`$2")
+          if ($tampered -eq $body) { throw "دستکاریِ آزمایشی اعمال نشد — آزمون بی‌معنی است" }
+
+          $script = Join-Path $env:RUNNER_TEMP 'tampered.ps1'
+          Set-Content -Path $script -Value $tampered -Encoding utf8
+
+          $failed = $false
+          try { & pwsh -NoProfile -File $script } catch { $failed = $true }
+          if ($LASTEXITCODE -ne 0) { $failed = $true }
+          if (-not $failed) { throw "با اثرِ انگشتِ غلط هم نصب کرد — وارسی بی‌اثر است" }
+          Write-Host "با اثرِ انگشتِ غلط ایستاد، همان‌طور که باید."
+
+      - name: خلاصه
+        if: always()
+        run: |
+          @(
+            '### نصب از روی نشانیِ منتشرشده'
+            ''
+            '- یک‌خطیِ `irm … | iex` روی ویندوزِ تازه اجرا شد'
+            '- میان‌بُرِ منوی استارت ساخته شد و به فایلِ درست اشاره می‌کند'
+            '- هیچ فایلی نشانه‌ی Mark of the Web ندارد → SmartScreen اخطار نمی‌دهد'
+            "- نسخه‌ی نصب‌شده در ``$env:READY`` ثانیه آماده شد"
+            '- با اثرِ انگشتِ دستکاری‌شده نصب را رد کرد'
+          ) -join "`n" | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

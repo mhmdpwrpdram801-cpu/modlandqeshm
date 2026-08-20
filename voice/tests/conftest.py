@@ -10,6 +10,9 @@ import os
 
 import pytest
 
+# Note: conftest is imported for *every* run in this directory, so this reaches
+# the end-to-end test too, which needs a real window. That file undoes it for
+# itself — see the comment there for why it cannot be done from the workflow.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PySide6", reason="PySide6 نصب نیست")
