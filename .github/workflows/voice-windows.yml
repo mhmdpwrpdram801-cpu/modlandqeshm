@@ -91,6 +91,16 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python -m pytest -q
 
+      # جدا از مرحله‌ی بالا، و عمداً: آن‌ها offscreen اجرا می‌شوند و QApplication
+      # پلتفرمش را یک‌بار برای همیشه انتخاب می‌کند. این یکی به پنجره‌ی واقعی نیاز
+      # دارد — کلیدها از راهِ SendInput می‌آیند و باید به پنجره‌ای برسند که سیستم‌عامل
+      # هم قبولش دارد. پس پروسه‌ی جدا، بدونِ QT_QPA_PLATFORM.
+      - name: مسیرِ کامل با پنجره و کلیدِ واقعی
+        env:
+          MLQ_E2E: '1'
+          PYTHONIOENCODING: utf-8
+        run: python -m pytest tests/test_end_to_end_windows.py -q
+
       - name: ساختِ exe
         run: |
           python -m PyInstaller `
