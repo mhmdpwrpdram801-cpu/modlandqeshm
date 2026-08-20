@@ -161,6 +161,23 @@ class _Target:
         return False
 
 
+def focus_box(app, overlay) -> None:
+    """Put the keyboard back on the box, and say who had it if that fails.
+
+    Anything that opens a window takes the foreground with it, so this has to be
+    re-asserted rather than done once. The first version of these tests learned
+    that the hard way: the destination window opened *after* the box, quietly
+    took the focus, and every keystroke meant for the box went into it — which
+    surfaced as "Ctrl+Enter sent nothing" and said nothing about why.
+    """
+    assert inject.focus_window(int(overlay.winId())), (
+        "کادر فوکوس نگرفت — فوکوس دستِ: "
+        f"{inject.window_title(int(user32().GetForegroundWindow()))!r}"
+    )
+    overlay._text.setFocus()
+    pump(app, 0.2)
+
+
 @pytest.fixture
 def box(qt_app):
     """The dictation box, live and focusable, with the real dictionary."""
@@ -172,9 +189,7 @@ def box(qt_app):
     overlay.raise_()
     overlay.activateWindow()
     pump(qt_app, 0.6)
-    assert inject.focus_window(int(overlay.winId())), "کادر فوکوس نگرفت"
-    overlay._text.setFocus()
-    pump(qt_app, 0.2)
+    focus_box(qt_app, overlay)
     try:
         yield overlay
     finally:
@@ -206,11 +221,16 @@ class TestTypingFinglishGivesPersian:
 
 
 class TestAndThenItLandsInTheOtherWindow:
-    def test_ctrl_enter_writes_the_persian_into_the_target(self, qt_app, box, target):
+    def test_ctrl_enter_writes_the_persian_into_the_target(self, qt_app, target, box):
+        # `target` before `box` on purpose: fixtures build in argument order, and
+        # the destination window grabs the foreground as it opens. Built last,
+        # the box keeps the keyboard.
         written: list[str] = []
         box.insertRequested.connect(written.append)
+        focus_box(qt_app, box)
         type_keys(qt_app, "salam ")
         pump(qt_app)
+        assert box.text().strip() == "سلام", f"کلیدها به کادر نرسیدند: {box.text()!r}"
 
         send_input(
             [
