@@ -148,6 +148,13 @@ jobs:
         if: steps.changed.outputs.run == 'yes'
         run: python3 auditor/audit.py expenses/index.html -c expenses/audit.config.json
 
+      # بازرس پنل و خرج را می‌سنجد؛ این یکی **خودِ بازرس** را. هر بررسی دو نمونه
+      # دارد: یکی معیوب که باید گرفته شود، یکی سالم که نباید قرمز بدهد. اولین
+      # اجرا دو باگِ واقعی در audit.py لو داد.
+      - name: تستِ خودِ بازرس
+        if: steps.changed.outputs.run == 'yes'
+        run: python3 auditor/tests/run.py
+
       - name: عکس‌ها برای وقتی که قرمز شد
         if: failure() && steps.changed.outputs.run == 'yes'
         uses: actions/upload-artifact@v4
