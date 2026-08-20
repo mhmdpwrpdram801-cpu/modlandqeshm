@@ -22,6 +22,7 @@ receives into the user's keyboard.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -42,6 +43,11 @@ from .paths import browser_profile_dir
 log = logging.getLogger(__name__)
 
 MAX_BODY = 64 * 1024  # a spoken chunk is tiny; anything larger is not ours
+
+#: Ceiling on how much of a body we will read purely to throw it away. Far
+#: above any real request, and there so a caller claiming ``Content-Length:
+#: 2000000000`` cannot make the thread sit there reading it.
+DRAIN_LIMIT = 1024 * 1024
 
 #: How long a command waits for a browser that has not connected yet. Long
 #: enough to cover Chrome starting cold, short enough that a page reconnecting
@@ -94,6 +100,7 @@ def find_browser(explicit: str = "") -> str:
 class _Handler(BaseHTTPRequestHandler):
     server_version = "mlqvoice"
     bridge: RecognizerBridge  # set by the server
+    _body_done = False  # per-request; the body must never be read twice
 
     def log_message(self, fmt: str, *args) -> None:
         log.debug("bridge %s", fmt % args)
@@ -108,17 +115,58 @@ class _Handler(BaseHTTPRequestHandler):
             token = (parse_qs(urlparse(self.path).query).get("t") or [""])[0]
         return secrets.compare_digest(token, self.bridge.token)
 
-    def _reject(self) -> None:
-        self.send_response(403)
+    def _drain_body(self) -> None:
+        """Swallow the request body so the socket can close instead of reset.
+
+        Hanging up while the body still sits unread in the receive buffer makes
+        the OS send RST rather than FIN, and Windows throws away everything
+        buffered on a connection it resets — including the reply we just wrote.
+        The caller is then told the network broke, when what we actually sent it
+        was a perfectly clear ``403``.
+        """
+        if self._body_done:
+            return  # already consumed; reading again would block forever
+        self._body_done = True
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return  # nothing trustworthy to read; reading blind would hang
+        if length > 0:
+            with contextlib.suppress(OSError):
+                self.rfile.read(min(length, DRAIN_LIMIT))
+
+    def _answer(self, code: int) -> None:
+        """Reply with a status and no body, in a way that survives the hang-up.
+
+        ``send_response`` alone writes no ``Content-Length``, so the reply is
+        delimited by nothing but the close — the one event a reset destroys.
+        Saying the body is empty makes the answer complete the moment it lands,
+        whatever happens to the socket afterwards; draining the request keeps
+        the close from becoming a reset in the first place. Either one alone
+        would probably have done, and that is the point of having both: this
+        cost a red Windows CI run on a change that never touched the bridge.
+        """
+        self._drain_body()
+        self.send_response(code)
+        # 204 is self-delimiting by definition and the RFC forbids the header
+        # there; every other bodyless status needs it said out loud.
+        if code != 204:
+            self.send_header("Content-Length", "0")
         self.end_headers()
+
+    def _reject(self) -> None:
+        self._answer(403)
 
     def _read_json(self) -> dict | None:
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             return None
-        if length <= 0 or length > MAX_BODY:
+        if length <= 0:
             return None
+        if length > MAX_BODY:
+            return None  # refused unread, but _answer still drains it
+        self._body_done = True
         try:
             return json.loads(self.rfile.read(length).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
@@ -130,6 +178,7 @@ class _Handler(BaseHTTPRequestHandler):
     # -- routes ----------------------------------------------------------
 
     def do_GET(self) -> None:
+        self._body_done = False
         if not self._authorised():
             self._reject()
             return
@@ -145,18 +194,17 @@ class _Handler(BaseHTTPRequestHandler):
         elif path == "/events":
             self._stream_events()
         else:
-            self.send_response(404)
-            self.end_headers()
+            self._answer(404)
 
     def do_POST(self) -> None:
+        self._body_done = False
         if not self._authorised():
             self._reject()
             return
         path = self._path()
         data = self._read_json()
         if data is None:
-            self.send_response(400)
-            self.end_headers()
+            self._answer(400)
             return
 
         if path == "/result":
@@ -166,12 +214,10 @@ class _Handler(BaseHTTPRequestHandler):
         elif path == "/status":
             self.bridge.on_status(str(data.get("state", "")), str(data.get("detail", "")))
         else:
-            self.send_response(404)
-            self.end_headers()
+            self._answer(404)
             return
 
-        self.send_response(204)
-        self.end_headers()
+        self._answer(204)
 
     def _stream_events(self) -> None:
         self.send_response(200)

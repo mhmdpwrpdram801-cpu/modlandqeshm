@@ -1,10 +1,13 @@
 import json
+import socket
 import threading
 import urllib.error
 import urllib.request
+from unittest import mock
 
 import pytest
 
+from mlqvoice import bridge as mod
 from mlqvoice.bridge import BrowserNotFound, RecognizerBridge, Result, find_browser
 
 
@@ -235,3 +238,110 @@ class TestCommandsBeforeTheBrowserIsUp:
         now[0] += mod.PENDING_TTL + 1
         assert bridge.pending_command is None
         assert bridge.subscribe().empty()
+
+
+def raw_request(bridge, body: bytes, token: str, timeout=5) -> bytes:
+    """Speak HTTP by hand, so the reply can be examined byte for byte."""
+    sock = socket.create_connection(("127.0.0.1", bridge.port), timeout=timeout)
+    try:
+        sock.sendall(
+            b"POST /result HTTP/1.1\r\nHost: x\r\n"
+            + f"X-Token: {token}\r\n".encode()
+            + f"Content-Length: {len(body)}\r\n\r\n".encode()
+            + body
+        )
+        chunks = []
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                return b"".join(chunks)
+            chunks.append(chunk)
+    finally:
+        sock.close()
+
+
+class TestRejectionIsCleanNotAConnectionReset:
+    """A refused request must arrive as a refusal.
+
+    Windows CI failed with ``ConnectionAbortedError`` on a change that never
+    touched the bridge, and the mechanism turned out to be two things at once.
+    The refusal carried no ``Content-Length``, so the only thing marking the end
+    of the reply was the connection closing — and closing with the request body
+    still unread makes the OS send a reset instead, which on Windows discards
+    everything already buffered. The status we sent died with the socket.
+
+    The tests below check both halves separately, because either one alone is
+    enough to hide the other: a self-delimiting reply survives a reset, and a
+    drained request never causes one.
+    """
+
+    def test_a_refusal_says_how_long_it_is(self, bridge):
+        # Without this the reply is delimited by nothing but the close, which is
+        # exactly what a reset destroys.
+        head = raw_request(bridge, b'{"text":"x"}', token="wrong").split(b"\r\n\r\n")[0]
+        assert b"403" in head
+        assert b"Content-Length: 0" in head
+
+    def test_a_refused_body_is_read_off_the_socket(self, bridge):
+        # Measured, not assumed: the handler is asked how much it consumed.
+        seen = []
+        real = mod._Handler._drain_body
+
+        def spy(self):
+            before = self._body_done
+            real(self)
+            seen.append(before)
+
+        with mock.patch.object(mod._Handler, "_drain_body", spy):
+            raw_request(bridge, b'{"text":"x"}', token="wrong")
+        assert seen == [False]  # it ran, and it had not already been consumed
+
+    def test_the_oversized_refusal_says_how_long_it_is_too(self, bridge):
+        head = raw_request(
+            bridge, b'{"text":"' + b"x" * (80 * 1024) + b'"}', token=bridge.token
+        ).split(b"\r\n\r\n")[0]
+        assert b"400" in head
+        assert b"Content-Length: 0" in head
+
+    def test_an_accepted_post_is_not_drained_twice(self, bridge):
+        # Reading a body that _read_json already consumed would block the
+        # handler thread until the socket timed out — a hang, not an error.
+        post(bridge, "/result", {"text": "سلام", "final": True}, timeout=5)
+        assert bridge.results == [Result(text="سلام", final=True)]
+
+    def test_a_bad_token_is_refused_the_same_way_every_time(self, bridge):
+        # Repeated because the failure was intermittent: one attempt proves
+        # nothing about a race.
+        for _ in range(15):
+            with pytest.raises(urllib.error.HTTPError) as exc:
+                post(bridge, "/result", {"text": "سلام " * 500, "final": True}, token="wrong")
+            assert exc.value.code == 403
+
+    def test_an_oversized_body_is_refused_the_same_way_too(self, bridge):
+        # Same mechanism on the authorised side: /result answers 400 without
+        # reading the body, so the reply has to survive the hang-up as well.
+        for _ in range(15):
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{bridge.port}/result",
+                data=b'{"text":"' + b"x" * (80 * 1024) + b'"}',
+                headers={"X-Token": bridge.token},
+                method="POST",
+            )
+            with pytest.raises(urllib.error.HTTPError) as exc:
+                urllib.request.urlopen(req, timeout=5)
+            assert exc.value.code == 400
+
+    def test_and_nothing_of_it_reached_the_app(self, bridge):
+        with pytest.raises(urllib.error.HTTPError):
+            post(bridge, "/result", {"text": "نباید برسد", "final": True}, token="wrong")
+        assert bridge.results == []
+
+    def test_the_server_is_still_answering_afterwards(self, bridge):
+        # A reset connection can take the whole handler thread down with it.
+        # Proving the next request still works is what says the socket was
+        # closed, not broken.
+        for _ in range(15):
+            with pytest.raises(urllib.error.HTTPError):
+                post(bridge, "/result", {"text": "رد شود", "final": True}, token="wrong")
+        post(bridge, "/result", {"text": "سلام", "final": True})
+        assert bridge.results == [Result(text="سلام", final=True)]
