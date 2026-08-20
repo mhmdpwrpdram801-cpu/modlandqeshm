@@ -79,7 +79,11 @@ curl -fsS https://raw.githubusercontent.com/mhmdpwrpdram801-cpu/modlandqeshm/mai
 | `check-drift.py` | سنجشِ نسخه‌ها با npm / PyPI / nodejs.org / endoflife.date |
 | `sync-table.py` | بازسازیِ جدولِ §۴ از `stack.json` |
 | `self-check.py` | وارسیِ سازگاریِ درونیِ همه‌ی این‌ها |
+| `run-gates.py` | دروازه‌های `lock.json` → `verify` را اجرا می‌کند. CI همین را صدا می‌زند تا قالب کهنه نشود |
+| `project-gate.py` | جانگهدارِ **همیشه قرمز** تا وقتی پروژه دروازه‌ی واقعیِ خودش را نگیرد (CORE-12) |
 | `templates/guideline-upstream.yml` | قالبِ گردش‌کارِ هفتگی برای پروژه‌های دیگر |
+| `templates/gates.yml` | قالبِ CI که دروازه‌ها را روی هر PR می‌زند — با نصب گذاشته می‌شود |
+| `templates/deploy-verify.yml` | قالبِ انتشار با وارسیِ بعدش (OPS-06/07). **خودکار نصب نمی‌شود** |
 
 بیرونِ این پوشه:
 `../CLAUDE.md` · `../.claude/hooks/guideline-boot.py` · `../.claude/commands/gl-*.md` ·

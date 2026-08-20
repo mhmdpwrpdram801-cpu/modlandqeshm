@@ -72,6 +72,22 @@
     {
       "path": "guidelines/install.py",
       "kind": "tool"
+    },
+    {
+      "path": "guidelines/project-gate.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/run-gates.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/templates/gates.yml",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/templates/deploy-verify.yml",
+      "kind": "doc"
     }
   ],
   "never_touch": [
