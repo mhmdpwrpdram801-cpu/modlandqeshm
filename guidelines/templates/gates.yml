@@ -1,0 +1,42 @@
+# دروازه‌های وارسی — قالبِ آماده
+#
+# فرمان‌ها اینجا نوشته نمی‌شوند؛ از `guidelines/lock.json` → `verify` خوانده
+# می‌شوند. یک منبعِ حقیقت، و این فایل با عوض شدنِ دروازه‌ها کهنه نمی‌شود (ARCH-04).
+#
+# اگر دروازه‌ای داری که مرورگر یا نصبِ سنگین می‌خواهد، ببرش در کارِ جدا و با
+# `paths:` محدودش کن — ولی **حالتِ نامعلوم یعنی اجرا کن، نه رد کن**. اولین
+# نسخه‌ی همین گردش‌کار در مخزنِ منبع برعکس بود و بی‌صدا در هشت ثانیه سبز می‌داد
+# بی‌آنکه چیزی سنجیده باشد (CORE-12).
+
+name: دروازه‌های وارسی
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: دروازه‌های ثبت‌شده در lock.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      # اگر پروژه‌ات Node دارد، این دو خط را از کامنت دربیاور:
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: '22', cache: 'npm' }
+      # - run: npm ci
+
+      - name: اجرای دروازه‌ها
+        run: python3 guidelines/run-gates.py

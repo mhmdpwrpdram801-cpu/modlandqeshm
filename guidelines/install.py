@@ -43,7 +43,11 @@ FALLBACK = [
     "guidelines/README.md", "guidelines/stack.json", "guidelines/source.json",
     "guidelines/check-drift.py", "guidelines/self-check.py", "guidelines/sync-table.py",
     "guidelines/gl-update.py", "guidelines/install.py",
+    "guidelines/project-gate.py",
+    "guidelines/run-gates.py",
     "guidelines/templates/guideline-upstream.yml",
+    "guidelines/templates/gates.yml",
+    "guidelines/templates/deploy-verify.yml",
     ".claude/hooks/guideline-boot.py",
     ".claude/commands/gl-check.md", ".claude/commands/gl-migrate.md",
     ".claude/commands/gl-sync.md", ".claude/commands/gl-pull.md",
@@ -84,6 +88,7 @@ def detect_verify(root: str) -> list[dict]:
     out = [{"name": "خودوارسیِ دستورالعمل",
             "cmd": "python3 guidelines/self-check.py",
             "note": "سازگاریِ درونیِ خودِ دستورالعمل. جای تستِ پروژه را نمی‌گیرد."}]
+    found_real = False
 
     pkg = os.path.join(root, "package.json")
     if os.path.isfile(pkg):
@@ -95,9 +100,20 @@ def detect_verify(root: str) -> list[dict]:
         for name in ("test", "lint", "typecheck"):
             if name in scripts:
                 out.append({"name": name, "cmd": f"npm run {name}", "note": "از package.json"})
+                found_real = True
     elif os.path.isfile(os.path.join(root, "pyproject.toml")):
         out.append({"name": "تستِ پایتون", "cmd": "python3 -m pytest -q",
                     "note": "اگر pytest ندارید، این خط را عوض کنید"})
+        found_real = True
+
+    # CORE-12: اگر هیچ دروازه‌ی واقعیِ پروژه پیدا نشد، نصب **نباید** سبز باشد.
+    # قبلاً فقط self-check می‌ماند و از روزِ اول سبز می‌داد — یعنی هر پروژه‌ی
+    # تازه یک سبزِ توخالی تحویل می‌گرفت. حالا یک جانگهدارِ قرمز می‌نشیند که
+    # خودش می‌گوید چطور با تستِ واقعی عوضش کنی.
+    if not found_real:
+        out.append({"name": "دروازه‌ی پروژه (هنوز تعریف نشده)",
+                    "cmd": "python3 guidelines/project-gate.py",
+                    "note": "این را با فرمانِ تستِ خودت عوض کن — تا آن موقع قرمز است (CORE-12)."})
     return out
 
 
@@ -311,6 +327,22 @@ def main() -> int:
         say("✅", "گردش‌کارِ هفتگی در .github/workflows/ گذاشته شد")
     elif os.path.isfile(wf):
         say("·", "گردش‌کار از قبل هست")
+
+    # ۵.۵) گردش‌کارِ دروازه‌ها — این همان چیزی است که دروازه را از «یادِ یک نفر»
+    # به CI می‌برد. فرمان‌ها را از lock.json می‌خواند، پس کهنه نمی‌شود.
+    gtpl = os.path.join(root, "guidelines", "templates", "gates.yml")
+    gwf = os.path.join(root, ".github", "workflows", "gates.yml")
+    if os.path.isfile(gtpl) and not os.path.isfile(gwf):
+        os.makedirs(os.path.dirname(gwf), exist_ok=True)
+        with open(gtpl, encoding="utf-8") as s_, open(gwf, "w", encoding="utf-8") as d:
+            d.write(s_.read())
+        say("✅", "گردش‌کارِ دروازه‌ها در .github/workflows/gates.yml گذاشته شد")
+    elif os.path.isfile(gwf):
+        say("·", "gates.yml از قبل هست — دست نخورد")
+
+    # قالبِ انتشار عمداً **نصب نمی‌شود**: به هدف و رمزِ همان پروژه بند است و
+    # گذاشتنِ گردش‌کارِ انتشار در مخزنِ کسی بدونِ اطلاعش کارِ درستی نیست.
+    say("·", "قالبِ انتشار: guidelines/templates/deploy-verify.yml (خودت کپی‌اش کن)")
 
     # ۶) gitignore
     gi = os.path.join(root, ".gitignore")
