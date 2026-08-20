@@ -62,6 +62,24 @@ jobs:
           ruff check .
           ruff format --check .
 
+      # اسکریپتِ نصب روی کامپیوترِ مالک اجرا می‌شود، نه اینجا — پس اگر یک
+      # پرانتز جا افتاده باشد، جایی که معلوم می‌شود دستِ اوست. پارسرِ خودِ
+      # PowerShell بدونِ اجرا کردنش این را می‌گیرد.
+      - name: وارسیِ نحوِ اسکریپتِ نصب
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'scripts\install.ps1').Path, [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) {
+            $errors | ForEach-Object { Write-Host "::error::$($_.Message)" }
+            throw "install.ps1 خطای نحوی دارد"
+          }
+          $body = Get-Content 'scripts\install.ps1' -Raw -Encoding utf8
+          if ($body -notmatch '__SHA256__') {
+            throw "جای‌نگه‌دارِ اثرِ انگشت در install.ps1 نیست — انتشار نمی‌تواند مهرش بزند"
+          }
+          Write-Host "install.ps1 سالم است."
+
       # این مرحله چیزی است که تا حالا نداشتیم: همان ۱۵۶ تست، روی ویندوز.
       - name: تست روی ویندوزِ واقعی
         env:
@@ -187,15 +205,26 @@ jobs:
           $out = Join-Path $env:RUNNER_TEMP 'app-out.txt'
           $before = @(Get-Process chrome, msedge -ErrorAction SilentlyContinue).Id
 
+          $started = Get-Date
           $app = Start-Process -FilePath $exe -PassThru `
                    -RedirectStandardOutput $out -RedirectStandardError $err
 
+          # چرا این زمان اندازه گرفته می‌شود: شکایتِ اصلیِ مالک همین بود —
+          # «خیلی دیر لود می‌کنه و تا وقتی بازش نکردی هرچی کلید بزنی جواب نمی‌ده».
+          # onedir برای همین آمد. ولی «حس می‌کنم سریع‌تر شد» شاهد نیست، و بدونِ
+          # عدد هیچ‌کس نمی‌فهمد اگر فردا دوباره کند شود. ۵۰۰ms فاصله‌ی نمونه‌برداری
+          # یعنی دقت در همین حد است؛ برای بودجه‌ای که واحدش ثانیه است کافی است.
           $ready = $false
+          $readyMs = 0
           $deadline = (Get-Date).AddSeconds(75)
           while ((Get-Date) -lt $deadline) {
             if ($app.HasExited) { break }
             $log = Get-Content $err -Raw -Encoding utf8 -ErrorAction SilentlyContinue
-            if ($log -match 'ready on') { $ready = $true; break }
+            if ($log -match 'ready on') {
+              $ready = $true
+              $readyMs = [int]((Get-Date) - $started).TotalMilliseconds
+              break
+            }
             Start-Sleep -Milliseconds 500
           }
 
@@ -222,7 +251,18 @@ jobs:
           if ($ours.Count -eq 0) {
             throw "مرورگرِ تشخیصِ گفتار بالا نیامد — بدونِ آن هیچ صدایی تبدیل نمی‌شود"
           }
-          Write-Host "راه‌اندازی کامل شد و $($ours.Count) پروسه‌ی مرورگر بالا آمد."
+
+          $sec = [math]::Round($readyMs / 1000, 1)
+          Write-Host "راه‌اندازی کامل شد در $sec ثانیه و $($ours.Count) پروسه‌ی مرورگر بالا آمد."
+          "READY_SECONDS=$sec" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          # بودجه، نه فقط گزارش: عددی که چاپ می‌شود و هیچ‌کس رویش شرط نگذاشته،
+          # بی‌صدا بزرگ می‌شود. سقف با دستِ باز بسته شده چون رانرِ مشترکِ گیت‌هاب
+          # کندتر و پرنوسان‌تر از لپ‌تاپِ مالک است — این عدد جلوی «دوباره چند
+          # برابر شد» را می‌گیرد، نه اینکه کندیِ چندصد میلی‌ثانیه‌ای را شکار کند.
+          if ($readyMs -gt 20000) {
+            throw "راه‌اندازی $sec ثانیه طول کشید — بیش از بودجه‌ی ۲۰ ثانیه‌ای"
+          }
 
       - name: بارگذاریِ exe
         uses: actions/upload-artifact@v4
@@ -240,6 +280,7 @@ jobs:
             ''
             "- تست‌ها روی ``windows-latest`` اجرا شدند"
             "- exe: ``$env:EXE_SIZE`` مگابایت"
+            "- زمانِ راه‌اندازی تا آماده‌شدنِ کلیدِ میان‌بُر: ``$env:READY_SECONDS`` ثانیه"
             '- از بخشِ Artifacts همین اجرا دانلودش کن'
           ) -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
@@ -265,9 +306,24 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: mlqvoice-exe
+
+      # اسکریپتِ نصب اثرِ انگشتِ همین بسته را در خودش دارد، پس باید بعد از
+      # ساخته‌شدنِ zip مهر بخورد. جاگذاریِ متنی است تا اسکریپت بدونِ هیچ
+      # آرگومانی قابلِ اجرا بماند — کاربر فقط یک خط کپی می‌کند.
+      - name: مهرِ اثرِ انگشت روی اسکریپتِ نصب
+        run: |
+          set -euo pipefail
+          sha=$(sha256sum mlqvoice.zip | cut -d' ' -f1)
+          sed "s/__SHA256__/${sha}/" voice/scripts/install.ps1 > install.ps1
+          grep -q "$sha" install.ps1 || { echo "::error::جاگذاریِ اثرِ انگشت انجام نشد"; exit 1; }
+          grep -q '__SHA256__' install.ps1 && { echo "::error::جای‌نگه‌دار هنوز مانده"; exit 1; }
+          echo "SHA256=$sha" >> "$GITHUB_ENV"
+          echo "اثرِ انگشت: $sha"
 
       - name: انتشار روی نشانیِ ثابت
         env:
@@ -278,15 +334,34 @@ jobs:
           size=$(stat -c %s mlqvoice.zip)
           notes="ساخته‌شده از \`${GITHUB_SHA:0:7}\` — $(date -u '+%Y-%m-%d %H:%M UTC')
 
-          zip را باز کن و داخلش mlqvoice.exe را اجرا کن. این برچسب همیشه به
-          تازه‌ترین نسخه اشاره می‌کند، پس نشانی‌اش عوض نمی‌شود:
+          ## نصب — یک خط، بدونِ اخطارِ ویندوز
+
+          این خط را در PowerShell بزن:
+
+          \`\`\`powershell
+          irm https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/install.ps1 | iex
+          \`\`\`
+
+          دانلود می‌کند، اثرِ انگشتش را وارسی می‌کند، در \`%LOCALAPPDATA%\\mlqvoice\`
+          باز می‌کند و در منوی استارت میان‌بُر می‌سازد. چون فایل را **وارسی‌شده**
+          باز می‌کند، اخطارِ SmartScreen اصلاً نمی‌آید.
+
+          اثرِ انگشتِ این نسخه (SHA-256):
+
+          \`\`\`
+          ${SHA256}
+          \`\`\`
+
+          ## یا دستی
 
           \`\`\`
           https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/mlqvoice.zip
           \`\`\`
 
-          ویندوز اخطارِ SmartScreen می‌دهد چون فایل امضای دیجیتال ندارد:
-          More info ← Run anyway."
+          zip را باز کن و mlqvoice.exe را اجرا کن. این‌طوری ویندوز اخطارِ
+          SmartScreen می‌دهد (More info ← Run anyway) — چون فایل امضای دیجیتال
+          ندارد، و طبقِ مستنداتِ مایکروسافت امضا هم این اخطار را برنمی‌دارد تا
+          وقتی فایل اعتبارِ دانلودِ انبوه جمع نکرده باشد."
 
           # `--repo` روی هر چهار فرمان لازم است، نه از سرِ وسواس: این کار مخزن را
           # checkout نمی‌کند (فقط artifact را می‌گیرد)، پس هیچ ریموتِ گیتی نیست که
@@ -299,11 +374,11 @@ jobs:
           # لینکِ قدیمی یک نسخه‌ی منجمد را برای همیشه سرو می‌کند.
           gh release delete-asset "$TAG" mlqvoice.exe --yes --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" mlqvoice.zip --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" mlqvoice.zip install.ps1 --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
               --notes "$notes" --title "mlqvoice (تازه‌ترین)"
           else
-            gh release create "$TAG" mlqvoice.zip --repo "$GITHUB_REPOSITORY" \
+            gh release create "$TAG" mlqvoice.zip install.ps1 --repo "$GITHUB_REPOSITORY" \
               --title "mlqvoice (تازه‌ترین)" --notes "$notes" --latest
           fi
           echo "منتشر شد: $size بایت"
@@ -329,10 +404,31 @@ jobs:
             if [ "$served" = "$expected" ]; then
               echo "لینک جواب داد و اندازه خواند: $expected بایت"
               echo "- دانلودِ دائمی: <$url>" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
+              break
             fi
             echo "تلاشِ $attempt: اندازه‌ی سرو‌شده «${served:-هیچ}» با $expected نخواند؛ صبر…"
             sleep 5
+            if [ "$attempt" = 5 ]; then
+              echo "::error::لینکِ Release بعد از ۵ تلاش فایلِ درست را نداد: $url"
+              exit 1
+            fi
           done
-          echo "::error::لینکِ Release بعد از ۵ تلاش فایلِ درست را نداد: $url"
+
+          # و مهم‌تر: اسکریپتی که به مالک می‌گوییم اجرا کند، باید اثرِ انگشتِ
+          # همین فایلِ منتشرشده را داشته باشد. اگر نخوانَد، اسکریپت روی کامپیوترِ
+          # او می‌ایستد و می‌گوید فایل دستکاری شده — یعنی یک نصبِ شکسته که علتش
+          # اینجاست نه آنجا. پس همین‌جا سنجیده می‌شود، نه آنجا.
+          script_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/install.ps1"
+          published=$(sha256sum mlqvoice.zip | cut -d' ' -f1)
+          for attempt in 1 2 3 4 5; do
+            body=$(curl -sL "$script_url" || true)
+            if printf '%s' "$body" | grep -q "$published"; then
+              echo "اسکریپتِ نصب اثرِ انگشتِ درست را دارد: $published"
+              echo "- نصبِ یک‌خطی: \`irm $script_url | iex\`" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "تلاشِ $attempt: اسکریپتِ نصب هنوز اثرِ انگشتِ درست را ندارد؛ صبر…"
+            sleep 5
+          done
+          echo "::error::install.ps1 منتشرشده اثرِ انگشتِ zip را ندارد — نصب روی دستگاهِ کاربر می‌افتد"
           exit 1
