@@ -143,15 +143,13 @@ def get_clipboard_text() -> str | None:
         handle = u.GetClipboardData(CF_UNICODETEXT)
         if not handle:
             return None
-        k.GlobalLock.restype = ctypes.c_void_p
-        ptr = k.GlobalLock(ctypes.c_void_p(handle))
+        ptr = k.GlobalLock(handle)
         if not ptr:
             return None
         try:
             return ctypes.c_wchar_p(ptr).value
         finally:
-            k.GlobalLock.restype = ctypes.c_int
-            k.GlobalUnlock(ctypes.c_void_p(handle))
+            k.GlobalUnlock(handle)
     finally:
         u.CloseClipboard()
 
@@ -161,23 +159,25 @@ def set_clipboard_text(text: str) -> None:
     data = ctypes.create_unicode_buffer(text)
     size = ctypes.sizeof(data)
 
-    k.GlobalAlloc.restype = ctypes.c_void_p
     handle = k.GlobalAlloc(GMEM_MOVEABLE, size)
     if not handle:
         raise InjectError("حافظه برای کلیپ‌بورد گرفته نشد")
 
-    k.GlobalLock.restype = ctypes.c_void_p
-    ptr = k.GlobalLock(ctypes.c_void_p(handle))
+    ptr = k.GlobalLock(handle)
     if not ptr:
+        k.GlobalFree(handle)
         raise InjectError("قفلِ حافظه‌ی کلیپ‌بورد نشد")
     ctypes.memmove(ptr, data, size)
-    k.GlobalUnlock(ctypes.c_void_p(handle))
+    k.GlobalUnlock(handle)
 
     _open_clipboard()
     try:
         u.EmptyClipboard()
-        # Ownership of the handle passes to the clipboard on success only.
-        if not u.SetClipboardData(CF_UNICODETEXT, ctypes.c_void_p(handle)):
+        # Ownership of the handle passes to the clipboard on success only —
+        # so on failure it is ours to free, and leaking it here would lose a
+        # block of memory on every failed paste.
+        if not u.SetClipboardData(CF_UNICODETEXT, handle):
+            k.GlobalFree(handle)
             raise InjectError("نوشتن در کلیپ‌بورد رد شد")
     finally:
         u.CloseClipboard()

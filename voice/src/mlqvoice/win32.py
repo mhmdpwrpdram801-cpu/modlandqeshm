@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ctypes
 import sys
+from ctypes import wintypes
 
 IS_WINDOWS = sys.platform == "win32"
 
@@ -135,15 +136,95 @@ def send_input(inputs: list[INPUT]) -> None:
 
 
 # -- libraries -----------------------------------------------------------
+#
+# Every function below that hands back a **pointer** needs its restype declared.
+# ctypes defaults to ``c_int`` — 32 bits — so on 64-bit Windows the top half of
+# a returned pointer is thrown away and what is left is sign-extended back into
+# something that looks like an address but is not one.
+#
+# This is not theoretical. ``GetClipboardData`` returns an ``HGLOBAL``, which is
+# a real pointer; the truncated value went into ``GlobalLock``, and reading the
+# string it pointed at crashed the process with an access violation on Windows
+# CI. It had never been caught because nothing had ever read the clipboard on a
+# 64-bit machine before, and because the failure depends on where Windows
+# happened to put the block — the same code is perfectly fine whenever the top
+# 32 bits are zero, which is most of the time.
+#
+# Window handles are the exception and are safe to truncate: Microsoft
+# guarantees USER handles fit in 32 bits so 32-bit processes can be given them.
+# Declaring them anyway costs nothing and means nobody has to remember which
+# rule applies to which handle.
+
+_PROTOTYPES_DONE = False
+
+
+def _declare(u, k) -> None:
+    """Pin down argument and return types once, for the whole process."""
+    u.GetClipboardData.argtypes = [wintypes.UINT]
+    u.GetClipboardData.restype = ctypes.c_void_p
+    u.SetClipboardData.argtypes = [wintypes.UINT, ctypes.c_void_p]
+    u.SetClipboardData.restype = ctypes.c_void_p
+    u.IsClipboardFormatAvailable.argtypes = [wintypes.UINT]
+    u.IsClipboardFormatAvailable.restype = wintypes.BOOL
+    u.OpenClipboard.argtypes = [wintypes.HWND]
+    u.OpenClipboard.restype = wintypes.BOOL
+    u.CloseClipboard.argtypes = []
+    u.CloseClipboard.restype = wintypes.BOOL
+    u.EmptyClipboard.argtypes = []
+    u.EmptyClipboard.restype = wintypes.BOOL
+
+    u.GetForegroundWindow.argtypes = []
+    u.GetForegroundWindow.restype = wintypes.HWND
+    u.SetForegroundWindow.argtypes = [wintypes.HWND]
+    u.SetForegroundWindow.restype = wintypes.BOOL
+    u.SetActiveWindow.argtypes = [wintypes.HWND]
+    u.SetActiveWindow.restype = wintypes.HWND
+    u.IsIconic.argtypes = [wintypes.HWND]
+    u.IsIconic.restype = wintypes.BOOL
+    u.IsWindowVisible.argtypes = [wintypes.HWND]
+    u.IsWindowVisible.restype = wintypes.BOOL
+    u.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    u.ShowWindow.restype = wintypes.BOOL
+    u.GetWindowTextLengthW.argtypes = [wintypes.HWND]
+    u.GetWindowTextLengthW.restype = ctypes.c_int
+    u.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    u.GetWindowTextW.restype = ctypes.c_int
+    u.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
+    u.AttachThreadInput.restype = wintypes.BOOL
+    # GetWindowThreadProcessId is left alone on purpose: callers pass either a
+    # byref(DWORD) or None for the second argument, and a fixed argtypes list
+    # would reject one of them.
+    u.SendInput.argtypes = [wintypes.UINT, ctypes.c_void_p, ctypes.c_int]
+    u.SendInput.restype = wintypes.UINT
+
+    k.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+    k.GlobalAlloc.restype = ctypes.c_void_p
+    k.GlobalLock.argtypes = [ctypes.c_void_p]
+    k.GlobalLock.restype = ctypes.c_void_p
+    k.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    k.GlobalUnlock.restype = wintypes.BOOL
+    k.GlobalFree.argtypes = [ctypes.c_void_p]
+    k.GlobalFree.restype = ctypes.c_void_p
+    k.GetCurrentThreadId.argtypes = []
+    k.GetCurrentThreadId.restype = wintypes.DWORD
+
+
+def _libs():
+    global _PROTOTYPES_DONE
+    if not IS_WINDOWS:
+        raise NotWindows("این بخش فقط روی ویندوز کار می‌کند")
+    u, k = ctypes.windll.user32, ctypes.windll.kernel32
+    if not _PROTOTYPES_DONE:
+        # ctypes caches these library objects per process, so the declarations
+        # stick and every later caller gets them already correct.
+        _declare(u, k)
+        _PROTOTYPES_DONE = True
+    return u, k
 
 
 def user32():
-    if not IS_WINDOWS:
-        raise NotWindows("این بخش فقط روی ویندوز کار می‌کند")
-    return ctypes.windll.user32
+    return _libs()[0]
 
 
 def kernel32():
-    if not IS_WINDOWS:
-        raise NotWindows("این بخش فقط روی ویندوز کار می‌کند")
-    return ctypes.windll.kernel32
+    return _libs()[1]
