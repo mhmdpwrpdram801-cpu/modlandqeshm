@@ -1,0 +1,30 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>نمونه</title>
+<style>
+ :root{--bg:#fff;--fg:#111}
+ html[data-theme="dark"]{--bg:#111;--fg:#eee}
+ .force-light{--bg:#fff;--fg:#111}
+ @media print{:root{--bg:#fff;--fg:#111}}
+ body{background:var(--bg);color:var(--fg);font:16px system-ui;margin:0;padding:16px}
+ button{min-height:44px;min-width:44px}
+ textarea{inline-size:100%;min-height:44px}
+</style></head><body>
+<h1 id="t">نمونه</h1>
+<button id="tab0" aria-selected="true"  onclick="pick(0)">یک</button>
+<button id="tab1" aria-selected="false" onclick="pick(1)">دو</button>
+<label for="box">متن</label>
+<textarea id="box">چیزی</textarea>
+<button id="clr" onclick="clr()">پاک کن</button>
+<button id="thm" onclick="thm()">تم</button>
+
+<script>window.APP={ready:true};
+function pick(i){for(var k=0;k<2;k++){var e=document.getElementById('tab'+k);
+  if(e)e.setAttribute('aria-selected',k===i?'true':'false')}}
+/* «پاک کن» شرطش وارونه است: فیلد را فقط وقتی پاک می‌کند که **از قبل** خالی
+   باشد. یعنی روی صفحه هیچ‌وقت هیچ کاری نمی‌کند — دقیقاً همان دکمه‌ی مرده‌ای که
+   امضای حساس‌تر هم باید همچنان بگیردش. */
+function clr(){var e=document.getElementById('box');if(e.value==='')e.value=''}
+function thm(){var r=document.documentElement;
+  if(r.getAttribute('data-theme')==='dark')r.removeAttribute('data-theme');
+  else r.setAttribute('data-theme','dark')}
+</script></body></html>

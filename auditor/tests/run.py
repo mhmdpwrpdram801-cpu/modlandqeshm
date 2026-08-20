@@ -47,6 +47,9 @@ EXPECT = {
     "nan":     "NaN",
     "zindex":  "z-index",
     "narrow":  "باریک",
+    "dynid":   "عنصرِ گمشده",
+    "deadbtn": "بی‌اثر",
+    "htmltag": "تگِ بسته‌نشده",
 }
 
 
