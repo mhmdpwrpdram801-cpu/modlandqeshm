@@ -699,6 +699,13 @@
       "wait": 1100,
       "js": "()=>[window.__WASON,window.FUN_MINE].join('→')",
       "expect": "true→false"
+    },
+    {
+      "name": "گروه‌های شماره در متنِ راست‌به‌چپ وارونه دیده نمی‌شوند",
+      "before": "nav('customers')",
+      "wait": 900,
+      "js": "()=>{const order=(el)=>{if(!el)return null;const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);const parts=[];let t;while(t=w.nextNode()){const s=t.nodeValue;let i=0;s.split(/(\\s+)/).forEach(tok=>{if(/^\\d+$/.test(tok)){const r=document.createRange();r.setStart(t,i);r.setEnd(t,i+tok.length);const b=r.getBoundingClientRect();if(b.width)parts.push({tok,x:b.left});}i+=tok.length;});}if(parts.length<2)return null;const logical=parts.map(p=>p.tok).join(' ');const visual=parts.slice().sort((a,b)=>a.x-b.x).map(p=>p.tok).join(' ');return logical===visual?'درست':('وارونه: '+logical+' → '+visual);};const out=[];const li=order(document.querySelector('#custList .list-item .li-sub'));out.push('لیست:'+(li||'نیامد'));const h=document.createElement('div');h.style.position='fixed';h.style.right='-9999px';h.innerHTML=buildInvoiceHTML({invoice_number:1,date:'۱۴۰۵/۰۵/۰۹',buyer_name:'ت',buyer_phone:'09192223494',items_total:1,discount:0,total_amount:1,paid_amount:0,status:'credit',items:[{name:'ک',quantity:1,unit_price:1}]});document.body.appendChild(h);const inv=order(h.querySelector('.inv-buyer'));h.remove();out.push('سند:'+(inv||'نیامد'));return out.join(' | ');}",
+      "expect": "لیست:درست | سند:درست"
     }
   ],
   "click_test": {
