@@ -112,6 +112,19 @@ class Config:
     # Seconds of silence, after you have started speaking, that end the
     # recording on their own. 0 turns it off and leaves stopping to the hotkey.
     auto_stop_seconds: int = 4
+    # Send each finished sentence to Gemini to have misheard words fixed before
+    # the glossary runs. Off unless a key is set, and a key only ever lives in
+    # this file on this machine — never in the repository.
+    #
+    # The trade this makes: the dictated text reaches Google. The audio already
+    # did, through Web Speech, so this is not a new listener — but it is worth
+    # knowing rather than discovering.
+    correct: bool = True
+    gemini_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+    # How long a correction may take before the uncorrected sentence is used
+    # instead. Nothing is ever lost to a timeout; it only stops improving.
+    correct_timeout: int = 6
     browser_path: str = ""
     port: int = 0
     _unknown: tuple[str, ...] = field(default=(), repr=False, compare=False)
@@ -125,7 +138,11 @@ class Config:
         # Range-checking a string raises TypeError, which escapes as a traceback
         # instead of the message that names the field. The file is hand-edited,
         # so the wrong *type* is at least as likely as the wrong value.
-        for name, high in (("port", 65535), ("auto_stop_seconds", 600)):
+        for name, high in (
+            ("port", 65535),
+            ("auto_stop_seconds", 600),
+            ("correct_timeout", 120),
+        ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int):
                 raise ConfigError(f"{name}: باید عددِ صحیح باشد، نه {value!r}")

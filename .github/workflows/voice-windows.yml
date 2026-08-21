@@ -78,7 +78,16 @@ jobs:
           if ($body -notmatch '__SHA256__') {
             throw "جای‌نگه‌دارِ اثرِ انگشت در install.ps1 نیست — انتشار نمی‌تواند مهرش بزند"
           }
-          Write-Host "install.ps1 سالم است."
+
+          # BOM اختیاری نیست: PowerShell 5.1 فایلِ .ps1 بدونِ آن را با کدپیجِ ANSI
+          # می‌خوانَد و هر رشته‌ی فارسی خراب درمی‌آید. یک بار همین اتفاق افتاد و
+          # خطی که می‌گفت «از منوی استارت اجرا کن» ناخوانا شد، پس کاربر ماند که
+          # بعدش چه کند. سنجیدنش سه بایت است؛ نبودش یک نصبِ گنگ.
+          $head = [System.IO.File]::ReadAllBytes((Resolve-Path 'scripts\install.ps1').Path)[0..2]
+          if (($head -join ',') -ne '239,187,191') {
+            throw "install.ps1 بدونِ BOM است — فارسی‌اش روی PowerShell 5.1 خراب می‌شود"
+          }
+          Write-Host "install.ps1 سالم است (نحو + BOM)."
 
       # این مرحله چیزی است که تا حالا نداشتیم: همان ۱۵۶ تست، روی ویندوز.
       - name: تست روی ویندوزِ واقعی
@@ -332,6 +341,13 @@ jobs:
           sed "s/__SHA256__/${sha}/" voice/scripts/install.ps1 > install.ps1
           grep -q "$sha" install.ps1 || { echo "::error::جاگذاریِ اثرِ انگشت انجام نشد"; exit 1; }
           grep -q '__SHA256__' install.ps1 && { echo "::error::جای‌نگه‌دار هنوز مانده"; exit 1; }
+
+          # sed باید BOM را دست‌نخورده رد کند. اگر روزی نکند، فارسیِ اسکریپت روی
+          # PowerShell 5.1 خراب می‌شود و هیچ‌کس تا رسیدنِ عکسِ کاربر نمی‌فهمد.
+          if [ "$(head -c 3 install.ps1 | od -An -tu1 | tr -s ' ' | sed 's/^ //')" != "239 187 191" ]; then
+            echo "::error::BOM در فایلِ مهرخورده نماند — فارسی خراب می‌شود"
+            exit 1
+          fi
           echo "SHA256=$sha" >> "$GITHUB_ENV"
           echo "اثرِ انگشت: $sha"
 
@@ -346,15 +362,37 @@ jobs:
 
           ## نصب — یک خط، بدونِ اخطارِ ویندوز
 
-          این خط را در PowerShell بزن:
+          **اول PowerShell را باز کن** (این خط در مرورگر کار نمی‌کند):
+
+          1. کلیدِ **ویندوز** را با **R** بزن
+          2. بنویس \`powershell\` و اینتر
+          3. پنجره‌ای باز می‌شود که اولِ خطش \`PS C:\\Users\\...>\` است — همان‌جا
+
+          حالا این را بچسبان و اینتر بزن:
 
           \`\`\`powershell
-          irm https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/install.ps1 | iex
+          \$s=\"\$env:TEMP\\mlqvoice-install.ps1\"; iwr https://github.com/${GITHUB_REPOSITORY}/releases/download/voice-latest/install.ps1 -OutFile \$s; powershell -ExecutionPolicy Bypass -File \$s
           \`\`\`
+
+          > **چرا \`irm … | iex\` نه:** در Windows PowerShell 5.1 آن دستور متنِ
+          > اسکریپت را Latin-1 می‌خوانَد (گیت‌هاب charset اعلام نمی‌کند)، پس
+          > پیام‌های فارسی **پیش از اجرا** خراب می‌شوند و به‌جای «از منوی استارت
+          > اجرا کن» چیزی مثل \`Ø§Ø¬Ø±Ø§:\` می‌بینی. نصب درست انجام می‌شود ولی
+          > نمی‌فهمی بعدش چه کار کنی. دستورِ بالا فایل را خام دانلود می‌کند، پس
+          > هیچ رمزگشایی‌ای وسط نیست.
 
           دانلود می‌کند، اثرِ انگشتش را وارسی می‌کند، در \`%LOCALAPPDATA%\\mlqvoice\`
           باز می‌کند و در منوی استارت میان‌بُر می‌سازد. چون فایل را **وارسی‌شده**
           باز می‌کند، اخطارِ SmartScreen اصلاً نمی‌آید.
+
+          ## بعد از نصب — این قدم را جا نینداز
+
+          نصب برنامه را **اجرا نمی‌کند**. تا اجرا نشود، Alt+Space هیچ کاری نمی‌کند
+          چون چیزی بالا نیامده که به کلید جواب بدهد.
+
+          1. کلیدِ **ویندوز** را بزن، تایپ کن \`mlqvoice\`، اینتر
+          2. یک آیکن کنارِ ساعت (سینیِ سیستم) ظاهر می‌شود — یعنی آماده است
+          3. **حالا** هر جا که بودی \`Alt+Space\` را بزن
 
           اثرِ انگشتِ این نسخه (SHA-256):
 
@@ -431,8 +469,16 @@ jobs:
           script_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/install.ps1"
           published=$(sha256sum mlqvoice.zip | cut -d' ' -f1)
           for attempt in 1 2 3 4 5; do
-            body=$(curl -sL "$script_url" || true)
+            curl -sL "$script_url" -o published.ps1 || true
+            body=$(cat published.ps1 2>/dev/null || true)
             if printf '%s' "$body" | grep -q "$published"; then
+              # همان‌جا BOM را هم می‌سنجیم: فایلی که منتشر شده باید همانی باشد
+              # که مهر خورد. «آپلود خطا نداد» با «فایلِ درست آنجاست» یکی نیست.
+              got=$(head -c 3 published.ps1 | od -An -tu1 | tr -s ' ' | sed 's/^ //')
+              if [ "$got" != "239 187 191" ]; then
+                echo "::error::install.ps1 منتشرشده BOM ندارد — فارسی‌اش خراب می‌شود"
+                exit 1
+              fi
               echo "اسکریپتِ نصب اثرِ انگشتِ درست را دارد: $published"
               echo "- نصبِ یک‌خطی: \`irm $script_url | iex\`" >> "$GITHUB_STEP_SUMMARY"
               exit 0
