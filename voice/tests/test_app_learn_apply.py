@@ -6,10 +6,9 @@ What never worked was *accepting* those proposals — that needed
 ``mlqvoice learn --apply``, and on the installed build the name ``mlqvoice`` was
 not even on PATH. A feature nobody can reach is a feature nobody has.
 
-This matters more than it looks. Correction with Gemini needs an API key the
-owner cannot get from here, so the dictionary is the only mechanism left that
-makes dictation better over time — and it was the one that could not be
-switched on.
+This matters more than it looks: the dictionary is the *only* mechanism that
+makes dictation better over time, and it was the one that could not be switched
+on.
 
 Two things carry the weight below: the user's own dictionary is never rewritten
 from a file we could not parse, and an accepted entry takes effect *now* rather
