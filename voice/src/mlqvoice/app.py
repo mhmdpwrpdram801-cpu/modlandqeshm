@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from . import APP_NAME, __version__, inject
 from .bridge import BrowserNotFound, RecognizerBridge
 from .config import Config, ConfigError, load, save
-from .correct import Corrector
+from .correct import Corrector, resolve_key
 from .hotkey import HotkeyError, HotkeyListener
 from .media import MediaGuard, process_tree
 from .paths import config_file, learned_file, stats_file, user_dictionary_file
@@ -97,7 +97,7 @@ class VoiceApp:
         # could finish the other way round and shuffle the user's paragraph.
         # No key means no thread at all: the default build starts nothing.
         self.corrector = Corrector(
-            cfg.gemini_key,
+            resolve_key(cfg.gemini_key),
             model=cfg.gemini_model,
             timeout=float(cfg.correct_timeout),
         )

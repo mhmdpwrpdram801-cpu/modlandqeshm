@@ -31,10 +31,38 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 
 log = logging.getLogger(__name__)
+
+#: Read when the config file has no key. The name is the one Google's own
+#: examples use, so anyone who already has it set does not have to be told.
+ENV_KEY = "GEMINI_API_KEY"
+
+
+def resolve_key(configured: str) -> str:
+    """The key to use: the config file first, the environment second.
+
+    That order and not the reverse: the file is the setting the user chose on
+    purpose, and an environment variable inherited from some other tool should
+    not quietly override it.
+    """
+    return (configured or os.environ.get(ENV_KEY, "")).strip()
+
+
+def mask(key: str) -> str:
+    """A key, shown safely — enough to recognise, not enough to use.
+
+    Printed by ``check``, which people paste into chats when something is
+    wrong. Showing the whole key there is how keys leak.
+    """
+    key = key.strip()
+    if not key:
+        return "—"
+    return f"{key[:4]}…{key[-4:]}" if len(key) > 12 else "…"
+
 
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 

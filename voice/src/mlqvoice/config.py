@@ -7,6 +7,7 @@ user's chair, from a hotkey that does not work.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
@@ -187,4 +188,9 @@ def load(path: Path | None = None) -> Config:
 def save(cfg: Config, path: Path | None = None) -> Path:
     path = path or config_file()
     path.write_text(cfg.to_json(), encoding="utf-8")
+    # The file holds an API key once one is set. On Windows %APPDATA% is
+    # already per-user, but on anything POSIX the default would be world
+    # readable, and a key is not the sort of thing to leave lying open.
+    with contextlib.suppress(OSError, NotImplementedError):
+        path.chmod(0o600)
     return path
