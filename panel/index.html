@@ -2677,6 +2677,7 @@ async function openInsights(){
     P('carts',"bot_carts_open?select=chat_id,customer_name,customer_phone,customer_city,cart_items,cart_total,updated_at")
   ]);
   const cancelled=new Set(inv.filter(x=>x.status==='cancelled').map(x=>x.id));
+  window.FUN_MINE=false;   /* هر بار باز شدن، از حالتِ واقعی شروع کن */
   window.INS={inv,items,prods,bals,custs,sals,rets,bev,carts,cancelled,now:Date.now(),failed};
   insMenu();
 }
@@ -2768,6 +2769,38 @@ const FUN_STEPS=[
 const FUN_KEYS=['bev','carts','prods'];
 window.FUN_DAYS=30;
 
+/* «ترافیکِ خودم را هم حساب کن»
+   ─────────────────────────────
+   پنل معمولاً از نمای `bot_events_public` می‌خواند که چهار chat_idِ مدیر را
+   بیرون می‌گذارد. درست است — ولی یک عارضه دارد که موقعِ اولین تستِ مالک لو رفت:
+   **خودِ مالک هیچ‌وقت نمی‌تواند این صفحه را وارسی کند.** چهارده رویداد ثبت کرده
+   بود و صفحه می‌گفت «هنوز چیزی جمع نشده» — درست کار می‌کرد و شبیهِ باگ بود.
+
+   این کلید جدولِ خام را می‌خواند تا بشود دید صفحه واقعاً کار می‌کند.
+
+   **عمداً ذخیره نمی‌شود.** هر بار که صفحه باز شود خاموش است. اگر روی
+   localStorage می‌نشست، یک «روشن»ِ فراموش‌شده هفته‌ها بعد عددها را بی‌صدا باد
+   می‌کرد و کسی نمی‌فهمید چرا نرخِ تبدیل عوض شده — همان سبزِ توخالی، این بار روی
+   عددِ کسب‌وکار. یک لحظه دیدن ارزشش را دارد؛ یک حالتِ چسبنده نه. */
+window.FUN_MINE=false;
+
+async function insFunnelMine(){
+  const I=window.INS;
+  if(!window.FUN_MINE && !I.bevAll){
+    document.getElementById('funMineBtn').textContent='… در حال خواندن';
+    try{
+      const since=new Date(I.now-90*86400000).toISOString();
+      I.bevAll=await sbGetAll("bot_events?select=chat_id,event,product_id,meta,created_at&created_at=gte."+since);
+    }catch(e){
+      /* OPS-03: خطا را نمی‌بلعیم. اگر نشد، کلید روشن نمی‌شود و کاربر می‌فهمد چرا. */
+      toast('ترافیکِ خودت خونده نشد: '+(e.message||'خطای شبکه'));
+      insFunnel(); return;
+    }
+  }
+  window.FUN_MINE=!window.FUN_MINE;
+  insFunnel();
+}
+
 /* ساعتِ تهران بدونِ کتابخانه: ایران از ۱۴۰۱ ساعتِ تابستانی ندارد، پس اختلاف
    همیشه ۳:۳۰ است. `created_at` میلادیِ ISO است و **هیچ‌وقت خام چاپ نمی‌شود**. */
 function _funHour(iso){ const t=new Date(iso).getTime(); if(!isFinite(t))return -1; return new Date(t+12600000).getUTCHours(); }
@@ -2778,18 +2811,21 @@ function insFunnel(days){
   if(days!==undefined)window.FUN_DAYS=days;
   if(insFailed(FUN_KEYS).length){ insBlocked(FUN_KEYS,'📈 بازدید و نرخِ تبدیل'); return; }
   const I=window.INS, D=window.FUN_DAYS, since=D>0?_insPeriod(D):0;
-  const all=I.bev||[];
+  const MINE=!!window.FUN_MINE;
+  const all=(MINE?(I.bevAll||[]):(I.bev||[]));
   const ev=all.filter(e=>!since||new Date(e.created_at).getTime()>=since);
   const tab=(d,t)=>`<button class="btn sm ${D===d?'':'sec'}" style="flex:1" onclick="insFunnel(${d})">${t}</button>`;
   let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:2px">📈 بازدید و نرخِ تبدیل</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px">رفتارِ مشتری‌ها توی رباتِ تلگرام — گشتنِ خودت حساب نمی‌شه.</div>
-    <div style="display:flex;gap:6px;margin-bottom:14px">${tab(7,'۷ روز')}${tab(30,'۳۰ روز')}${tab(90,'۹۰ روز')}</div>`;
+    <div style="display:flex;gap:6px;margin-bottom:10px">${tab(7,'۷ روز')}${tab(30,'۳۰ روز')}${tab(90,'۹۰ روز')}</div>
+    <button class="btn sm ${MINE?'':'sec'}" id="funMineBtn" style="width:100%;margin-bottom:${MINE?'10px':'14px'}" onclick="insFunnelMine()">${MINE?'✓ ترافیکِ خودم حساب شده':'👁 ترافیکِ خودم رو هم حساب کن'}</button>
+    ${MINE?`<div class="card" style="padding:11px;margin-bottom:12px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">این عددها گشتنِ خودت رو هم دارن.</b><div style="font-size:11.5px;color:var(--muted);margin-top:3px">فقط برای اینه که ببینی صفحه کار می‌کنه. برای تصمیم‌گیری بهشون تکیه نکن — با بستنِ صفحه خودش خاموش می‌شه.</div></div>`:''}`;
 
   /* UI-07 + قاعده‌ی پروژه: با دادهٔ نداشته «همه‌چی مرتبه» نگو و صفر هم نشان نده.
      صفرِ خاموش اینجا یعنی «هیچ‌کس نیومده» — که ادعای غلطی است. */
   if(!all.length){
     h+=`<div class="card" style="padding:16px;border-right:3px solid var(--accent)">
-      <b>هنوز چیزی جمع نشده.</b>
+      <b>هنوز چیزی جمع نشده${MINE?' — حتی از خودت':''}.</b>
       <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.9">
         ثبتِ رفتارِ مشتری از نسخه‌ی ۴۱ ربات شروع شد. قبلش هیچ‌جا ذخیره نمی‌شد،
         پس این صفحه <b>گذشته رو نشون نمی‌ده</b> — از الان به بعد پر می‌شه.
