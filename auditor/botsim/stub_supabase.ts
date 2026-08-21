@@ -16,6 +16,42 @@ export const DB: Record<string, Row[]> = {};
 export const FAULT = { on: false };
 export const CALLS: string[] = [];
 
+/* جدول‌های واقعیِ دیتابیس — `auditor/schema.txt` منبعش است.
+ *
+ * تا امروز استاب هر نامی را قبول می‌کرد (`DB[table] ??= []`)، یعنی اگر ربات در
+ * نامِ جدول یک حرف اشتباه می‌نوشت — یا به جدولی می‌نوشت که اصلاً ساخته نشده —
+ * شبیه‌ساز **سبز** می‌داد و روی تولید داده بی‌صدا گم می‌شد. سخت‌گیری روی فیلتر و
+ * `rpc` بود ولی روی نامِ جدول نبود؛ همان سبزِ توخالیِ CORE-12، یک لایه پایین‌تر.
+ */
+export const TABLES = new Set([
+  "bot_admins", "bot_events", "customer_balances", "customers", "dev_tests",
+  "discount_codes", "expenses", "invoice_items", "invoices", "payments",
+  "products", "quotes", "returns", "salaries", "settings", "shipments",
+  "telegram_orders", "telegram_sessions", "employees", "app_config",
+  "client_errors",
+]);
+
+/* قیدهای CHECK که دیتابیسِ واقعی دارد و اینجا هم باید همان‌طور رد شوند.
+ * وگرنه یک نامِ رویدادِ غلط در ربات، در شبیه‌ساز بی‌صدا می‌نشیند و فقط روی تولید
+ * ردش می‌شود — جایی که هیچ‌کس نگاه نمی‌کند.
+ * `auditor/server_audit.py` این فهرست را با خودِ `bot/index.ts` و با عکسِ
+ * ثابت‌های دیتابیس مقابله می‌کند تا از هم دور نیفتند (TEST-05). */
+export const BOT_EVENTS = [
+  "start", "browse", "view", "media", "cart_add", "checkout",
+  "order", "pay_click", "receipt", "paid", "ask",
+];
+
+function checkConstraints(table: string, row: Row) {
+  if (table === "bot_events") {
+    if (!BOT_EVENTS.includes(String(row.event))) {
+      throw new Error(`استابِ supabase: قیدِ bot_events_event_known — رویدادِ ناشناخته «${row.event}»`);
+    }
+    if (row.chat_id == null) {
+      throw new Error("استابِ supabase: bot_events.chat_id نمی‌تواند خالی باشد");
+    }
+  }
+}
+
 function match(row: Row, f: [string, string, unknown][]): boolean {
   return f.every(([op, col, val]) => {
     const v = row[col];
@@ -58,9 +94,13 @@ class Query implements PromiseLike<{ data: unknown; error: unknown }> {
 
   private run() {
     if (FAULT.on) return { data: null, error: { message: 'شبیه‌ساز: خرابیِ عمدیِ دیتابیس' } };
+    if (!TABLES.has(this.table)) {
+      throw new Error(`استابِ supabase: جدولِ ناشناخته «${this.table}» — یا در دیتابیس نیست، یا نامش را در stub_supabase.ts اضافه کن`);
+    }
     const rows = DB[this.table] ??= [];
     if (this._mode === "insert") {
       const add = Array.isArray(this._payload) ? this._payload : [this._payload!];
+      add.forEach((r) => checkConstraints(this.table, r));
       const made = add.map((r) => ({ id: r.id ?? `gen-${this.table}-${rows.length + 1}`, ...r }));
       rows.push(...made);
       return { data: made, error: null };

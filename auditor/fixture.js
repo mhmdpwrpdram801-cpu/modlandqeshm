@@ -42,6 +42,29 @@ const DATA={products:P,customers:C,invoices:INV,
  telegram_orders:[{id:'t1',status:'new',customer_name:'زهرا',customer_phone:'09120001122',customer_city:'قشم',customer_address:'خیابان',
    items:[{product_id:'p1',name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",quantity:2,unit_price:850000}],total:1700000,note:null,created_at:iso(now-36e5),
    tg_user_id:5,tg_username:'z',paid_confirmed_at:null,card_sent_at:null,receipt_sent_at:null,invoice_id:null}],
+ /* ── رفتارِ مشتری در ربات: ده نفر با عمقِ **دستی‌حساب‌شده** ────────────────
+     v1 فقط اومد · v2 لیست دید · v3,v4 کالا باز کردن · v5 سبد پر کرد
+     v6 رفت سرِ تسویه · v7 سفارش داد · v8 فیش فرستاد · v9 پرداختش تأیید شد
+     v10 فقط سؤال پرسید (عمقش مثلِ «لیست دید» است، نه بیشتر)
+     پس: ۱۰ بازدیدکننده · ۳ خریدار · نرخِ تبدیل ۳۰٪ · ۱ پرداختِ تأییدشده.
+     v9 دو سفارش دارد تا «مشتریِ برگشتی» هم عددِ واقعی داشته باشد. */
+ bot_events_public:(()=>{ const E=[]; let n=0;
+   const e=(chat,event,pid,mins,meta)=>E.push({id:++n,chat_id:chat,event,product_id:pid||null,meta:meta||null,created_at:iso(now-mins*6e4)});
+   e(1,'start',null,600);
+   e(2,'start',null,590); e(2,'browse',null,589);
+   e(3,'start',null,580); e(3,'browse',null,579); e(3,'view','p1',578);
+   e(4,'start',null,570); e(4,'browse',null,569); e(4,'view','p1',568); e(4,'media','p1',567);
+   e(5,'start',null,560); e(5,'browse',null,559); e(5,'view','p2',558); e(5,'cart_add','p2',557,{qty:1,unit_price:1250000});
+   e(6,'start',null,550); e(6,'browse',null,549); e(6,'view','p1',548); e(6,'cart_add','p1',547,{qty:2,unit_price:850000}); e(6,'checkout',null,546,{items:1});
+   e(7,'start',null,540); e(7,'browse',null,539); e(7,'view','p1',538); e(7,'cart_add','p1',537,{qty:1,unit_price:850000}); e(7,'checkout',null,536,{items:1}); e(7,'order',null,535,{total:850000,items:1});
+   e(8,'start',null,530); e(8,'browse',null,529); e(8,'view','p3',528); e(8,'cart_add','p3',527,{qty:1,unit_price:430000}); e(8,'checkout',null,526,{items:1}); e(8,'order',null,525,{total:430000,items:1}); e(8,'receipt',null,524,{total:430000});
+   e(9,'start',null,520); e(9,'browse',null,519); e(9,'view','p1',518); e(9,'cart_add','p1',517,{qty:2,unit_price:850000}); e(9,'checkout',null,516,{items:1}); e(9,'order',null,515,{total:1700000,items:1}); e(9,'receipt',null,514,{total:1700000}); e(9,'paid',null,513,{total:1700000}); e(9,'order',null,120,{total:850000,items:1});
+   e(10,'start',null,500); e(10,'ask',null,499);
+   return E; })(),
+ /* دو سبدِ نیمه‌کاره — جمعِ دستی: ۱٬۷۰۰٬۰۰۰ + ۸۵۰٬۰۰۰ = ۲٬۵۵۰٬۰۰۰ */
+ bot_carts_open:[
+   {chat_id:5,customer_name:'زهرا',customer_phone:'09120001122',customer_city:'قشم',cart_items:2,cart_total:1700000,updated_at:iso(now-2*36e5)},
+   {chat_id:6,customer_name:"سبدِ <b>بی‌نام</b> & 'خط'",customer_phone:'',customer_city:'',cart_items:1,cart_total:850000,updated_at:iso(now-5*36e5)}],
  discount_codes:[{id:'d1',code:'EID',percent:10,active:true,note:'',created_at:iso(now-864e5)}],
  settings:[{id:1,shop_name:'مدلند قشم',subtitle:'پخش پوشاک',phone:'09171234567',phone2:'',address:'درگهان',
    instagram:'modland',telegram:'modlandqeshm',return_policy:'تا ۷ روز',updated_at:iso(now)}]};

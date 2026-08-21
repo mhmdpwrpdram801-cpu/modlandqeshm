@@ -104,6 +104,38 @@ async function setSession(chatId: number, fields: any) {
     .eq('chat_id', chatId);
 }
 
+/* ── رویدادنگارِ قیفِ فروش (نسخه‌ی ۴۱) ────────────────────────────────────
+   پایه‌ی صفحه‌ی «بازدید و نرخِ تبدیل» در پنل. تا امروز از رفتارِ مشتری در ربات
+   هیچ ردی نمی‌مانْد: `telegram_sessions` جای هر نفر یک ردیف دارد که سرِ جا
+   بازنویسی می‌شود و حتی `created_at` ندارد.
+
+   قاعده‌هایش، هم‌خانواده‌ی `reportError` در پنل — هیچ‌کدام را نشکن:
+   ۱ **هرگز throw نکند.** آمار حق ندارد خریدِ مشتری را بخواباند؛ هر خطا فقط
+     `warn` می‌شود، چون کسی نباید نصفه‌شب برای یک ردیفِ آمار بیدار شود.
+   ۲ **هیچ متنِ پیامِ مشتری نمی‌فرستد** — فقط «کی، چه کاری، روی کدام کالا»
+     (SEC-08). `meta` عمداً فقط عدد می‌گیرد.
+   ۳ **منتظرش می‌مانیم.** در Supabase Edge هر درخواست ایزوله‌ی خودش را دارد و
+     بعد از برگشتنِ پاسخ چیزی زنده نمی‌مانَد، پس promiseی رهاشده ممکن است اصلاً
+     اجرا نشود — همان درسِ TEST-10 که سقفِ نرخِ درون‌حافظه‌ای را قلابی کرد.
+   ۴ **نامِ رویداد را خودِ دیتابیس با CHECK می‌سنجد.** غلطِ تایپی اینجا بلند خطا
+     می‌دهد، نه اینکه یک رویدادِ نامرئی بسازد که هیچ‌جا شمرده نمی‌شود.
+   ۵ با نقشِ سرویس می‌رود و RLS نوشتن را به هیچ مشتری‌ای نمی‌دهد، پس آمار
+     جعل‌شدنی نیست.
+
+   `rid` نمی‌گیرد و این یک معامله‌ی آگاهانه است: این تابع از شش جای مختلف صدا
+   زده می‌شود و رساندنِ شناسه‌ی همبستگی به همه‌شان یعنی عوض کردنِ امضای شش تابع
+   روی رباتِ زنده. خطِ شکستش خودش گویاست (نامِ رویداد + پیامِ خطا) و مسیری نیست
+   که کسی با همبستگی دنبالش بگردد. */
+async function logEvent(chatId: number, event: string, productId?: string | null, meta?: Record<string, number> | null) {
+  try {
+    const { error } = await supabase.from('bot_events')
+      .insert({ chat_id: chatId, event, product_id: productId || null, meta: meta || null });
+    if (error) log('evt', 'warn', 'event.insert_failed', { ev: event, msg: String(error.message).slice(0, 120) });
+  } catch (e) {
+    log('evt', 'warn', 'event.threw', { ev: event, ...errInfo(e) });
+  }
+}
+
 function fa(n: number) {
   return Math.round(n || 0).toLocaleString('en-US')
     .replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
@@ -341,6 +373,7 @@ async function showProducts(chatId: number) {
 
 async function showCategory(chatId: number, idx: number, page: number) {
   await setSession(chatId, { step: 'choosing' });
+  await logEvent(chatId, 'browse', null, { page: Number(page) || 0 });
   const { data: all } = await supabase.from('products').select('id,name,price,created_at').order('name');
   const products = all || [];
   const isNew = (idx === -2);
@@ -382,6 +415,7 @@ async function showProductDetail(chatId: number, pid: string) {
     .eq('id', pid).maybeSingle();
   if (!p) { await send(chatId, 'این کالا پیدا نشد 🙏'); await showProducts(chatId); return; }
   await setSession(chatId, { temp_product_id: pid });
+  await logEvent(chatId, 'view', p.id);
   const photos = cleanPhotos(p.photos);
   const hasJin = !!(p.video_jin_url || p.video_jin_fid);
   const hasCarton = !!(p.video_carton_url || p.video_carton_fid);
@@ -438,6 +472,7 @@ async function finalizeOrder(chatId: number, s: any, addressText: string, tgUser
   const dnote = (dpct > 0 && s.discount_code) ? `کدِ تخفیف ${s.discount_code} (${dpct}٪)` : null;
   const { data: newOrder, error: insErr } = await supabase.from('telegram_orders').insert({ status: 'new', customer_name: s.customer_name, customer_phone: s.customer_phone, customer_city: s.customer_city, customer_address: addressText, tg_user_id: chatId, tg_username: tgUser, items: cart, total, note: dnote }).select('id').single();
   if (insErr || !newOrder) { await setSession(chatId, { step: 'address' }); await send(chatId, 'ثبتِ سفارش خطا خورد 🙏 لطفاً آدرست رو یه بارِ دیگه بفرست.'); return; }
+  await logEvent(chatId, 'order', null, { total, items: cart.length });
   let summary = '✅ سفارشت ثبت شد! ممنون 🌹\n\n<b>خلاصه‌ی سفارش:</b>\n';
   for (const it of cart) summary += `• ${escH(it.name)} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
   if (dpct > 0) summary += `\nتخفیف با کدِ ${escH(s.discount_code)}: ${fa(dpct)}٪ (از ${fa(raw)})`;
@@ -516,7 +551,7 @@ async function medCheck(pid: string, which: string, tok: string): Promise<boolea
 
 // نسخه‌ی این فایل. بازرسِ سرور آن را با عددی که در bot/README.md ثبت شده مقابله
 // می‌کند، پس دیگر نمی‌شود مستقر کرد و یادت برود مستند را جلو ببری.
-const BOT_VER = 40;
+const BOT_VER = 41;
 
 // ── لاگِ ساخت‌یافته (OPS-01، OPS-02) ────────────────────────────────────────
 // لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست: نمی‌شود پرسید «این درخواست چه بر
@@ -703,6 +738,7 @@ Deno.serve(async (req) => {
       if (data === 'noop') {
         /* فقط شماره‌ی صفحه‌ست */
       } else if (data === 'ask') {
+        await logEvent(chatId, 'ask');
         await setSession(chatId, { step: 'asking' });
         await send(chatId, '💬 سؤالت رو همین‌جا بنویس (یا عکس بفرست) — می‌رسه دستِ فروشگاه و همین‌جا جوابت رو می‌دیم 🌹\n(برای انصراف /start بزن)');
       } else if (data.startsWith('rp_')) {
@@ -750,13 +786,17 @@ Deno.serve(async (req) => {
         await setSession(chatId, { step: 'address' });
         await send(chatId, 'آدرسِ جدید رو بفرست:');
       } else if (data.startsWith('jin_')) {
+        await logEvent(chatId, 'media', data.slice(4));
         await sendProductVideo(chatId, data.slice(4), 'jin');
       } else if (data.startsWith('crt_')) {
+        await logEvent(chatId, 'media', data.slice(4));
         await sendProductVideo(chatId, data.slice(4), 'carton');
       } else if (data.startsWith('pics_')) {
+        await logEvent(chatId, 'media', data.slice(5));
         await sendProductPhotos(chatId, data.slice(5));
       } else if (data.startsWith('size_')) {
         const pid = data.slice(5);
+        await logEvent(chatId, 'media', pid);
         const { data: p } = await supabase.from('products').select('name,size_info').eq('id', pid).maybeSingle();
         if (p && p.size_info && String(p.size_info).trim()) {
           await send(chatId, `📏 <b>اندازه و قواره «${escH(p.name)}»:</b>\n${escH(p.size_info)}`);
@@ -764,6 +804,7 @@ Deno.serve(async (req) => {
           await send(chatId, '📏 اطلاعاتِ اندازه‌ی این کالا هنوز ثبت نشده 🙏');
         }
       } else if (data.startsWith('paynow_')) {
+        await logEvent(chatId, 'pay_click');
         const oid = data.slice(7);
         const { data: ord } = await supabase.from('telegram_orders').select('id,total,card_file_id,paid_confirmed_at,customer_name,customer_phone').eq('id', oid).maybeSingle();
         if (!ord) {
@@ -802,6 +843,7 @@ Deno.serve(async (req) => {
           const { data: ord } = await supabase.from('telegram_orders').select('id,tg_user_id,total').eq('id', oid).maybeSingle();
           if (ord) {
             await supabase.from('telegram_orders').update({ paid_confirmed_at: new Date().toISOString() }).eq('id', ord.id);
+            if (ord.tg_user_id) await logEvent(Number(ord.tg_user_id), 'paid', null, { total: Number(ord.total || 0) });
             if (ord.tg_user_id) {
               try { await setSession(Number(ord.tg_user_id), { step: 'idle', temp_order_id: null }); } catch (_) {}
               await send(Number(ord.tg_user_id), `✅ پرداختِ <b>${fa(ord.total)} تومان</b> رسید و تأیید شد. سفارشت در حالِ آماده‌سازیه 🌹`);
@@ -885,6 +927,7 @@ Deno.serve(async (req) => {
           await send(chatId, 'هنوز چیزی انتخاب نکردی 🙂');
           await showProducts(chatId);
         } else {
+          await logEvent(chatId, 'checkout', null, { items: cart.length });
           const { data: anyCode } = await supabase.from('discount_codes').select('id').eq('active', true).limit(1);
           if (anyCode && anyCode.length) {
             await setSession(chatId, { step: 'discount' });
@@ -933,6 +976,7 @@ Deno.serve(async (req) => {
           await setSession(chatId, { step: 'idle', temp_order_id: null });
           if (!ord) { await send(chatId, 'سفارشت پیدا نشد 🙏'); return new Response('ok'); }
           await supabase.from('telegram_orders').update({ receipt_file_id: pic.file_id, receipt_sent_at: new Date().toISOString() }).eq('id', ord.id);
+          await logEvent(chatId, 'receipt', null, { total: Number(ord.total || 0) });
           await send(chatId, '🧾 فیشت رسید، ممنون! بررسیش می‌کنیم 🌹');
           try {
             const { data: admins } = await supabase.from('bot_admins').select('chat_id');
@@ -966,7 +1010,7 @@ Deno.serve(async (req) => {
         const cmdF = text.replace(/[\p{Cf}\s]/gu, '').replace(/@[A-Za-z0-9_]+$/i, '');
         const s = await getSession(chatId);
 
-        if (cmdA === '/start') { await showMain(chatId); return new Response('ok'); }
+        if (cmdA === '/start') { await logEvent(chatId, 'start'); await showMain(chatId); return new Response('ok'); }
         if (cmdF === '/سوال' || cmdF === '/سؤال' || cmdA === '/ask') {
           await setSession(chatId, { step: 'asking' });
           await send(chatId, '💬 سؤالت رو بنویس (یا عکس بفرست) — می‌رسه دستِ فروشگاه 🌹');
@@ -1019,6 +1063,7 @@ Deno.serve(async (req) => {
           if (!prod) { await setSession(chatId, { temp_product_id: null, step: 'choosing' }); await send(chatId, 'این کالا دیگه تو لیست نیست 🙏'); await showProducts(chatId); return new Response('ok'); }
           const cart = s.cart || [];
           cart.push({ product_id: prod.id, name: prod.name, quantity: qty, unit_price: Number(prod.price) });
+          await logEvent(chatId, 'cart_add', prod.id, { qty, unit_price: Number(prod.price) });
           if (s.editing_order_id) {
             await setSession(chatId, { cart, temp_product_id: null, step: 'edit_cart' });
             await send(chatId, `«${escH(prod.name)}» × ${fa(qty)} اضافه شد ✅`);

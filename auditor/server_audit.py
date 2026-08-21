@@ -239,6 +239,39 @@ def bot_checks(src, code):
         "تابعِ escH برای متنِ کاربر هست" if re.search(r"function escH", code)
         else "تابعِ فرارِ HTML وجود ندارد")
 
+    head("۶.۵) فهرستِ رویدادهای قیف در سه جا یکی است")
+    # `bot_events.event` سه جا تعریف شده و **هر سه باید یکی باشند**:
+    #   ۱ خودِ ربات (چه چیزی می‌نویسد)
+    #   ۲ استابِ شبیه‌ساز (چه چیزی را قبول می‌کند)
+    #   ۳ قیدِ CHECK دیتابیس (چه چیزی واقعاً می‌نشیند)
+    # اگر از هم دور بیفتند، بدترین حالت خاموش است: ربات رویدادی می‌فرستد که
+    # دیتابیس ردش می‌کند، شبیه‌ساز سبز می‌دهد، و صفحه‌ی نرخِ تبدیل یک مرحله‌ی
+    # قیف را **کم** نشان می‌دهد بی‌آنکه هیچ‌جا خطایی ببینی (TEST-05).
+    ev_bot = sorted(set(re.findall(r"logEvent\(\s*[^,]+,\s*'([a-z_]+)'", code)))
+    stub_p = os.path.join(HERE, "botsim", "stub_supabase.ts")
+    snap_p = os.path.join(HERE, "db_invariants.snapshot.json")
+    try:
+        m = re.search(r"export const BOT_EVENTS = \[(.*?)\];", open(stub_p, encoding="utf-8").read(), re.S)
+        ev_stub = sorted(set(re.findall(r'"([a-z_]+)"', m.group(1)))) if m else []
+    except OSError:
+        ev_stub = []
+    try:
+        snap = json.load(open(snap_p, encoding="utf-8"))
+        con = next((c["d"] for c in (snap.get("checks") or []) if c.get("c") == "bot_events_event_known"), "")
+        ev_db = sorted(set(re.findall(r"'([a-z_]+)'::text", con)))
+    except OSError:
+        ev_db = []
+    if not ev_bot or not ev_stub or not ev_db:
+        # «نشد بخوانم» هرگز نباید سبز بدهد (CORE-12)
+        bad(f"فهرستِ رویدادها خوانده نشد — ربات {len(ev_bot)}، استاب {len(ev_stub)}، دیتابیس {len(ev_db)}")
+    elif ev_bot == ev_stub == ev_db:
+        ok(f"هر {len(ev_bot)} رویدادِ قیف در ربات، استاب و قیدِ دیتابیس یکی است")
+    else:
+        bad("فهرستِ رویدادها یکی نیست — "
+            f"فقط در ربات: {sorted(set(ev_bot) - set(ev_db) - set(ev_stub))} · "
+            f"فقط در دیتابیس: {sorted(set(ev_db) - set(ev_bot))} · "
+            f"فقط در استاب: {sorted(set(ev_stub) - set(ev_bot))}")
+
     head("۷) هم‌خوانیِ کپیِ مرجع (OPS-06)")
     # وقتی فایلِ دیگری سنجیده می‌شود (تستِ جهشی)، این بررسی بی‌معنی است: هر جهشی
     # هش را عوض می‌کند، پس همه‌ی جهش‌ها «گرفته» می‌شدند و نرخِ ۱۰۰٪ِ دروغ می‌ساخت.
@@ -331,6 +364,37 @@ def db_checks(path, max_age=None):
             f"هر {len(b)} {label} سرِ جایش است"
             if not missing else f"{label}ِ گم‌شده: " +
             "، ".join(f"{m.get('t')}.{m.get('c') or m.get('trg')}" for m in missing[:4]))
+    # نماها: `grant` همان کنترلِ دسترسی است
+    #
+    # این را با اندازه‌گیری فهمیدیم، نه با حدس. دو نمای تازه ساخته شد و بلافاصله
+    # بعدش سنجیده شد که کلیدِ عمومیِ پنل چه چیزی از آن‌ها می‌بیند: **هر دو را
+    # می‌خواند** — نامِ مشتری، شماره‌ی تلفن، و رفتارش. علتش این است که نما با
+    # اختیارِ مالکش اجرا می‌شود و RLS را دور می‌زند، و پیش‌فرضِ سوپابیس select را
+    # به anon داده بود. برای **جدول** این اتفاق نمی‌افتد چون RLS پشتِ grant
+    # می‌ایستد؛ برای **نما** هیچ‌چیز پشتش نیست.
+    #
+    # پس هر نمای تازه‌ای که بسازی، این بررسی جلویت را می‌گیرد. اگر نمایی واقعاً
+    # باید عمومی باشد، در `db_invariants.expected.json` با `anon: true` ثبتش کن
+    # تا تصمیم **نوشته** شود، نه اینکه از پیش‌فرض بیفتد.
+    gw_got = {g["v"]: g for g in (got.get("view_grants") or [])}
+    gw_exp = {g["v"]: g for g in (exp.get("view_grants") or [])}
+    if not gw_got:
+        bad("دسترسیِ نماها در عکس نیست — این بررسی چیزی نسنجید (CORE-12)")
+    else:
+        leaked = [v for v, g in gw_got.items()
+                  if g.get("anon") and not (gw_exp.get(v) or {}).get("anon")]
+        unknown = [v for v in gw_got if v not in gw_exp]
+        noauth = [v for v, g in gw_got.items() if not g.get("auth")]
+        if leaked:
+            bad("نما برای کلیدِ عمومی خواندنی است و در انتظار ثبت نشده: " + "، ".join(leaked) +
+                " — نما RLS را دور می‌زند، پس این یعنی داده عمومی است (SEC-02)")
+        elif unknown:
+            bad("نمای ثبت‌نشده: " + "، ".join(unknown) + " — دسترسی‌اش را در expected ثبت کن")
+        elif noauth:
+            bad("نما برای کاربرِ واردشده خواندنی نیست: " + "، ".join(noauth) + " — پنل نمی‌تواند بخواندش")
+        else:
+            ok(f"دسترسیِ هر {len(gw_got)} نما همان است که ثبت شده")
+
     added = [json.loads(x) for x in norm(got.get("checks")) if x not in norm(exp.get("checks"))]
     if added:
         print(f"     (توجه: {len(added)} قیدِ تازه که در عکسِ ثبت‌شده نیست — اگر عمدی است عکس را به‌روز کن)")

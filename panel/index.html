@@ -2662,17 +2662,22 @@ async function openInsights(){
   const body=document.getElementById('insBody'); body.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>';
   const failed=[];
   const P=(key,pth)=>sbGetAll(pth).catch(()=>{ failed.push(key); return []; });
-  const [inv,items,prods,bals,custs,sals,rets]=await Promise.all([
+  /* رویدادهای ربات فقط ۹۰ روزِ اخیر — این جدول با هر کلیکِ مشتری رشد می‌کند و
+     کشیدنِ کلش پایین، روی اینترنتِ کندِ گوشی، صفحه را می‌خواباند (DATA-08). */
+  const bevSince=new Date(Date.now()-90*86400000).toISOString();
+  const [inv,items,prods,bals,custs,sals,rets,bev,carts]=await Promise.all([
     P('inv',"invoices?select=id,status,created_at,total_amount,discount,customer_id,buyer_name"),
     P('items',"invoice_items?select=product_id,product_name,quantity,invoice_id,created_at"),
     P('prods',"products?select=id,name,price,created_at"),
     P('bals',"customer_balances?select=id,balance"),
     P('custs',"customers?select=id,name,phone"),
     P('sals',"salaries?select=amount,created_at"),
-    P('rets',"returns?select=total_value,items,created_at,invoice_id,customer_id")
+    P('rets',"returns?select=total_value,items,created_at,invoice_id,customer_id"),
+    P('bev',"bot_events_public?select=chat_id,event,product_id,meta,created_at&created_at=gte."+bevSince),
+    P('carts',"bot_carts_open?select=chat_id,customer_name,customer_phone,customer_city,cart_items,cart_total,updated_at")
   ]);
   const cancelled=new Set(inv.filter(x=>x.status==='cancelled').map(x=>x.id));
-  window.INS={inv,items,prods,bals,custs,sals,rets,cancelled,now:Date.now(),failed};
+  window.INS={inv,items,prods,bals,custs,sals,rets,bev,carts,cancelled,now:Date.now(),failed};
   insMenu();
 }
 function insMenu(){
@@ -2683,6 +2688,9 @@ function insMenu(){
     <button class="dash-btn" style="width:100%;text-align:right" onclick="insAlerts()">🔔 مرکزِ هشدارِ روزانه<div style="font-size:11.5px;color:var(--muted);font-weight:400">هرچی امروز باید حواست بهش باشه، یکجا</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">💰 پول</div>
     <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insPL()">📊 گزارشِ فروش<div style="font-size:11.5px;color:var(--muted);font-weight:400">فروش منهای حقوق و مرجوعی</div></button>
+    <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">🌐 ربات</div>
+    <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insFunnel()">📈 بازدید و نرخِ تبدیل<div style="font-size:11.5px;color:var(--muted);font-weight:400">چند نفر اومدن، چند نفر خریدن، کجا ول کردن</div></button>
+    <button class="dash-btn" style="width:100%;text-align:right" onclick="insCarts()">🛒 سبدهای رهاشده<div style="font-size:11.5px;color:var(--muted);font-weight:400">جنس گذاشتن تو سبد و نرفتن تا آخر</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">👥 مشتری</div>
     <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insChurn()">🚶 رادارِ ریزشِ مشتری<div style="font-size:11.5px;color:var(--muted);font-weight:400">کیا کم‌پیدا شدن و باید بکشونی‌شون</div></button>
     <button class="dash-btn" style="width:100%;text-align:right" onclick="insTop()">🏆 پرخریدترین مشتریا<div style="font-size:11.5px;color:var(--muted);font-weight:400">کی بیشتر ازت خرید کرده</div></button>
@@ -2693,7 +2701,7 @@ function insMenu(){
   </div>`;
 }
 function insBack(){ return `<button class="btn sm sec" style="margin-bottom:12px" onclick="insMenu()">‹ برگشت</button>`; }
-const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',sals:'حقوق',rets:'مرجوعی‌ها'};
+const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',sals:'حقوق',rets:'مرجوعی‌ها',bev:'رفتارِ مشتری در ربات',carts:'سبدهای باز'};
 function insFailed(keys){ const f=(window.INS&&window.INS.failed)||[]; return keys?f.filter(k=>keys.indexOf(k)>=0):f; }
 function insFailBanner(keys){ const bad=insFailed(keys); if(!bad.length)return '';
   return `<div class="card" style="padding:12px;margin-bottom:12px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ این‌ها بارگذاری نشدند:</b> ${bad.map(k=>esc(INS_SRC_FA[k]||k)).join('، ')}<div style="font-size:11.5px;color:var(--muted);margin-top:4px">پس عددهای این صفحه ناقص‌اند. اینترنت رو چک کن و از اول باز کن.</div></div>`; }
@@ -2730,6 +2738,176 @@ function insDebt(){
 
 
 function _insPeriod(days){ return window.INS.now - days*86400000; }
+
+/* ===== بازدید و نرخِ تبدیل (قیفِ ربات) =====
+   مشتری از **ربات** خرید می‌کند، نه از سایت: پنل پشتِ ورود است و فقط مالک
+   واردش می‌شود. پس «بازدید» یعنی بازدید از ربات، و این صفحه از جدولِ
+   `bot_events` ساخته می‌شود که ربات (نسخه‌ی ۴۱) پرش می‌کند.
+
+   دو نکته که اگر رعایت نشوند عددها دروغ می‌شوند:
+   ۱ پنل از **نما**ی `bot_events_public` می‌خواند، نه خودِ جدول — چهار chat_idِ
+     مدیر همان مالک است و گشت‌وگذارِ خودش نباید «بازدیدکننده» شمرده شود.
+   ۲ هر مرحله‌ی قیف «کسانی که **دستِ‌کم** تا اینجا آمدند» است، نه «کسانی که
+     دقیقاً این کار را کردند». وگرنه چون مشتری می‌تواند از جست‌وجو مستقیم به
+     کارتِ کالا برسد، مرحله‌ی پایین‌تر از بالایی بزرگ‌تر درمی‌آید و قیف
+     شکسته به‌نظر می‌رسد. */
+
+/* عمقِ هر رویداد. اگر رویدادِ تازه‌ای به ربات اضافه شد، **حتماً اینجا هم
+   بیاید** وگرنه بی‌صدا عمقِ صفر می‌گیرد و از قیف می‌افتد بیرون. */
+const EV_DEPTH={start:1,browse:2,ask:2,view:3,media:3,cart_add:4,checkout:5,order:6,pay_click:6,receipt:7,paid:8};
+const FUN_STEPS=[
+  {d:1,ic:'🚪',t:'وارد ربات شد'},
+  {d:2,ic:'📋',t:'لیستِ کالاها رو دید'},
+  {d:3,ic:'👗',t:'کارتِ یه کالا رو باز کرد'},
+  {d:4,ic:'🛒',t:'گذاشت تو سبد'},
+  {d:5,ic:'🧾',t:'رفت سرِ تسویه'},
+  {d:6,ic:'✅',t:'سفارش ثبت کرد'},
+  {d:7,ic:'📸',t:'فیشِ واریز فرستاد'},
+  {d:8,ic:'💰',t:'پرداختش تأیید شد'}
+];
+const FUN_KEYS=['bev','carts','prods'];
+window.FUN_DAYS=30;
+
+/* ساعتِ تهران بدونِ کتابخانه: ایران از ۱۴۰۱ ساعتِ تابستانی ندارد، پس اختلاف
+   همیشه ۳:۳۰ است. `created_at` میلادیِ ISO است و **هیچ‌وقت خام چاپ نمی‌شود**. */
+function _funHour(iso){ const t=new Date(iso).getTime(); if(!isFinite(t))return -1; return new Date(t+12600000).getUTCHours(); }
+function _funBar(pct,col){ return `<div style="height:8px;border-radius:99px;background:var(--panel);overflow:hidden;margin-top:5px"><div style="height:100%;width:${Math.max(0,Math.min(100,pct))}%;background:${col||'var(--accent)'};border-radius:99px"></div></div>`; }
+function _funPct(a,b){ return b>0?Math.round(a*1000/b)/10:0; }
+
+function insFunnel(days){
+  if(days!==undefined)window.FUN_DAYS=days;
+  if(insFailed(FUN_KEYS).length){ insBlocked(FUN_KEYS,'📈 بازدید و نرخِ تبدیل'); return; }
+  const I=window.INS, D=window.FUN_DAYS, since=D>0?_insPeriod(D):0;
+  const all=I.bev||[];
+  const ev=all.filter(e=>!since||new Date(e.created_at).getTime()>=since);
+  const tab=(d,t)=>`<button class="btn sm ${D===d?'':'sec'}" style="flex:1" onclick="insFunnel(${d})">${t}</button>`;
+  let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:2px">📈 بازدید و نرخِ تبدیل</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">رفتارِ مشتری‌ها توی رباتِ تلگرام — گشتنِ خودت حساب نمی‌شه.</div>
+    <div style="display:flex;gap:6px;margin-bottom:14px">${tab(7,'۷ روز')}${tab(30,'۳۰ روز')}${tab(90,'۹۰ روز')}</div>`;
+
+  /* UI-07 + قاعده‌ی پروژه: با دادهٔ نداشته «همه‌چی مرتبه» نگو و صفر هم نشان نده.
+     صفرِ خاموش اینجا یعنی «هیچ‌کس نیومده» — که ادعای غلطی است. */
+  if(!all.length){
+    h+=`<div class="card" style="padding:16px;border-right:3px solid var(--accent)">
+      <b>هنوز چیزی جمع نشده.</b>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px;line-height:1.9">
+        ثبتِ رفتارِ مشتری از نسخه‌ی ۴۱ ربات شروع شد. قبلش هیچ‌جا ذخیره نمی‌شد،
+        پس این صفحه <b>گذشته رو نشون نمی‌ده</b> — از الان به بعد پر می‌شه.
+        <br>اولین مشتری که بره سراغِ ربات، همین‌جا می‌بینیش.
+      </div></div>`;
+    document.getElementById('insBody').innerHTML=`<div class="ov-sheet">${h}</div>`; return;
+  }
+  if(!ev.length){
+    h+=`<div class="card" style="padding:16px;text-align:center;color:var(--muted)">تو این بازه کسی سراغِ ربات نیومده. بازه‌ی بلندتری رو انتخاب کن.</div>`;
+    document.getElementById('insBody').innerHTML=`<div class="ov-sheet">${h}</div>`; return;
+  }
+
+  /* عمیق‌ترین مرحله‌ای که هر نفر رسیده */
+  const deep={}, firstSeen={}, firstOrder={}, orders={};
+  ev.forEach(e=>{
+    const c=String(e.chat_id), d=EV_DEPTH[e.event]||0, t=new Date(e.created_at).getTime();
+    if(d>(deep[c]||0))deep[c]=d;
+    if(!firstSeen[c]||t<firstSeen[c])firstSeen[c]=t;
+    if(e.event==='order'){ orders[c]=(orders[c]||0)+1; if(!firstOrder[c]||t<firstOrder[c])firstOrder[c]=t; }
+  });
+  const people=Object.keys(deep);
+  const at=d=>people.filter(c=>deep[c]>=d).length;
+  const visitors=people.length, buyers=at(6), paidCnt=at(8);
+  const conv=_funPct(buyers,visitors);
+
+  const kpi=(t,v,sub,col)=>`<div style="flex:1;min-width:calc(50% - 5px);background:var(--panel);border-radius:12px;padding:10px 12px"><div style="font-size:11.5px;color:var(--muted)">${t}</div><b class="num" style="font-size:20px;color:${col||'inherit'}">${v}</b><div style="font-size:11px;color:var(--muted)">${sub||''}</div></div>`;
+  h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    ${kpi('بازدیدکننده',faNum(visitors),'نفرِ یکتا')}
+    ${kpi('خریدار',faNum(buyers),'سفارش ثبت کردن','var(--profit)')}
+    ${kpi('نرخِ تبدیل',faNum(conv)+'٪','از هر ۱۰۰ نفر '+faNum(Math.round(conv))+' نفر',conv>0?'var(--accent)':'var(--muted)')}
+    ${kpi('پرداختِ تأییدشده',faNum(paidCnt),buyers?faNum(_funPct(paidCnt,buyers))+'٪ از خریدارا':'—')}
+  </div>`;
+
+  /* قیف */
+  const top=at(1)||visitors;
+  let worst=null;
+  h+=`<div class="card" style="padding:14px;margin-bottom:12px"><div style="font-weight:800;margin-bottom:10px">🔻 کجا ول می‌کنن</div>`;
+  FUN_STEPS.forEach((st,i)=>{
+    const n=at(st.d), prev=i?at(FUN_STEPS[i-1].d):n;
+    const drop=prev-n;
+    if(i&&drop>0&&(!worst||drop>worst.n))worst={n:drop,from:FUN_STEPS[i-1].t,to:st.t};
+    h+=`<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <span style="font-size:13.5px">${st.ic} ${st.t}</span>
+      <span style="white-space:nowrap"><b class="num">${faNum(n)}</b><span style="font-size:11px;color:var(--muted)"> نفر · ${faNum(_funPct(n,top))}٪</span>${i&&drop>0?`<span style="font-size:11px;color:var(--danger)"> ↓${faNum(drop)}</span>`:''}</span>
+    </div>${_funBar(_funPct(n,top))}</div>`;
+  });
+  if(worst)h+=`<div style="font-size:12px;color:var(--muted);margin-top:10px;border-top:1px solid var(--line);padding-top:9px">بیشترین ریزش: از «${esc(worst.from)}» به «${esc(worst.to)}» — <b class="num" style="color:var(--danger)">${faNum(worst.n)}</b> نفر.</div>`;
+  h+=`</div>`;
+
+  /* کالاها: دیده شد ولی سبد نشد */
+  const vw={},ca={};
+  ev.forEach(e=>{ if(!e.product_id)return; if(e.event==='view'||e.event==='media')vw[e.product_id]=(vw[e.product_id]||0)+1; if(e.event==='cart_add')ca[e.product_id]=(ca[e.product_id]||0)+1; });
+  const pn={}; (I.prods||[]).forEach(p=>{pn[p.id]={n:p.name,pr:p.price};});
+  const rows=Object.keys(vw).map(id=>({id,name:(pn[id]&&pn[id].n)||'کالای حذف‌شده',price:(pn[id]&&pn[id].pr)||0,v:vw[id],c:ca[id]||0}))
+    .sort((a,b)=>(b.v-b.c*3)-(a.v-a.c*3)).slice(0,12);
+  h+=`<div class="card" style="padding:14px;margin-bottom:12px"><div style="font-weight:800;margin-bottom:2px">👀 دیده شد، ولی سبد نشد</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">بازدیدِ بالا و سبدِ پایین یعنی یا قیمت می‌زنه، یا عکس و فیلمش کار نمی‌کنه.</div>`;
+  if(!rows.length)h+=`<div style="text-align:center;color:var(--muted);padding:10px 0">هنوز هیچ کالایی باز نشده.</div>`;
+  else h+=rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+      <div style="min-width:0"><div style="font-size:13.5px;overflow-wrap:anywhere">${esc(r.name)}</div><div style="font-size:11px;color:var(--muted)" class="num">${faNum(r.price)} ت</div></div>
+      <div style="text-align:left;white-space:nowrap"><span class="num" style="font-size:13px">${faNum(r.v)}</span><span style="font-size:11px;color:var(--muted)"> دید</span> · <span class="num" style="font-size:13px;color:${r.c?'var(--profit)':'var(--danger)'}">${faNum(r.c)}</span><span style="font-size:11px;color:var(--muted)"> سبد</span></div>
+    </div>`).join('');
+  h+=`</div>`;
+
+  /* ساعتِ پربازدید */
+  const hrs=new Array(24).fill(0);
+  ev.forEach(e=>{ const x=_funHour(e.created_at); if(x>=0)hrs[x]++; });
+  const mx=Math.max.apply(null,hrs)||1;
+  const best=hrs.indexOf(mx);
+  h+=`<div class="card" style="padding:14px;margin-bottom:12px"><div style="font-weight:800;margin-bottom:2px">⏰ ساعتِ شلوغ</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">به وقتِ ایران. شلوغ‌ترین ساعت: <b>${faNum(best)}</b> تا <b>${faNum((best+1)%24)}</b> — برای گذاشتنِ جنسِ تازه همین موقع بهترینه.</div>
+    <div style="display:flex;align-items:flex-end;gap:2px;height:56px">${hrs.map((n,i)=>`<div title="ساعت ${i}: ${n}" style="flex:1;height:${Math.max(3,Math.round(n*100/mx))}%;background:${i===best?'var(--accent)':'var(--panel)'};border-radius:3px 3px 0 0"></div>`).join('')}</div>
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:3px"><span>${faNum(0)}</span><span>${faNum(6)}</span><span>${faNum(12)}</span><span>${faNum(18)}</span><span>${faNum(23)}</span></div></div>`;
+
+  /* برگشتی‌ها و زمانِ تصمیم */
+  const repeat=Object.keys(orders).filter(c=>orders[c]>1).length;
+  const gaps=Object.keys(firstOrder).map(c=>firstOrder[c]-firstSeen[c]).filter(g=>g>=0);
+  const avgH=gaps.length?Math.round(gaps.reduce((a,b)=>a+b,0)/gaps.length/3600000):null;
+  h+=`<div class="card" style="padding:14px">
+    <div class="netrow"><span>مشتریِ برگشتی (بیش از یک سفارش)</span><b class="num">${faNum(repeat)}</b></div>
+    <div class="netrow"><span>سؤال پرسیدن</span><b class="num">${faNum(ev.filter(e=>e.event==='ask').length)}</b></div>
+    <div class="netrow"><span>فیلم یا عکسِ کالا دیدن</span><b class="num">${faNum(ev.filter(e=>e.event==='media').length)}</b></div>
+    ${avgH===null?'':`<div class="netrow"><span>از اولین بازدید تا سفارش</span><b class="num">${avgH<48?faNum(avgH)+' ساعت':faNum(Math.round(avgH/24))+' روز'}</b></div>`}
+  </div>
+  <div style="font-size:11.5px;color:var(--muted);margin-top:10px">داده از ${faNum(90)} روزِ اخیر خونده می‌شه. «بازدیدکننده» یعنی چتِ یکتا، نه هر بار باز کردن.</div>`;
+  document.getElementById('insBody').innerHTML=`<div class="ov-sheet">${h}</div>`;
+}
+
+/* سبدهای رهاشده — عملی‌ترین بخش: این‌ها آدم‌هایی‌اند که جنس برداشتن و نرفتن تا
+   آخر. ربات موقعِ ثبتِ سفارش سبد رو خالی می‌کنه، پس سبدِ پر یعنی رها شده. */
+function insCarts(){
+  if(insFailed(['carts']).length){ insBlocked(['carts'],'🛒 سبدهای رهاشده'); return; }
+  const rows=(window.INS.carts||[]).slice().sort((a,b)=>Number(b.cart_total||0)-Number(a.cart_total||0));
+  const total=rows.reduce((s,r)=>s+Number(r.cart_total||0),0);
+  window.INS_CART=rows.map(r=>({name:r.customer_name||'مشتریِ ربات',phone:r.customer_phone||'',tot:Number(r.cart_total||0),
+    msg:`سلام ${r.customer_name||''} جانِ عزیز 🌹\nدیدم چند تا جنس تو سبدت مونده و ثبتش نکردی. اگه سؤالی هست یا چیزی لازم داری بگو، در خدمتم 🙏\nمدلند قشم`}));
+  let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:2px">🛒 سبدهای رهاشده</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">جنس گذاشتن تو سبدِ ربات ولی سفارش ثبت نکردن. یه پیام معمولاً کافیه.</div>`;
+  if(!rows.length){ h+=`<div class="card" style="padding:16px;text-align:center;color:var(--muted)">هیچ سبدِ نیمه‌کاره‌ای نیست 👌</div>`; }
+  else{
+    h+=`<div class="netrow net" style="margin-bottom:10px"><span>جمعِ ${faNum(rows.length)} سبد</span><b class="num" style="color:var(--accent)">${faNum(total)} ت</b></div>`;
+    h+=window.INS_CART.map((r,i)=>{ const src=rows[i];
+      return `<div class="card" style="padding:13px;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0"><div style="font-weight:700">${esc(r.name)}</div>
+          ${r.phone?`<div style="font-size:12px;color:var(--muted);margin-top:2px" dir="ltr">${esc(phoneFmt(r.phone))}</div>`:''}
+          <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${faNum(Number(src.cart_items||0))} قلم · آخرین تکون: ${esc(jDate(src.updated_at))}</div></div>
+        <b class="num" style="color:var(--accent);white-space:nowrap">${faNum(r.tot)} ت</b>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn sm" style="flex:1" onclick="copyText(window.INS_CART[${i}].msg)">📋 کپیِ پیام</button>
+        ${r.phone?`<button class="btn sm" style="flex:1;background:#25d366;color:#fff" onclick="waCart(${i})">📲 واتساپ</button>`:''}
+      </div></div>`; }).join('');
+  }
+  document.getElementById('insBody').innerHTML=`<div class="ov-sheet">${h}</div>`;
+}
+function waCart(i){ const r=window.INS_CART[i]; if(!r)return; const u=waLink(r.phone,r.msg); if(!u){ toast('شماره‌ی این مشتری ثبت نشده'); return; } window.open(u,'_blank'); }
+
 function insValidInv(sinceMs){ const I=window.INS; return I.inv.filter(v=>v.status!=='cancelled' && (!sinceMs || new Date(v.created_at).getTime()>=sinceMs)); }
 function _sumBy(arr,f){ return arr.reduce((s,x)=>s+Number(f(x)||0),0); }
 
