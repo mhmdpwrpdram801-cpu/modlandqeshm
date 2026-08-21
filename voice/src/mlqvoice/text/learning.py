@@ -175,3 +175,49 @@ def as_dictionary(suggestions: list[Suggestion], *, min_count: int = 1) -> dict[
         if item.spoken not in forms:
             forms.append(item.spoken)
     return terms
+
+
+class DictionaryUnreadable(ValueError):
+    """The user's own dictionary is not something we can safely rewrite."""
+
+
+def apply_to_dictionary(target: Path, suggestions: list[Suggestion], *, min_count: int = 1) -> int:
+    """Fold accepted suggestions into the user's dictionary; return forms added.
+
+    Shared by the command line and the tray menu rather than written twice. Two
+    copies of "merge into a JSON file" drift, and the way they drift is that one
+    of them starts losing entries.
+
+    **Refuses rather than repairs.** The user writes that file by hand, so a
+    file we cannot parse is a file we must not overwrite — rebuilding it from a
+    half-parse would silently throw away entries they typed themselves. The
+    caller is expected to say so out loud (OPS-03).
+    """
+    accepted = as_dictionary(suggestions, min_count=min_count)
+    if not accepted:
+        return 0
+
+    data: dict = {}
+    if target.exists():
+        try:
+            data = json.loads(target.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise DictionaryUnreadable(f"JSONِ سالم نیست — {exc}") from exc
+        if not isinstance(data, dict):
+            raise DictionaryUnreadable("فایلِ دیکشنری باید یک شیء JSON باشد")
+
+    terms = data.setdefault("terms", {})
+    if not isinstance(terms, dict):
+        raise DictionaryUnreadable("بخشِ terms در دیکشنری باید یک شیء JSON باشد")
+
+    added = 0
+    for canonical, forms in accepted.items():
+        current = terms.setdefault(canonical, [])
+        if not isinstance(current, list):
+            raise DictionaryUnreadable(f"مدخلِ {canonical!r} باید فهرست باشد")
+        for form in forms:
+            if form not in current:
+                current.append(form)
+                added += 1
+    target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return added

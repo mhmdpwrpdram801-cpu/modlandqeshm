@@ -144,6 +144,7 @@ class VoiceApp:
         self.tray.show_action.triggered.connect(self._show_overlay)
         self.tray.dictionary_action.triggered.connect(self._open_dictionary)
         self.tray.learned_action.triggered.connect(self._open_learned)
+        self.tray.apply_learned_action.triggered.connect(self._apply_learned)
         self.tray.config_action.triggered.connect(self._open_config)
         self.tray.key_action.triggered.connect(self._set_key)
         self.tray.quit_action.triggered.connect(self.quit)
@@ -503,6 +504,69 @@ class VoiceApp:
             return
         _open_in_editor(path)
 
+    def _apply_learned(self) -> None:
+        """Accept what the app learned, in one click and with no shell.
+
+        This is the local, key-free half of getting fewer mistakes: the app
+        already watches what you fix by hand before pressing «بنویس» and keeps
+        the difference. Until now the only way to *accept* those suggestions was
+        ``mlqvoice learn --apply`` — a command that, on the installed build,
+        could not even be reached (§۵.۵). So the feature existed and nobody
+        could use it.
+        """
+        from PySide6.QtWidgets import QMessageBox
+
+        stored = learning.load(learned_file())
+        if not stored:
+            self.tray.showMessage(
+                APP_NAME,
+                "هنوز چیزی یاد نگرفته. متن را قبل از «بنویس» ویرایش کن تا یاد بگیرد.",
+                self.tray.icon(),
+                5000,
+            )
+            return
+
+        pending = sum(len(forms) for forms in learning.as_dictionary(stored).values())
+        answer = QMessageBox.question(
+            None,
+            "افزودن به دیکشنری",
+            f"{_fa(pending)} شکلِ گفتاری به دیکشنریِ خودت اضافه شود؟\n"
+            "پیشنهادها پاک نمی‌شوند و هر وقت خواستی می‌توانی خودِ فایل را ویرایش کنی.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            # The safe option is the focused one, so a stray Enter changes
+            # nothing — the same rule the panel learned the hard way.
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            added = learning.apply_to_dictionary(user_dictionary_file(), stored)
+        except learning.DictionaryUnreadable as exc:
+            # Never silently: a refusal the user cannot see is the same as the
+            # write having failed for no reason (OPS-03).
+            self.tray.showMessage(
+                APP_NAME, f"دیکشنریِ تو دست‌نخورده ماند: {exc}", self.tray.icon(), 8000
+            )
+            return
+
+        # Rebuilt here rather than at the next start: a dictionary entry that
+        # only works tomorrow is indistinguishable from one that did not save.
+        self.lexicon = build_lexicon(
+            glossary=self.cfg.glossary,
+            punctuation=self.cfg.punctuation,
+            user_file=user_dictionary_file(),
+        )
+        log.info("applied %d learned forms; lexicon now %d entries", added, len(self.lexicon))
+        self.tray.showMessage(
+            APP_NAME,
+            f"{_fa(added)} شکل اضافه شد و همین حالا فعال است."
+            if added
+            else "چیزی تازه نبود — همه‌شان از قبل در دیکشنری بودند.",
+            self.tray.icon(),
+            5000,
+        )
+
     def _open_config(self) -> None:
         path = config_file()
         if not path.exists():
@@ -569,6 +633,14 @@ class VoiceApp:
             )
         log.info("correction key updated; correcting=%s", self.correcting)
         self.tray.showMessage(APP_NAME, note, self.tray.icon(), 4000)
+
+
+def _fa(number: int) -> str:
+    """A count the way it is read here. A Latin digit in a Persian sentence is
+    a small thing that makes the sentence look like it came from somewhere else."""
+    from .text.normalize import to_persian_digits
+
+    return to_persian_digits(str(number))
 
 
 def _explain(error: str) -> str:
