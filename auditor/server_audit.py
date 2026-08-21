@@ -239,11 +239,19 @@ def bot_checks(src, code):
         "تابعِ escH برای متنِ کاربر هست" if re.search(r"function escH", code)
         else "تابعِ فرارِ HTML وجود ندارد")
 
-    head("۶.۵) فهرستِ رویدادهای قیف در سه جا یکی است")
-    # `bot_events.event` سه جا تعریف شده و **هر سه باید یکی باشند**:
+    head("۶.۵) فهرستِ رویدادهای قیف در چهار جا یکی است")
+    # `bot_events.event` **چهار** جا تعریف شده و هر چهار باید یکی باشند:
     #   ۱ خودِ ربات (چه چیزی می‌نویسد)
     #   ۲ استابِ شبیه‌ساز (چه چیزی را قبول می‌کند)
     #   ۳ قیدِ CHECK دیتابیس (چه چیزی واقعاً می‌نشیند)
+    #   ۴ `EV_DEPTH` در پنل (هر رویداد در کدام پله‌ی قیف می‌نشیند)
+    #
+    # سه‌تای اول از روزِ اول اینجا سنجیده می‌شدند؛ **چهارمی فقط یک هشدارِ متنی در
+    # مستند بود** و در این مخزن هشدارِ متنی یعنی هیچ. خرابی‌اش هم بی‌صداترینِ
+    # چهارتاست: رویدادِ تازه در `EV_DEPTH` نباشد → `EV_DEPTH[e.event]||0` صفر
+    # می‌دهد → آن مشتری عمقِ صفر می‌گیرد و **از کلِ قیف می‌افتد بیرون**. نه خطایی،
+    # نه صفری؛ فقط یک نرخِ تبدیلِ کمترازواقعی که هیچ‌کس دلیلش را نمی‌فهمد.
+    #
     # اگر از هم دور بیفتند، بدترین حالت خاموش است: ربات رویدادی می‌فرستد که
     # دیتابیس ردش می‌کند، شبیه‌ساز سبز می‌دهد، و صفحه‌ی نرخِ تبدیل یک مرحله‌ی
     # قیف را **کم** نشان می‌دهد بی‌آنکه هیچ‌جا خطایی ببینی (TEST-05).
@@ -261,16 +269,26 @@ def bot_checks(src, code):
         ev_db = sorted(set(re.findall(r"'([a-z_]+)'::text", con)))
     except OSError:
         ev_db = []
-    if not ev_bot or not ev_stub or not ev_db:
+    panel_p = os.path.join(os.path.dirname(HERE), "panel", "index.html")
+    try:
+        m = re.search(r"const EV_DEPTH\s*=\s*\{(.*?)\}", open(panel_p, encoding="utf-8").read(), re.S)
+        ev_panel = sorted(set(re.findall(r"([a-z_]+)\s*:\s*\d+", m.group(1)))) if m else []
+    except OSError:
+        ev_panel = []
+    if not ev_bot or not ev_stub or not ev_db or not ev_panel:
         # «نشد بخوانم» هرگز نباید سبز بدهد (CORE-12)
-        bad(f"فهرستِ رویدادها خوانده نشد — ربات {len(ev_bot)}، استاب {len(ev_stub)}، دیتابیس {len(ev_db)}")
-    elif ev_bot == ev_stub == ev_db:
-        ok(f"هر {len(ev_bot)} رویدادِ قیف در ربات، استاب و قیدِ دیتابیس یکی است")
+        bad(f"فهرستِ رویدادها خوانده نشد — ربات {len(ev_bot)}، استاب {len(ev_stub)}، "
+            f"دیتابیس {len(ev_db)}، پنل {len(ev_panel)}")
+    elif ev_bot == ev_stub == ev_db == ev_panel:
+        ok(f"هر {len(ev_bot)} رویدادِ قیف در ربات، استاب، قیدِ دیتابیس و EV_DEPTHِ پنل یکی است")
     else:
+        miss_panel = sorted(set(ev_db) - set(ev_panel))
         bad("فهرستِ رویدادها یکی نیست — "
             f"فقط در ربات: {sorted(set(ev_bot) - set(ev_db) - set(ev_stub))} · "
             f"فقط در دیتابیس: {sorted(set(ev_db) - set(ev_bot))} · "
-            f"فقط در استاب: {sorted(set(ev_stub) - set(ev_bot))}")
+            f"فقط در استاب: {sorted(set(ev_stub) - set(ev_bot))} · "
+            + (f"در EV_DEPTHِ پنل نیست (عمقِ صفر می‌گیرند و از قیف می‌افتند بیرون): {miss_panel}"
+               if miss_panel else "پنل کامل است"))
 
     head("۷) هم‌خوانیِ کپیِ مرجع (OPS-06)")
     # وقتی فایلِ دیگری سنجیده می‌شود (تستِ جهشی)، این بررسی بی‌معنی است: هر جهشی
