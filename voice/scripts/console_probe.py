@@ -6,10 +6,10 @@ the console's code page never enters into it — so the one path that always
 works was the only path ever measured.
 
 What the owner actually does is type ``mlqvoice check`` at a prompt. A
-``--windowed`` build owns no console, so ``launcher.py`` borrows the shell's;
-that borrowed console keeps whatever code page Windows gave it, and until this
-probe existed nothing had ever looked at what landed on the screen. Persian
-came out as ``Ø§Ø¬…`` — output that exists and is useless.
+``--windowed`` build owns no console, so ``launcher.py`` borrows the shell's —
+and a borrowed console keeps whatever code page Windows gave it. Nothing had
+ever looked at what actually lands on the screen, so whether the Persian
+arrives readable was simply unknown. This is how it gets known.
 
 So this allocates a genuine console, starts the exe as a child of it with no
 redirection whatsoever, waits, and then reads the characters off the screen
@@ -38,6 +38,14 @@ FILE_SHARE_READ = 0x00000001
 FILE_SHARE_WRITE = 0x00000002
 OPEN_EXISTING = 3
 INVALID_HANDLE = ctypes.c_void_p(-1).value
+
+STD_INPUT_HANDLE = 0xFFFFFFF6  # (DWORD)-10
+STD_OUTPUT_HANDLE = 0xFFFFFFF5  # (DWORD)-11
+STD_ERROR_HANDLE = 0xFFFFFFF4  # (DWORD)-12
+
+
+class ProbeBroken(RuntimeError):
+    """The measurement could not be taken — never the same thing as a bad result."""
 
 
 class COORD(ctypes.Structure):
@@ -87,15 +95,17 @@ def k32():
     lib.ReadConsoleOutputCharacterW.restype = wintypes.BOOL
     lib.CloseHandle.argtypes = [ctypes.c_void_p]
     lib.CloseHandle.restype = wintypes.BOOL
+    lib.SetStdHandle.argtypes = [wintypes.DWORD, ctypes.c_void_p]
+    lib.SetStdHandle.restype = wintypes.BOOL
+    lib.GetConsoleOutputCP.argtypes = []
+    lib.GetConsoleOutputCP.restype = wintypes.UINT
     return lib
 
 
-def read_screen() -> str:
-    """Everything written to the console so far, as text."""
-    lib = k32()
+def open_console(lib, name: str, access: int):
     handle = lib.CreateFileW(
-        "CONOUT$",
-        GENERIC_READ | GENERIC_WRITE,
+        name,
+        access,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         None,
         OPEN_EXISTING,
@@ -103,11 +113,43 @@ def read_screen() -> str:
         None,
     )
     if handle in (0, INVALID_HANDLE, None):
-        raise OSError(ctypes.get_last_error(), "CONOUT$ باز نشد")
+        raise ProbeBroken(f"{name} باز نشد (خطای {ctypes.get_last_error()})")
+    return handle
+
+
+def take_over_std_handles(lib) -> None:
+    """Point the process's standard handles at the console we just made.
+
+    ``AllocConsole`` only fills in standard handles that were *unset*. Under a
+    CI runner they are already set — to the pipe the log is read from — so the
+    new console gets ignored and every child keeps writing into that pipe.
+
+    That is exactly what happened on the first run: the marker turned up in the
+    Actions log while the console screen stayed empty. The self-test caught it
+    and said "the tool is broken", which is the whole reason it exists; without
+    it the report would have read "the app printed nothing".
+
+    Note this does not disturb the probe's own ``print``: Python writes to file
+    descriptor 1, which ``SetStdHandle`` leaves alone. So the probe still talks
+    to the log while its children talk to the console.
+    """
+    for which, name, access in (
+        (STD_OUTPUT_HANDLE, "CONOUT$", GENERIC_READ | GENERIC_WRITE),
+        (STD_ERROR_HANDLE, "CONOUT$", GENERIC_READ | GENERIC_WRITE),
+        (STD_INPUT_HANDLE, "CONIN$", GENERIC_READ | GENERIC_WRITE),
+    ):
+        if not lib.SetStdHandle(which, open_console(lib, name, access)):
+            raise ProbeBroken(f"SetStdHandle برای {name} شکست خورد")
+
+
+def read_screen() -> str:
+    """Everything written to the console so far, as text."""
+    lib = k32()
+    handle = open_console(lib, "CONOUT$", GENERIC_READ | GENERIC_WRITE)
     try:
         info = CONSOLE_SCREEN_BUFFER_INFO()
         if not lib.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
-            raise OSError(ctypes.get_last_error(), "اندازه‌ی صفحه‌ی کنسول خوانده نشد")
+            raise ProbeBroken(f"اندازه‌ی صفحه‌ی کنسول خوانده نشد ({ctypes.get_last_error()})")
         width = info.dwSize.X
         # Only down to the cursor: the rest of the buffer is blank padding and
         # would bury the few lines that matter under thousands of spaces.
@@ -116,7 +158,7 @@ def read_screen() -> str:
         buf = ctypes.create_unicode_buffer(total + 1)
         got = wintypes.DWORD(0)
         if not lib.ReadConsoleOutputCharacterW(handle, buf, total, COORD(0, 0), ctypes.byref(got)):
-            raise OSError(ctypes.get_last_error(), "محتوای صفحه‌ی کنسول خوانده نشد")
+            raise ProbeBroken(f"محتوای صفحه‌ی کنسول خوانده نشد ({ctypes.get_last_error()})")
         raw = buf[: got.value]
     finally:
         lib.CloseHandle(handle)
@@ -143,32 +185,27 @@ def main(argv: list[str]) -> int:
         return 2
 
     exe, transcript, args = argv[0], pathlib.Path(argv[1]), argv[2:]
-    lib = ctypes.WinDLL("kernel32", use_last_error=True)
-    lib.FreeConsole()  # a runner step has none, but be explicit rather than lucky
-    if not lib.AllocConsole():
-        print(
-            f"::error::کنسول ساخته نشد (خطای {ctypes.get_last_error()}) — "
-            "این ایرادِ خودِ آزمایش است، نه برنامه",
-            file=sys.stderr,
-        )
-        return 2
-
-    # Before trusting a blank screen: prove the screen can be read at all. A
-    # probe that silently reads nothing would report every build as broken, and
-    # the report would be indistinguishable from the real bug.
+    lib = k32()
     try:
+        lib.FreeConsole()  # a runner step has none, but be explicit rather than lucky
+        if not lib.AllocConsole():
+            raise ProbeBroken(f"کنسول ساخته نشد (خطای {ctypes.get_last_error()})")
+        take_over_std_handles(lib)
+
+        # Before trusting a blank screen: prove the screen can be read at all.
+        # A probe that silently reads nothing would report every build as
+        # broken, and that report is indistinguishable from the real bug.
         run_in_console(["cmd", "/c", f"echo {SELFTEST_MARKER}"], timeout=30)
         proof = read_screen()
-    except OSError as exc:
-        print(f"::error::صفحه‌ی کنسول خوانده نشد: {exc} — ایرادِ آزمایش است", file=sys.stderr)
+        if SELFTEST_MARKER not in proof:
+            raise ProbeBroken(f"نشانه‌ی محکِ خودِ آزمایش روی صفحه نیامد. خوانده شد: {proof!r}")
+    except ProbeBroken as exc:
+        print(f"::error::{exc} — این ایرادِ خودِ آزمایش است، نه برنامه", file=sys.stderr)
         return 2
-    if SELFTEST_MARKER not in proof:
-        print(
-            "::error::خودِ آزمایش کار نمی‌کند: نشانه‌ی محکِ خودش هم روی صفحه نیامد. "
-            f"چیزی که خوانده شد: {proof!r}",
-            file=sys.stderr,
-        )
-        return 2
+
+    # Printed rather than asserted: the point is to see what a plain console
+    # hands the exe, not to pin the runner's locale down.
+    print(f"کدپیجِ کنسولِ تازه پیش از اجرا: {lib.GetConsoleOutputCP()}")
 
     try:
         code = run_in_console([exe, *args], timeout=120)
@@ -176,11 +213,17 @@ def main(argv: list[str]) -> int:
         print("::error::exe در کنسول برنگشت — گیر کرده", file=sys.stderr)
         return 1
 
-    screen = read_screen()
+    try:
+        screen = read_screen()
+    except ProbeBroken as exc:
+        print(f"::error::{exc} — این ایرادِ خودِ آزمایش است، نه برنامه", file=sys.stderr)
+        return 2
+
     # Drop everything up to and including the self-test marker, so the caller
     # sees only what the exe itself put on the screen.
     _, _, after = screen.partition(SELFTEST_MARKER)
     transcript.write_text(after.strip(), encoding="utf-8")
+    print(f"کدپیجِ کنسول پس از اجرا: {lib.GetConsoleOutputCP()}")
     print(f"exe با کدِ {code} برگشت، {len(after.strip())} نویسه روی کنسول نوشت.")
     return 0 if code == 0 else 1
 
