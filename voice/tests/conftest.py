@@ -72,6 +72,10 @@ def _shutdown(voice) -> None:
         return  # a test may have taken it down itself; the fixture still sweeps
     voice._torn_down = True
     voice._silence.stop()
+    # Same reasoning as the timers, one layer out: a correction worker left
+    # running holds a reference to this overlay and would emit into it after the
+    # C++ object is gone. Threads are not swept by the event loop.
+    voice.stop_correcting()
     voice.overlay.set_recording(False)  # stops the pulse timer
     voice.overlay.hide()
     voice.overlay.deleteLater()
