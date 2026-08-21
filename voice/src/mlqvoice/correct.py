@@ -52,6 +52,26 @@ def resolve_key(configured: str) -> str:
     return (configured or os.environ.get(ENV_KEY, "")).strip()
 
 
+def clean_key(raw: str) -> str:
+    """A pasted key, tidied — or a Persian sentence saying why it is not one.
+
+    Two places take a key from a person: the command line and the tray dialog.
+    Both meet the same three ways a paste goes wrong — quotes carried along with
+    the value, a ``key=`` prefix copied from the page, and half a key because the
+    selection stopped at a space. Sharing one function is not tidiness: two
+    copies drift, and then the same paste is accepted in one place and refused in
+    the other, which is a maddening thing to debug over the phone.
+    """
+    key = raw.strip().strip("\"'").removeprefix("key=").strip()
+    if not key:
+        raise ValueError("کلید خالی است.")
+    if any(ch.isspace() for ch in key):
+        # Storing it would surface later as an auth error, which says nothing
+        # about what actually went wrong.
+        raise ValueError("کلید فاصله دارد — احتمالاً کاملش کپی نشده.")
+    return key
+
+
 def mask(key: str) -> str:
     """A key, shown safely — enough to recognise, not enough to use.
 

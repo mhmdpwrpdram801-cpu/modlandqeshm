@@ -8,6 +8,7 @@ import queue
 import sys
 import threading
 import time
+from dataclasses import replace
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -15,7 +16,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from . import APP_NAME, __version__, inject
 from .bridge import BrowserNotFound, RecognizerBridge
 from .config import Config, ConfigError, load, save
-from .correct import Corrector, resolve_key
+from .correct import Corrector, clean_key, mask, resolve_key
 from .hotkey import HotkeyError, HotkeyListener
 from .media import MediaGuard, process_tree
 from .paths import config_file, learned_file, stats_file, user_dictionary_file
@@ -106,10 +107,7 @@ class VoiceApp:
         self._corr_q: queue.Queue = queue.Queue()
         self._corr_thread: threading.Thread | None = None
         if self.correcting:
-            self._corr_thread = threading.Thread(
-                target=self._correct_loop, name="mlqvoice-correct", daemon=True
-            )
-            self._corr_thread.start()
+            self._start_correcting()
 
         self.bridge = RecognizerBridge(
             lang=cfg.lang,
@@ -147,6 +145,7 @@ class VoiceApp:
         self.tray.dictionary_action.triggered.connect(self._open_dictionary)
         self.tray.learned_action.triggered.connect(self._open_learned)
         self.tray.config_action.triggered.connect(self._open_config)
+        self.tray.key_action.triggered.connect(self._set_key)
         self.tray.quit_action.triggered.connect(self.quit)
 
         self.listener = HotkeyListener(self.hotkey, self._on_hotkey)
@@ -183,6 +182,15 @@ class VoiceApp:
         finally:
             self.bridge.stop()
         QApplication.quit()
+
+    def _start_correcting(self) -> None:
+        """Bring the correction worker up. Safe to call when it already is."""
+        if self._corr_thread is not None:
+            return
+        self._corr_thread = threading.Thread(
+            target=self._correct_loop, name="mlqvoice-correct", daemon=True
+        )
+        self._corr_thread.start()
 
     def stop_correcting(self) -> None:
         """Send the correction worker home. Safe to call twice, and on no thread."""
@@ -500,6 +508,67 @@ class VoiceApp:
         if not path.exists():
             save(self.cfg, path)
         _open_in_editor(path)
+
+    def _set_key(self) -> None:
+        """Paste the Gemini key into a box, rather than into a shell.
+
+        ``mlqvoice key …`` does the same thing and stays the documented way, but
+        it asks someone to open PowerShell, know the program is reachable by
+        name, and read output back from a windowed process. Every one of those
+        is a place to get stuck, and the tray menu is already open.
+        """
+        from PySide6.QtWidgets import QInputDialog, QLineEdit
+
+        current = resolve_key(self.cfg.gemini_key)
+        text, ok = QInputDialog.getText(
+            None,
+            "کلیدِ تصحیح",
+            "کلیدِ Gemini را اینجا بچسبان.\n"
+            "کلیدِ رایگان: aistudio.google.com ← Get API key\n"
+            f"کلیدِ فعلی: {mask(current)}\n"
+            "(خالی بگذار و تأیید کن تا تصحیح خاموش شود)",
+            QLineEdit.EchoMode.Normal,
+            "",
+        )
+        if not ok:
+            return
+        if not text.strip():
+            self._apply_key("")
+            return
+        try:
+            key = clean_key(text)
+        except ValueError as exc:
+            # A tray balloon, not a modal: the box is gone by now and a second
+            # dialog on top of nothing is how people lose what they pasted.
+            self.tray.showMessage(APP_NAME, str(exc), self.tray.icon(), 5000)
+            return
+        self._apply_key(key)
+
+    def _apply_key(self, key: str) -> None:
+        """Store the key and start — or stop — correcting, without a restart.
+
+        Restarting would be the easy answer and the wrong one: the app is
+        started from the Start menu, so "close it and open it again" is three
+        steps the user has to be told, and the state it would rebuild is exactly
+        two fields.
+        """
+        self.cfg = replace(self.cfg, gemini_key=key)
+        save(self.cfg)
+        self.corrector.api_key = key
+        if self.correcting:
+            self._start_correcting()
+            note = f"تصحیح روشن شد — کلید {mask(key)}"
+        else:
+            self.stop_correcting()
+            # A key that was saved and still does nothing needs to say why,
+            # or the next report is "I set the key and it did not work".
+            note = (
+                "کلید ذخیره شد، ولی در تنظیمات correct=false است."
+                if key
+                else "کلید پاک شد — تصحیح خاموش است."
+            )
+        log.info("correction key updated; correcting=%s", self.correcting)
+        self.tray.showMessage(APP_NAME, note, self.tray.icon(), 4000)
 
 
 def _explain(error: str) -> str:

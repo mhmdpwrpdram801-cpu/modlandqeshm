@@ -106,7 +106,7 @@ def cmd_key(args) -> int:
     breaks the whole file and the error they get back is about parsing, not
     about the thing they were trying to do.
     """
-    from .correct import ENV_KEY, mask, resolve_key
+    from .correct import ENV_KEY, clean_key, mask, resolve_key
 
     try:
         cfg = load()
@@ -136,16 +136,10 @@ def cmd_key(args) -> int:
         print(f"تصحیح: {'روشن' if cfg.correct else 'خاموش (correct=false)'}")
         return 0
 
-    key = args.key.strip()
-    # A pasted key that came with quotes or a "key=" prefix is a real thing
-    # people do, and failing on it later with an auth error would be a rotten
-    # way to find out.
-    key = key.strip("\"'").removeprefix("key=").strip()
-    if not key:
-        print("کلید خالی است.", file=sys.stderr)
-        return 1
-    if " " in key or "\n" in key:
-        print("کلید فاصله دارد — احتمالاً کاملش کپی نشده.", file=sys.stderr)
+    try:
+        key = clean_key(args.key)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 1
 
     path = save(replace(cfg, gemini_key=key))
