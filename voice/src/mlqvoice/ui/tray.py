@@ -48,17 +48,12 @@ class Tray(QSystemTrayIcon):
         # reach. One click here is the whole feature becoming usable.
         self.apply_learned_action = QAction("آموخته‌ها را به دیکشنری اضافه کن", self._menu)
         self.config_action = QAction("تنظیمات", self._menu)
-        # The key can also be set with `mlqvoice key …`, but that asks someone to
-        # find a shell and know the program is on PATH. This menu is already
-        # open in front of them.
-        self.key_action = QAction("کلیدِ تصحیح…", self._menu)
         self.quit_action = QAction("خروج", self._menu)
         for action in (
             self.show_action,
             self.dictionary_action,
             self.learned_action,
             self.apply_learned_action,
-            self.key_action,
             self.config_action,
         ):
             self._menu.addAction(action)

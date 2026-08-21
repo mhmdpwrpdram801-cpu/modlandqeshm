@@ -113,19 +113,6 @@ class Config:
     # Seconds of silence, after you have started speaking, that end the
     # recording on their own. 0 turns it off and leaves stopping to the hotkey.
     auto_stop_seconds: int = 4
-    # Send each finished sentence to Gemini to have misheard words fixed before
-    # the glossary runs. Off unless a key is set, and a key only ever lives in
-    # this file on this machine — never in the repository.
-    #
-    # The trade this makes: the dictated text reaches Google. The audio already
-    # did, through Web Speech, so this is not a new listener — but it is worth
-    # knowing rather than discovering.
-    correct: bool = True
-    gemini_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
-    # How long a correction may take before the uncorrected sentence is used
-    # instead. Nothing is ever lost to a timeout; it only stops improving.
-    correct_timeout: int = 6
     browser_path: str = ""
     port: int = 0
     _unknown: tuple[str, ...] = field(default=(), repr=False, compare=False)
@@ -142,7 +129,6 @@ class Config:
         for name, high in (
             ("port", 65535),
             ("auto_stop_seconds", 600),
-            ("correct_timeout", 120),
         ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int):
@@ -160,10 +146,18 @@ class Config:
         return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
+#: Settings that used to exist and were removed on purpose. They are dropped
+#: silently rather than reported as unknown, because "unknown" is the wrong
+#: word for them: the file is fine, the feature is gone. Anyone who opened the
+#: settings once has these in their file, and greeting them with a list of
+#: complaints after an update reads like something broke.
+RETIRED = frozenset({"correct", "gemini_key", "gemini_model", "correct_timeout"})
+
+
 def from_dict(data: dict) -> Config:
     """Build a config from parsed JSON, keeping note of keys we do not know."""
     known = {f.name for f in fields(Config) if not f.name.startswith("_")}
-    unknown = tuple(sorted(set(data) - known))
+    unknown = tuple(sorted(set(data) - known - RETIRED))
     return Config(**{k: v for k, v in data.items() if k in known}, _unknown=unknown)
 
 
@@ -188,9 +182,9 @@ def load(path: Path | None = None) -> Config:
 def save(cfg: Config, path: Path | None = None) -> Path:
     path = path or config_file()
     path.write_text(cfg.to_json(), encoding="utf-8")
-    # The file holds an API key once one is set. On Windows %APPDATA% is
-    # already per-user, but on anything POSIX the default would be world
-    # readable, and a key is not the sort of thing to leave lying open.
+    # Nothing secret lives in here any more, but it is still one person's own
+    # settings and %APPDATA% is already per-user; keeping the same permissions
+    # on POSIX costs nothing and matches that.
     with contextlib.suppress(OSError, NotImplementedError):
         path.chmod(0o600)
     return path

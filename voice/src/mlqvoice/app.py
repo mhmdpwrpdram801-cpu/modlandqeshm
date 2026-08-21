@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-import queue
 import sys
-import threading
 import time
-from dataclasses import replace
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -16,7 +13,6 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from . import APP_NAME, __version__, inject
 from .bridge import BrowserNotFound, RecognizerBridge
 from .config import Config, ConfigError, load, save
-from .correct import Corrector, clean_key, mask, resolve_key
 from .hotkey import HotkeyError, HotkeyListener
 from .media import MediaGuard, process_tree
 from .paths import config_file, learned_file, stats_file, user_dictionary_file
@@ -52,8 +48,6 @@ class _Inbox(QObject):
 
     result = Signal(str, bool)
     status = Signal(str, str)
-    #: generation, what the recogniser said, what Gemini made of it.
-    corrected = Signal(int, str, str)
 
 
 class VoiceApp:
@@ -91,23 +85,6 @@ class VoiceApp:
         self.inbox = _Inbox()
         self.inbox.result.connect(self._on_result, Qt.ConnectionType.QueuedConnection)
         self.inbox.status.connect(self._on_status, Qt.ConnectionType.QueuedConnection)
-        self.inbox.corrected.connect(self._on_corrected, Qt.ConnectionType.QueuedConnection)
-
-        # Corrections run one at a time on a worker thread, and the queue is what
-        # keeps sentences in the order they were spoken — two calls in flight
-        # could finish the other way round and shuffle the user's paragraph.
-        # No key means no thread at all: the default build starts nothing.
-        self.corrector = Corrector(
-            resolve_key(cfg.gemini_key),
-            model=cfg.gemini_model,
-            timeout=float(cfg.correct_timeout),
-        )
-        self._corr_gen = 0
-        self._corr_pending = 0
-        self._corr_q: queue.Queue = queue.Queue()
-        self._corr_thread: threading.Thread | None = None
-        if self.correcting:
-            self._start_correcting()
 
         self.bridge = RecognizerBridge(
             lang=cfg.lang,
@@ -146,7 +123,6 @@ class VoiceApp:
         self.tray.learned_action.triggered.connect(self._open_learned)
         self.tray.apply_learned_action.triggered.connect(self._apply_learned)
         self.tray.config_action.triggered.connect(self._open_config)
-        self.tray.key_action.triggered.connect(self._set_key)
         self.tray.quit_action.triggered.connect(self.quit)
 
         self.listener = HotkeyListener(self.hotkey, self._on_hotkey)
@@ -177,32 +153,11 @@ class VoiceApp:
         self.media.resume_if_paused()
         # And a timer left armed would fire into a half-torn-down window.
         self._silence.stop()
-        self.stop_correcting()
         try:
             self.listener.stop()
         finally:
             self.bridge.stop()
         QApplication.quit()
-
-    def _start_correcting(self) -> None:
-        """Bring the correction worker up. Safe to call when it already is."""
-        if self._corr_thread is not None:
-            return
-        self._corr_thread = threading.Thread(
-            target=self._correct_loop, name="mlqvoice-correct", daemon=True
-        )
-        self._corr_thread.start()
-
-    def stop_correcting(self) -> None:
-        """Send the correction worker home. Safe to call twice, and on no thread."""
-        if self._corr_thread is None:
-            return
-        self._corr_q.put(None)
-        # Short join on purpose: the thread is a daemon and may be mid-request
-        # with a timeout of its own. Waiting it out would make quitting feel
-        # broken for the sake of a thread the OS is about to reclaim anyway.
-        self._corr_thread.join(timeout=1.0)
-        self._corr_thread = None
 
     def _own_pids(self) -> set[int]:
         """Us and the recogniser browser — never mistaken for somebody's music."""
@@ -268,10 +223,6 @@ class VoiceApp:
 
     # -- recogniser ------------------------------------------------------
 
-    @property
-    def correcting(self) -> bool:
-        return self.cfg.correct and self.corrector.enabled
-
     def _on_result(self, text: str, final: bool) -> None:
         # Interim guesses count as speech: Chrome emits them continuously while
         # a sentence is being spoken, so they are the evidence that the silence
@@ -279,16 +230,7 @@ class VoiceApp:
         # mid-sentence.
         self._restart_silence_timer()
         if final:
-            if self.correcting:
-                # Held back rather than shown and then rewritten: the box is
-                # also the user's edit buffer, and text that changes under a
-                # cursor is worse than text that arrives a second late. The
-                # interim guess stays on screen meanwhile, so nothing looks
-                # stuck.
-                self._corr_pending += 1
-                self._corr_q.put((self._corr_gen, text))
-                return
-            self._commit_final(text, text)
+            self._commit_final(text)
             return
         cleaned, _ = transform_hits(text, self.lexicon, self.opts)
         if not cleaned:
@@ -296,15 +238,9 @@ class VoiceApp:
         self._guess = cleaned
         self.overlay.set_interim(cleaned)
 
-    def _commit_final(self, heard: str, corrected: str) -> None:
-        """Put one finished sentence in the box.
-
-        *heard* is what the recogniser said and *corrected* is what goes on
-        screen. They are recorded separately on purpose: the learning layer
-        earns its entries from Google's mistakes, and crediting Gemini's fix to
-        the user would quietly teach it nothing.
-        """
-        cleaned, hits = transform_hits(corrected, self.lexicon, self.opts)
+    def _commit_final(self, heard: str) -> None:
+        """Put one finished sentence in the box."""
+        cleaned, hits = transform_hits(heard, self.lexicon, self.opts)
         if not cleaned:
             return
         self._heard.append(heard.strip())
@@ -314,44 +250,6 @@ class VoiceApp:
         self._hits.extend(hits)
         self._guess = ""
         self.overlay.append_final(cleaned)
-
-    def _correct_loop(self) -> None:
-        while True:
-            item = self._corr_q.get()
-            if item is None:
-                return
-            gen, heard = item
-            # Corrector.correct never raises; it hands back the original on any
-            # failure. Wrapping it again would only hide a real bug in here.
-            self.inbox.corrected.emit(gen, heard, self.corrector.correct(heard))
-
-    def _on_corrected(self, gen: int, heard: str, corrected: str) -> None:
-        self._corr_pending -= 1
-        if gen != self._corr_gen:
-            return  # belongs to a dictation the user has already finished
-        self._commit_final(heard, corrected)
-
-    def _await_corrections(self) -> None:
-        """Let anything still in flight land before the text is used.
-
-        Without this, pressing "تمام شد" while the last sentence is still with
-        Gemini would insert everything *except* that sentence — the one failure
-        this whole feature is not allowed to have. The wait is bounded by the
-        corrector's own timeout, and the queue only ever holds finished
-        sentences, so the worst case is one round trip.
-        """
-        if not self._corr_pending:
-            return
-        self.overlay.set_status("در حالِ تصحیح…")
-        deadline = time.monotonic() + float(self.cfg.correct_timeout) + 2.0
-        while self._corr_pending > 0 and time.monotonic() < deadline:
-            QApplication.processEvents()
-            time.sleep(0.02)
-        if self._corr_pending > 0:
-            # Give up counting rather than block forever; the sentences that did
-            # arrive are already in the box and will be inserted.
-            log.warning("correction did not return in time; inserting what we have")
-            self._corr_pending = 0
 
     def _restart_silence_timer(self) -> None:
         if not self.recording or self.cfg.auto_stop_seconds <= 0:
@@ -393,11 +291,6 @@ class VoiceApp:
     def _insert(self, text: str) -> None:
         if self.recording:
             self.stop_recording()
-        if self._corr_pending:
-            # Stop first, then wait: otherwise a sentence spoken during the wait
-            # would start another correction and the wait would chase its tail.
-            self._await_corrections()
-            text = self.overlay.text()
         self.overlay.hide()  # our own window must not hold the foreground
         try:
             inject.insert(
@@ -425,11 +318,6 @@ class VoiceApp:
         self._hits.clear()
         self._spoke_seconds = 0.0
         self._started_at = 0.0
-        # A correction still in flight belongs to the dictation that just ended.
-        # Bumping the generation is what stops it landing in this one — the
-        # worker cannot be called back, only ignored.
-        self._corr_gen += 1
-        self._corr_pending = 0
 
     def _count(self, inserted: str) -> None:
         """Tally one dictation, so the dictionary can be judged on evidence.
@@ -572,67 +460,6 @@ class VoiceApp:
         if not path.exists():
             save(self.cfg, path)
         _open_in_editor(path)
-
-    def _set_key(self) -> None:
-        """Paste the Gemini key into a box, rather than into a shell.
-
-        ``mlqvoice key …`` does the same thing and stays the documented way, but
-        it asks someone to open PowerShell, know the program is reachable by
-        name, and read output back from a windowed process. Every one of those
-        is a place to get stuck, and the tray menu is already open.
-        """
-        from PySide6.QtWidgets import QInputDialog, QLineEdit
-
-        current = resolve_key(self.cfg.gemini_key)
-        text, ok = QInputDialog.getText(
-            None,
-            "کلیدِ تصحیح",
-            "کلیدِ Gemini را اینجا بچسبان.\n"
-            "کلیدِ رایگان: aistudio.google.com ← Get API key\n"
-            f"کلیدِ فعلی: {mask(current)}\n"
-            "(خالی بگذار و تأیید کن تا تصحیح خاموش شود)",
-            QLineEdit.EchoMode.Normal,
-            "",
-        )
-        if not ok:
-            return
-        if not text.strip():
-            self._apply_key("")
-            return
-        try:
-            key = clean_key(text)
-        except ValueError as exc:
-            # A tray balloon, not a modal: the box is gone by now and a second
-            # dialog on top of nothing is how people lose what they pasted.
-            self.tray.showMessage(APP_NAME, str(exc), self.tray.icon(), 5000)
-            return
-        self._apply_key(key)
-
-    def _apply_key(self, key: str) -> None:
-        """Store the key and start — or stop — correcting, without a restart.
-
-        Restarting would be the easy answer and the wrong one: the app is
-        started from the Start menu, so "close it and open it again" is three
-        steps the user has to be told, and the state it would rebuild is exactly
-        two fields.
-        """
-        self.cfg = replace(self.cfg, gemini_key=key)
-        save(self.cfg)
-        self.corrector.api_key = key
-        if self.correcting:
-            self._start_correcting()
-            note = f"تصحیح روشن شد — کلید {mask(key)}"
-        else:
-            self.stop_correcting()
-            # A key that was saved and still does nothing needs to say why,
-            # or the next report is "I set the key and it did not work".
-            note = (
-                "کلید ذخیره شد، ولی در تنظیمات correct=false است."
-                if key
-                else "کلید پاک شد — تصحیح خاموش است."
-            )
-        log.info("correction key updated; correcting=%s", self.correcting)
-        self.tray.showMessage(APP_NAME, note, self.tray.icon(), 4000)
 
 
 def _fa(number: int) -> str:

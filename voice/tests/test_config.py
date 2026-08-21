@@ -143,6 +143,31 @@ class TestLoadSave:
         path.write_text(json.dumps({"hotkey": "f9", "colour": "blue"}), encoding="utf-8")
         assert load(path)._unknown == ("colour",)
 
+    def test_a_retired_setting_is_dropped_without_complaint(self, tmp_path):
+        # Anyone who opened the settings while the Gemini correction existed has
+        # these in their file. Calling them "unknown" after the update would
+        # greet them with a list of complaints about a file that is perfectly
+        # fine — the setting is gone, not wrong.
+        path = tmp_path / "config.json"
+        path.write_text(
+            json.dumps({"hotkey": "f9", "correct": True, "gemini_key": "AIza…"}),
+            encoding="utf-8",
+        )
+        cfg = load(path)
+        assert cfg._unknown == ()
+        assert cfg.hotkey == "f9"
+
+    def test_but_a_genuinely_unknown_one_beside_it_still_reports(self, tmp_path):
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps({"gemini_key": "x", "colour": "blue"}), encoding="utf-8")
+        assert load(path)._unknown == ("colour",)
+
+    def test_and_a_retired_key_never_comes_back_when_saved(self, tmp_path):
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps({"gemini_key": "AIza…"}), encoding="utf-8")
+        save(load(path), path)
+        assert "gemini_key" not in path.read_text(encoding="utf-8")
+
     def test_broken_json_names_the_file(self, tmp_path):
         path = tmp_path / "config.json"
         path.write_text("{ nope", encoding="utf-8")
