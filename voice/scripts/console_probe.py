@@ -42,6 +42,7 @@ INVALID_HANDLE = ctypes.c_void_p(-1).value
 STD_INPUT_HANDLE = 0xFFFFFFF6  # (DWORD)-10
 STD_OUTPUT_HANDLE = 0xFFFFFFF5  # (DWORD)-11
 STD_ERROR_HANDLE = 0xFFFFFFF4  # (DWORD)-12
+HANDLE_FLAG_INHERIT = 0x00000001
 
 
 class ProbeBroken(RuntimeError):
@@ -99,10 +100,24 @@ def k32():
     lib.SetStdHandle.restype = wintypes.BOOL
     lib.GetConsoleOutputCP.argtypes = []
     lib.GetConsoleOutputCP.restype = wintypes.UINT
+    lib.SetHandleInformation.argtypes = [ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD]
+    lib.SetHandleInformation.restype = wintypes.BOOL
     return lib
 
 
 def open_console(lib, name: str, access: int):
+    """A handle on the console — and one a child process can actually use.
+
+    ``CreateFileW`` hands back a **non-inheritable** handle unless told
+    otherwise, and that detail decides whether any of this works. A child
+    started without ``STARTF_USESTDHANDLES`` inherits the parent's standard
+    handle *values*; if those values are not inheritable the child receives
+    numbers that mean nothing in its own process, its writes fail, and the
+    output goes nowhere at all — not to the screen, not to the log.
+
+    That is precisely what the second run showed: the marker vanished from
+    both. Marking the handle inheritable is the whole fix.
+    """
     handle = lib.CreateFileW(
         name,
         access,
@@ -114,6 +129,8 @@ def open_console(lib, name: str, access: int):
     )
     if handle in (0, INVALID_HANDLE, None):
         raise ProbeBroken(f"{name} باز نشد (خطای {ctypes.get_last_error()})")
+    if not lib.SetHandleInformation(handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT):
+        raise ProbeBroken(f"{name} ارث‌بردنی نشد (خطای {ctypes.get_last_error()})")
     return handle
 
 
@@ -195,10 +212,16 @@ def main(argv: list[str]) -> int:
         # Before trusting a blank screen: prove the screen can be read at all.
         # A probe that silently reads nothing would report every build as
         # broken, and that report is indistinguishable from the real bug.
-        run_in_console(["cmd", "/c", f"echo {SELFTEST_MARKER}"], timeout=30)
+        echoed = run_in_console(["cmd", "/c", f"echo {SELFTEST_MARKER}"], timeout=30)
         proof = read_screen()
         if SELFTEST_MARKER not in proof:
-            raise ProbeBroken(f"نشانه‌ی محکِ خودِ آزمایش روی صفحه نیامد. خوانده شد: {proof!r}")
+            # The echo's own exit code is in the message on purpose: a failure
+            # to write shows up there, and without it the next round is another
+            # blind guess at why the screen was empty.
+            raise ProbeBroken(
+                f"نشانه‌ی محکِ خودِ آزمایش روی صفحه نیامد "
+                f"(کدِ خروجیِ echo: {echoed}). خوانده شد: {proof!r}"
+            )
     except ProbeBroken as exc:
         print(f"::error::{exc} — این ایرادِ خودِ آزمایش است، نه برنامه", file=sys.stderr)
         return 2
