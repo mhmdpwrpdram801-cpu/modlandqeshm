@@ -793,6 +793,15 @@ function phoneFmt(v){
   if(i<d.length)out.push(d.slice(i));
   return out.join(' ');
 }
+/* شماره را برای **نمایش در متن** آماده می‌کند و در یک جزیره‌ی چپ‌به‌راست می‌بندد.
+   چرا لازم است: تا وقتی شماره یک رشته‌ی پیوسته‌ی رقم بود، الگوریتمِ دوسویه دست‌نخورده
+   نگهش می‌داشت. با فاصله‌های گروه‌بندی، هر گروه یک «عددِ اروپایی» جدا می‌شود و در
+   بندِ راست‌به‌چپ **ترتیبشان برعکس دیده می‌شود** — اندازه‌گیری شد: «0900 000 0000»
+   روی صفحه «0000 000 0900» خوانده می‌شد. یعنی مالک شماره را وارونه می‌خواند و به
+   آدمِ اشتباه زنگ می‌زد. این باگ با همان گروه‌بندی وارد شد، نه قبلش.
+   **هر جا شماره را در متن نشان می‌دهی از این رد کن، نه از esc(phoneFmt(...)).**
+   تنها استثنا `value=` ورودی‌هاست که تگ نمی‌پذیرد — آن‌ها خودشان dir="ltr" دارند. */
+function phoneTag(v){ const s=phoneFmt(v); return s?'<bdi dir="ltr">'+esc(s)+'</bdi>':''; }
 /* موقعِ تایپ، مکان‌نمای متن نباید بپرد — مثلِ grpInput، تعدادِ رقمِ پیش از
    مکان‌نما را می‌شمارد و بعد از قالب‌بندی دوباره همان‌جا می‌نشاندش. */
 function phoneInput(el){
@@ -1457,7 +1466,7 @@ async function renderDashboard(){
     else html+=debtors.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(193,57,43,.06);border-color:rgba(193,57,43,.25);cursor:pointer" onclick="openCustomer('${r.cid}')"><span style="flex:1">${esc(r.name||'؟')}<br><b style="color:#b5340a">${faNum(r.amount)} ت</b></span><button onclick="event.stopPropagation();waReminderFor('${r.cid}',${r.amount})" style="background:#25d366;color:#fff;border:0;border-radius:9px;padding:8px 12px;font-family:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer">📲 یادآوری</button></div>`; }).join('')+(debtors.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(debtors.length-15)} بدهکارِ دیگر…</div>`:'');
     html+=`<div class="block-title">🔔 مشتری‌های غیرفعال (${faNum(inactive.length)}) <span style="font-weight:400;color:var(--muted);font-size:11.5px">بیش از ۳۰ روز خرید نکرده‌اند</span></div>`;
     if(inactive.length===0) html+=`<div class="empty" style="padding:16px">همه‌ی مشتری‌ها فعال‌اند 👌</div>`;
-    else html+=inactive.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(181,134,11,.07);border-color:rgba(181,134,11,.3);cursor:pointer" onclick="openCustomer('${r.cid}')"><span>${esc(r.name||'؟')}${r.phone?' — '+esc(phoneFmt(r.phone)):''}</span><span>${r.days==null?'<b>هنوز خرید نکرده</b>':'آخرین خرید: <b>'+faNum(r.days)+' روز پیش</b>'}</span></div>`; }).join('')+(inactive.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(inactive.length-15)} مشتریِ دیگر…</div>`:'');
+    else html+=inactive.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(181,134,11,.07);border-color:rgba(181,134,11,.3);cursor:pointer" onclick="openCustomer('${r.cid}')"><span>${esc(r.name||'؟')}${r.phone?' — '+phoneTag(r.phone):''}</span><span>${r.days==null?'<b>هنوز خرید نکرده</b>':'آخرین خرید: <b>'+faNum(r.days)+' روز پیش</b>'}</span></div>`; }).join('')+(inactive.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(inactive.length-15)} مشتریِ دیگر…</div>`:'');
     html+=`<div class="block-title">🔥 پرفروش‌ترین کالاها <span style="font-weight:400;color:var(--muted);font-size:11.5px">در ۶۰ روزِ اخیر</span></div>`;
     if(top.length===0) html+=`<div class="empty" style="padding:16px">هنوز فروشی ثبت نشده</div>`;
     else html+=top.map((t,i)=>`<div class="mini"><span><span class="rank">${faNum(i+1)}</span>${esc(t.name)}</span><b class="num">${faNum(t.qty)} عدد</b></div>`).join('');
@@ -2049,13 +2058,13 @@ function buildInvoiceHTML(d, opts){
   return `<div class="invoice"><div class="ring"></div><div class="inv-pad">
     <div class="inv-head"><div class="inv-brand"><div class="inv-logo"><img src="img4.png" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block"></div><div><h2>${esc(shop)}</h2><div class="s1">${esc(sub)}</div><div class="s2">واردکننده مستقیم پوشاک بنگلادش</div></div></div>
     <div class="inv-meta"><div class="t">${isQuote?'پیش‌فاکتور':'فاکتور فروش'}</div>${isQuote?'':`<div class="r">شماره: <b>${faNum(d.invoice_number)}</b></div>`}<div class="r">تاریخ: <b>${esc(d.date||'')}</b></div><div class="inv-badge" style="${isQuote?'color:var(--gold-dp);background:rgba(192,144,28,.13)':'color:'+stC+';background:'+stB}">${isQuote?'هنوز فاکتور نشده':STATUS_FA[st]}</div></div></div>
-    <div class="inv-buyer"><div class="bf"><div class="k">نام خریدار</div><div class="v">${esc(d.buyer_name||'—')}</div></div>${d.buyer_phone?`<div class="bf"><div class="k">تماس</div><div class="v" dir="ltr">${esc(phoneFmt(d.buyer_phone))}</div></div>`:''}${d.buyer_city?`<div class="bf"><div class="k">شهر</div><div class="v">${esc(d.buyer_city)}</div></div>`:''}</div>
+    <div class="inv-buyer"><div class="bf"><div class="k">نام خریدار</div><div class="v">${esc(d.buyer_name||'—')}</div></div>${d.buyer_phone?`<div class="bf"><div class="k">تماس</div><div class="v" dir="ltr">${phoneTag(d.buyer_phone)}</div></div>`:''}${d.buyer_city?`<div class="bf"><div class="k">شهر</div><div class="v">${esc(d.buyer_city)}</div></div>`:''}</div>
     <table class="inv-tbl"><thead><tr><th>#</th><th class="d">شرح کالا</th><th>تعداد</th><th>قیمت واحد</th><th>قیمت کل</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="inv-tot"><div class="box"><div class="tr"><span>جمع کل اقلام</span><b>${faNum(d.items_total)}</b></div>${d.discount?`<div class="tr"><span>تخفیف</span><b style="color:var(--credit)">− ${faNum(d.discount)}</b></div>`:''}<div class="grand"><span class="gl">مبلغ نهایی</span><span class="gv">${faNum(d.total_amount)} <span style="font-size:11px;color:var(--muted)">تومان</span></span></div><div style="font-size:11px;color:var(--gold-lt);font-weight:700;text-align:right;margin-top:4px;padding:2px 2px 0">به حروف: ${numToFaWords(d.total_amount)} تومان</div>${payLines}</div></div>
     ${(!isQuote&&st==='cancelled')?'<div class="inv-cancel">⛔ این فاکتور باطل شده است<br><button class="btn sm" style="margin-top:8px;background:var(--paid);color:#fff" onclick="restoreCurrentInvoice()">↺ برگرداندنِ فاکتور</button></div>':''}
     ${isQuote?`<div class="inv-note">📋 این <b>پیش‌فاکتور</b> است، نه سندِ فروش — هنوز پرداختی روی آن ثبت نشده و قیمت‌ها مالِ تاریخِ بالاست.<br>اگر تأیید می‌کنی یا می‌خواهی چیزی کم و زیاد شود، از راه‌های تماسِ پایین خبر بده.</div>`:''}
     ${(isQuote&&d.note)?`<div class="inv-note" style="border-style:solid;background:var(--panel)">📝 ${esc(d.note)}</div>`:''}
-    <div class="inv-foot"><div><div class="inv-qrs"><div class="inv-qr"><img src="${QR_TG}" alt="بارکدِ تلگرامِ فروشگاه" width="78" height="78"><div class="c">تلگرام</div></div><div class="inv-qr"><img src="${QR_IG}" alt="بارکدِ اینستاگرامِ فروشگاه" width="78" height="78"><div class="c">اینستاگرام</div></div></div><div class="inv-addr">${esc(addr)}${phone?`<br><span style="white-space:nowrap">تماس: <b dir="ltr">${esc(phoneFmt(phone))}</b></span>${phone2?` · <span style="white-space:nowrap"><b dir="ltr">${esc(phoneFmt(phone2))}</b></span>`:''}`:(phone2?`<br>تماس: <b dir="ltr">${esc(phoneFmt(phone2))}</b>`:'')}<br><span style="white-space:nowrap">اینستاگرام: <b dir="ltr">${esc(ig)}@</b></span> · <span style="white-space:nowrap">تلگرام: <b dir="ltr">${esc(tg)}@</b></span></div></div>
+    <div class="inv-foot"><div><div class="inv-qrs"><div class="inv-qr"><img src="${QR_TG}" alt="بارکدِ تلگرامِ فروشگاه" width="78" height="78"><div class="c">تلگرام</div></div><div class="inv-qr"><img src="${QR_IG}" alt="بارکدِ اینستاگرامِ فروشگاه" width="78" height="78"><div class="c">اینستاگرام</div></div></div><div class="inv-addr">${esc(addr)}${phone?`<br><span style="white-space:nowrap">تماس: <b dir="ltr">${phoneTag(phone)}</b></span>${phone2?` · <span style="white-space:nowrap"><b dir="ltr">${phoneTag(phone2)}</b></span>`:''}`:(phone2?`<br>تماس: <b dir="ltr">${phoneTag(phone2)}</b>`:'')}<br><span style="white-space:nowrap">اینستاگرام: <b dir="ltr">${esc(ig)}@</b></span> · <span style="white-space:nowrap">تلگرام: <b dir="ltr">${esc(tg)}@</b></span></div></div>
     <div class="inv-policy"><div class="pl">شرایط مرجوعی</div><div class="pb">${esc(policy)}</div></div></div>
   </div></div>`;
 }
@@ -2423,7 +2432,7 @@ async function renderCustomers(){
     else if(b>0)badge=`<span class="pill credit">طلب: ${faNum(b)}</span>`;
     else if(b<0)badge=`<span class="pill paid">بستانکار: ${faNum(-b)}</span>`;
     else badge=`<span class="pill paid">تسویه</span>`;
-    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+phoneFmt(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone)):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}</div></div>`;
+    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+phoneFmt(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?phoneTag(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}</div></div>`;
   }).join('');
 }
 async function renderCustomersByProduct(productId, box){
@@ -2438,7 +2447,7 @@ async function renderCustomersByProduct(productId, box){
     const ranked=Object.keys(agg).map(cid=>({cid,qty:agg[cid].qty,total:agg[cid].total})).sort((a,b)=>b.qty-a.qty);
     let html=`<div class="card" style="background:var(--panel);border-color:var(--line)"><div style="font-weight:700">🔎 خریدارانِ «${esc(prod?prod.name:'')}»</div><div style="font-size:12px;color:var(--muted);margin-top:3px">به ترتیبِ بیشترین تعدادِ خرید — روی هرکدام بزن</div></div>`;
     if(ranked.length===0){ html+='<div class="empty">هنوز هیچ مشتریِ ثبت‌شده‌ای این کالا را نخریده.<br><span style="font-size:12px">(فقط فاکتورهایی که به یک مشتری وصل شده‌اند شمرده می‌شوند)</span></div>'; box.innerHTML=html; return; }
-    html+=ranked.map((r,i)=>{ const c=CUSTOMERS.find(x=>x.id===r.cid)||{}; return `<div class="list-item" onclick="openCustomer('${r.cid}')"><div><div class="li-main"><span class="rank">${faNum(i+1)}</span>${esc(c.name||'؟')}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone)):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end"><div class="num" style="font-weight:700;color:var(--gold-lt);font-size:15px">${faNum(r.qty)} عدد</div><div class="li-sub num">${faNum(r.total)} تومان</div></div></div>`; }).join('');
+    html+=ranked.map((r,i)=>{ const c=CUSTOMERS.find(x=>x.id===r.cid)||{}; return `<div class="list-item" onclick="openCustomer('${r.cid}')"><div><div class="li-main"><span class="rank">${faNum(i+1)}</span>${esc(c.name||'؟')}</div><div class="li-sub">${c.phone?phoneTag(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end"><div class="num" style="font-weight:700;color:var(--gold-lt);font-size:15px">${faNum(r.qty)} عدد</div><div class="li-sub num">${faNum(r.total)} تومان</div></div></div>`; }).join('');
     box.innerHTML=html;
   }catch(e){ if(seqStale('custList',_q))return; box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
 }
@@ -2499,7 +2508,7 @@ async function openCustomer(id){
     const balLabel=!balOk?'ماندهٔ حساب — نامشخص':(bal>0?'طلبِ ما از این مشتری':bal<0?'بستانکار (ما بدهکاریم)':'تسویه شده');
     let html=`<div class="ov-sheet">
       <div style="font-size:18px;font-weight:700">${esc(c.name||'')}</div>
-      <div style="font-size:12.5px;color:var(--muted);margin-top:3px">${c.phone?esc(phoneFmt(c.phone))+' · ':''}${esc(c.city||'')}</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:3px">${c.phone?phoneTag(c.phone)+' · ':''}${esc(c.city||'')}</div>
       <div class="stat ${balOk&&bal>0?'danger':''}" style="margin-top:14px;text-align:center"><div class="lbl">${balLabel}</div><div class="val num" style="color:${balColor}">${balOk?(faNum(Math.abs(bal))+' <small>تومان</small>'):'؟'}</div>${balOk?'':'<div class="sw" style="color:var(--danger)">بارگذاری نشد — اینترنت رو چک کن</div>'}</div>
       ${profileCard}
       ${bal>0?`<button onclick="waReminderFor('${id}',${bal})" style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:0;border-radius:12px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">📲 ارسالِ یادآوریِ بدهی در واتساپ</button>`:''}
@@ -2931,7 +2940,7 @@ function insCarts(){
       return `<div class="card" style="padding:13px;margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="min-width:0"><div style="font-weight:700">${esc(r.name)}</div>
-          ${r.phone?`<div style="font-size:12px;color:var(--muted);margin-top:2px" dir="ltr">${esc(phoneFmt(r.phone))}</div>`:''}
+          ${r.phone?`<div style="font-size:12px;color:var(--muted);margin-top:2px" dir="ltr">${phoneTag(r.phone)}</div>`:''}
           <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${faNum(Number(src.cart_items||0))} قلم · آخرین تکون: ${esc(jDate(src.updated_at))}</div></div>
         <b class="num" style="color:var(--accent);white-space:nowrap">${faNum(r.tot)} ت</b>
       </div>
@@ -3088,7 +3097,7 @@ async function gsRun(){ const q=(document.getElementById('gsInput').value||'').t
   let h='';
   const _cap=(n)=>n>=15?' <span style="font-weight:400;color:var(--muted);font-size:11px">(۱۵ تای اول)</span>':'';
   if(prods.length){ h+='<div class="block-title">کالاها ('+faNum(prods.length)+')'+_cap(prods.length)+'</div>'+prods.map(p=>`<div class="list-item" onclick="closeSearch();openProductForm('${p.id}')"><div><div class="li-main">${esc(p.name)}</div></div><div class="li-end num">${faNum(p.price||0)}</div></div>`).join(''); }
-  if(custs.length){ h+='<div class="block-title" style="margin-top:14px">مشتری‌ها ('+faNum(custs.length)+')'+_cap(custs.length)+'</div>'+custs.map(c=>`<div class="list-item" onclick="closeSearch();openCustomer('${c.id}')"><div><div class="li-main">${esc(c.name||'')}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone))+' · ':''}${esc(c.city||'')}</div></div><div class="li-end" style="color:var(--muted)">›</div></div>`).join(''); }
+  if(custs.length){ h+='<div class="block-title" style="margin-top:14px">مشتری‌ها ('+faNum(custs.length)+')'+_cap(custs.length)+'</div>'+custs.map(c=>`<div class="list-item" onclick="closeSearch();openCustomer('${c.id}')"><div><div class="li-main">${esc(c.name||'')}</div><div class="li-sub">${c.phone?phoneTag(c.phone)+' · ':''}${esc(c.city||'')}</div></div><div class="li-end" style="color:var(--muted)">›</div></div>`).join(''); }
   const _stFa={paid:'پرداخت‌شده',partial:'پرداخت جزئی',credit:'نسیه',cancelled:'باطل شده'};
   if(invs.length){ h+='<div class="block-title" style="margin-top:14px">فاکتورها ('+faNum(invs.length)+')'+_cap(invs.length)+'</div>'+invs.map(v=>`<div class="list-item" onclick="closeSearch();openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)} · ${esc(v.buyer_name||'')}</div><div class="li-sub">${esc(v.date||'')} · ${_stFa[safeStatus(v.status)]}</div></div><div class="li-end num">${faNum(v.total_amount||0)}</div></div>`).join(''); }
   body.innerHTML=h||'<div class="empty" style="padding:18px">چیزی پیدا نشد</div>';
@@ -3263,7 +3272,7 @@ async function shareStatement(id){
       ${logoHTML(50)}
       <div><div style="font-size:19px;font-weight:700">${esc(S.shop_name||'مدلند قشم')}</div><div style="font-size:12.5px;color:#9a6f08;font-weight:700">صورت‌حسابِ مشتری — ${esc(todayJalali())}</div></div>
     </div>
-    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(c.name||'')}${c.phone?` <span style="font-size:12px;color:#888;font-weight:400">${esc(phoneFmt(c.phone))}</span>`:''}</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(c.name||'')}${c.phone?` <span style="font-size:12px;color:#888;font-weight:400">${phoneTag(c.phone)}</span>`:''}</div>
     <div style="font-weight:700;font-size:13px;color:#9a6f08;margin:8px 0 2px">فاکتورها</div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#888;font-size:11px"><td style="padding:4px 8px">شماره</td><td style="padding:4px 8px">تاریخ</td><td style="padding:4px 8px;text-align:left">مبلغ</td><td style="padding:4px 8px;text-align:left">پرداختی</td></tr></thead><tbody>${invRows||'<tr><td colspan="4" style="padding:6px 8px;color:var(--rep-dim)">—</td></tr>'}</tbody></table>
     ${pays.length?`<div style="font-weight:700;font-size:13px;color:#9a6f08;margin:12px 0 2px">پرداخت‌ها</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#888;font-size:11px"><td style="padding:4px 8px">تاریخ</td><td style="padding:4px 8px;text-align:left">مبلغ</td></tr></thead><tbody>${payRows}</tbody></table>`:''}
