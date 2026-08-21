@@ -773,15 +773,22 @@ def runtime_checks(url, cfg, html_path, engine='chromium', repeat=1):
                     ok(f"هر {len(cfg['checks'])} بررسی در {reps} دورِ پشتِ‌سرِهم نتیجه‌ی یکسان داد")
 
         head("۱۱) عکس‌برداری")
-        shot_n = 0
-        for nm, js in screens[:30]:
+        # سقفِ ثابتِ `screens[:30]` برداشته شد. **همیشه آخرین صفحه‌ها را می‌انداخت
+        # بیرون** — یعنی دقیقاً همان صفحه‌ای که تازه ساخته‌ای و بیشتر از همه به
+        # دیدن نیاز دارد. بی‌صدا هم بود: «۳۰ عکس ذخیره شد» می‌گفت در حالی که ۳۲
+        # صفحه داشتیم و کسی دو تای آخر را ندیده بود. هر عکس ~۴۲۰ms است؛ ارزشش
+        # را دارد. اگر عکسی نشد، حالا با اسم گزارش می‌شود نه با سکوت (CORE-12).
+        shot_n, shot_bad = 0, []
+        for nm, js in screens:
             try:
                 if cfg['reset']: pg.evaluate(cfg['reset'])
                 pg.evaluate(js); pg.wait_for_timeout(420)
                 safe = re.sub(r'[^\w\u0600-\u06FF]+', '_', nm)[:24]
                 pg.screenshot(path=f"{shots}/{shot_n:02d}_{safe}.png"); shot_n += 1
-            except Exception: pass
-        ok(f"{shot_n} عکس در {shots} ذخیره شد — حتماً چندتا را با چشم ببین")
+            except Exception as ex:
+                shot_bad.append(f"{nm} ({str(ex)[:40]})")
+        ok(f"از {len(screens)} صفحه، {shot_n} عکس در {shots} ذخیره شد — حتماً چندتا را با چشم ببین") \
+            if not shot_bad else [bad("عکس گرفته نشد: " + x) for x in shot_bad]
         br.close()
 
 def main():

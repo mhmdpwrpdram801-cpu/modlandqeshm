@@ -162,6 +162,14 @@
     [
       "پنجره‌ی پرسش",
       "(()=>{ask('⚠️ این فاکتور ۲٬۰۰۰٬۰۰۰ تومان پرداختی دارد!\\nبا ابطال، این پرداخت هم از حسابِ مشتری حذف می‌شود.\\n\\nمطمئنی باطل شود؟');return 0})()"
+    ],
+    [
+      "قیفِ بازدید",
+      "openInsights().then(()=>insFunnel(30))"
+    ],
+    [
+      "سبدهای رهاشده",
+      "openInsights().then(()=>insCarts())"
     ]
   ],
   "checks": [
@@ -594,6 +602,71 @@
       "wait": 900,
       "js": "()=>{const list=(document.getElementById('custList')||{}).innerText||'';const inList=list.indexOf('0917 111 2233')>=0;const raw=/0917111\\d/.test(list);const doc=buildInvoiceHTML({invoice_number:1,date:'۱۴۰۵/۰۵/۰۹',buyer_name:'ت',buyer_phone:'09171112233',items_total:100,discount:0,total_amount:100,paid_amount:0,status:'credit',items:[{name:'ک',quantity:1,unit_price:100}]});const inDoc=doc.indexOf('0917 111 2233')>=0;const bare=(doc.match(/>0\\d{10}</g)||[]).length;const saves=canonicalPhone('0917 111 2233');return (inList?'لیست گروه‌شده':'لیست خام')+'|'+(raw?'خامِ جامانده':'بدونِ خامِ جامانده')+'|'+(inDoc?'سند گروه‌شده':'سند خام')+'|'+(bare===0?'سند یک‌شکل':'سندِ دوشکل:'+bare)+'|'+(/\\s/.test(saves)?'ذخیره با فاصله':'ذخیره فقط رقم');}",
       "expect": "لیست گروه‌شده|بدونِ خامِ جامانده|سند گروه‌شده|سند یک‌شکل|ذخیره فقط رقم"
+    },
+    {
+      "_why": "TEST-06: عددها با حساب دستی مقابله می‌شوند، نه با اجرای دوباره‌ی همان کد. فیکسچر ده نفر دارد با عمقِ مشخص: v1 فقط آمد، v2 لیست دید، v3/v4 کالا باز کردند، v5 سبد پر کرد، v6 تسویه، v7 سفارش، v8 فیش، v9 پرداخت، v10 فقط سؤال. پس ۱۰ بازدیدکننده، ۳ خریدار، ۳۰٪.",
+      "name": "نرخِ تبدیل با عددِ دستی می‌خواند",
+      "before": "openInsights().then(()=>insFunnel(30))",
+      "wait": 700,
+      "js": "()=>{const t=document.getElementById('insBody').innerText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));const g=(re)=>{const m=t.match(re);return m?m[1]:'?'};return [g(/بازدیدکننده\\s*(\\d+)/),g(/خریدار\\s*(\\d+)/),g(/نرخِ تبدیل\\s*(\\d+)/)].join('/')}",
+      "expect": "10/3/30"
+    },
+    {
+      "_why": "قیف باید یکنواخت باشد: هیچ مرحله‌ای نمی‌تواند از مرحله‌ی قبلش بزرگ‌تر باشد. چون مشتری می‌تواند از جست‌وجو مستقیم به کارتِ کالا برسد، شمردنِ «دقیقاً این کار را کرد» قیف را می‌شکند — پس «دستِ‌کم تا اینجا رسید» شمرده می‌شود.",
+      "name": "قیف یکنواخت است — مرحله‌ی پایین از بالایی بیشتر نمی‌شود",
+      "before": "openInsights().then(()=>insFunnel(30))",
+      "wait": 700,
+      "js": "()=>{const t=document.getElementById('insBody').innerText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));const ns=[...t.matchAll(/(\\d+)\\s*نفر\\s*·/g)].map(m=>+m[1]);if(ns.length<8)return 'مرحله‌ها پیدا نشد: '+ns.length;const bad=ns.some((v,i)=>i&&v>ns[i-1]);return bad?('شکسته: '+ns.join(',')):ns.join(',')}",
+      "expect": "10,9,7,5,4,3,2,1"
+    },
+    {
+      "_why": "بزرگ‌ترین ریزش همان چیزی است که مالک باید رویش کار کند. با فیکسچر، ریزشِ ۲ نفره اول بینِ «لیست دید» و «کارتِ کالا» می‌افتد.",
+      "name": "بزرگ‌ترین ریزش را درست نشان می‌دهد",
+      "before": "openInsights().then(()=>insFunnel(30))",
+      "wait": 700,
+      "js": "()=>{const t=document.getElementById('insBody').innerText;const m=t.match(/بیشترین ریزش: از «([^»]+)» به «([^»]+)»/);return m?(m[1]+'→'+m[2]):'پیدا نشد'}",
+      "expect": "لیستِ کالاها رو دید→کارتِ یه کالا رو باز کرد"
+    },
+    {
+      "_why": "قاعده‌ی سختِ این پروژه: هیچ صفحه‌ای با دادهٔ نداشته «همه‌چی مرتبه» نمی‌گوید. اینجا خطرش صفرِ خاموش است — «نرخِ تبدیل ۰٪» یعنی «هیچ‌کس نخرید»، در حالی که حقیقت «هنوز چیزی جمع نشده» است. دو ادعای کاملاً متفاوت. (نسخه‌ی اولِ خودِ همین بررسی غلط بود: عنوانِ صفحه هم عبارتِ «نرخِ تبدیل» را دارد، پس الگوی خالی روی کدِ سالم هم تطابق می‌داد — قرمزِ دروغ، دقیقاً همان TEST-11.)",
+      "name": "بدونِ داده صفر نمی‌گوید، می‌گوید هنوز جمع نشده",
+      "before": "(()=>{window.INS.bev=[];insFunnel(30);return 0})()",
+      "wait": 400,
+      "js": "()=>{const t=document.getElementById('insBody').innerText;return [t.includes('هنوز چیزی جمع نشده'),/نرخِ تبدیل\\s*[۰-۹]/.test(t)].join('/')}",
+      "expect": "true/false"
+    },
+    {
+      "_why": "TEST-06 روی پول: ۱٬۷۰۰٬۰۰۰ + ۸۵۰٬۰۰۰ = ۲٬۵۵۰٬۰۰۰. سبدِ رهاشده تنها بخشِ این صفحه است که مستقیم به پول وصل است.",
+      "name": "جمعِ سبدهای رهاشده با حساب دستی می‌خواند",
+      "before": "openInsights().then(()=>insCarts())",
+      "wait": 600,
+      "js": "()=>{const t=document.getElementById('insBody').innerText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/٬/g,'');const m=t.match(/جمعِ\\s*(\\d+)\\s*سبد\\s*([\\d]+)/);return m?(m[1]+'/'+m[2]):'پیدا نشد'}",
+      "expect": "2/2550000"
+    },
+    {
+      "_why": "نامِ مشتری از دیتابیس می‌آید و مستقیم داخلِ innerHTML می‌رود. یک نامِ حاوی <b> باید متن بماند، نه نشانه‌گذاری (SEC-04).",
+      "name": "نامِ بدقواره در سبدها فرار داده می‌شود (SEC-04)",
+      "before": "openInsights().then(()=>insCarts())",
+      "wait": 600,
+      "js": "()=>{const b=document.getElementById('insBody');return [b.querySelectorAll('b').length>0,b.innerText.includes('<b>بی‌نام</b>')].join('/')}",
+      "expect": "true/true"
+    },
+    {
+      "_why": "اگر خواندنِ رفتارِ ربات شکست بخورد، صفحه نباید «هیچ‌کس نیومده» بگوید — این همان خبرِ خوشِ دروغ است که insChurn و insAlerts هم یک بار دادند.",
+      "name": "خطای شبکه روی این صفحه خبرِ خوشِ دروغ نمی‌دهد",
+      "before": "(()=>{window.INS.failed=['bev'];insFunnel(30);return 0})()",
+      "wait": 400,
+      "after": "(()=>{window.INS.failed=[];return 0})()",
+      "js": "()=>{const t=document.getElementById('insBody').innerText;return [t.includes('بارگذاری نشدند'),/نرخِ تبدیل\\s*[۰-۹]/.test(t)].join('/')}",
+      "expect": "true/false"
+    },
+    {
+      "_why": "`created_at` میلادیِ ISO است و هیچ‌وقت خام چاپ نمی‌شود (UI-05). آخرین تکونِ سبد باید جلالی باشد.",
+      "name": "تاریخِ سبدها جلالی است، نه ISOِ خام",
+      "before": "openInsights().then(()=>insCarts())",
+      "wait": 600,
+      "js": "()=>{const t=document.getElementById('insBody').innerText;return [/۱۴[۰-۹]{2}\\//.test(t),/20\\d\\d-\\d\\d-\\d\\d/.test(t)].join('/')}",
+      "expect": "true/false"
     }
   ],
   "click_test": {
