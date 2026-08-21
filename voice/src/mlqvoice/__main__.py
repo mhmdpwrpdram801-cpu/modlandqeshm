@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import os
 import sys
+from dataclasses import replace
 
 from . import APP_NAME, __version__
-from .config import ConfigError, load, parse_hotkey
+from .config import ConfigError, load, parse_hotkey, save
 from .paths import config_file, data_dir, learned_file, stats_file, user_dictionary_file
 from .text import build_lexicon, transform
 from .text.pipeline import Options
@@ -80,8 +82,76 @@ def cmd_check(_args) -> int:
     print(f"ارقام:        {cfg.digits}")
     print(f"نوشتن:        {cfg.insert_mode}")
     print(f"واژه‌ها:       {len(lex)}")
+    # Masked deliberately: this output is what someone pastes into a chat when
+    # something is wrong, and a key printed in full is a key leaked.
+    from .correct import mask, resolve_key
+
+    active = resolve_key(cfg.gemini_key)
+    if not cfg.correct:
+        print("تصحیح:        خاموش (correct=false)")
+    elif active:
+        print(f"تصحیح:        روشن — کلید {mask(active)}")
+    else:
+        print("تصحیح:        خاموش (کلیدی تنظیم نشده — mlqvoice key)")
     if cfg._unknown:
         print(f"کلیدهای ناشناخته در تنظیمات: {', '.join(cfg._unknown)}", file=sys.stderr)
+    return 0
+
+
+def cmd_key(args) -> int:
+    """Set, show, or clear the Gemini key without anyone hand-editing JSON.
+
+    This exists because the alternative was "open config.json in Notepad and
+    add a line". That asks someone to write JSON by hand, where a missing comma
+    breaks the whole file and the error they get back is about parsing, not
+    about the thing they were trying to do.
+    """
+    from .correct import ENV_KEY, mask, resolve_key
+
+    try:
+        cfg = load()
+    except ConfigError as exc:
+        print(f"تنظیمات ایراد دارد: {exc}", file=sys.stderr)
+        return 1
+
+    if args.clear:
+        # Config is frozen on purpose, so this is a new one rather than a
+        # mutation — which also keeps every other setting exactly as it was.
+        path = save(replace(cfg, gemini_key=""))
+        print(f"کلید پاک شد — {path}")
+        if os.environ.get(ENV_KEY):
+            # Otherwise "I cleared it and it is still on" becomes a mystery.
+            print(f"ولی {ENV_KEY} در محیط هست و همچنان استفاده می‌شود.", file=sys.stderr)
+        return 0
+
+    if not args.key:
+        active = resolve_key(cfg.gemini_key)
+        if not active:
+            print("کلیدی تنظیم نشده — تصحیح خاموش است.")
+            print("کلیدِ رایگان: https://aistudio.google.com  →  Get API key")
+            print("بعد:  mlqvoice key کلیدت")
+            return 0
+        where = "فایلِ تنظیمات" if cfg.gemini_key.strip() else f"محیط ({ENV_KEY})"
+        print(f"کلید: {mask(active)}  (از {where})")
+        print(f"تصحیح: {'روشن' if cfg.correct else 'خاموش (correct=false)'}")
+        return 0
+
+    key = args.key.strip()
+    # A pasted key that came with quotes or a "key=" prefix is a real thing
+    # people do, and failing on it later with an auth error would be a rotten
+    # way to find out.
+    key = key.strip("\"'").removeprefix("key=").strip()
+    if not key:
+        print("کلید خالی است.", file=sys.stderr)
+        return 1
+    if " " in key or "\n" in key:
+        print("کلید فاصله دارد — احتمالاً کاملش کپی نشده.", file=sys.stderr)
+        return 1
+
+    path = save(replace(cfg, gemini_key=key))
+    print(f"کلید ذخیره شد: {mask(key)}")
+    print(f"در: {path}")
+    print("برنامه را ببند و دوباره باز کن تا اعمال شود.")
     return 0
 
 
@@ -317,6 +387,11 @@ def build_parser() -> argparse.ArgumentParser:
     fa = sub.add_parser("fa", help="فینگلیش را فارسی کن")
     fa.add_argument("words", nargs="*", help="اگر ندهی، از ورودیِ استاندارد می‌خواند")
     fa.set_defaults(func=cmd_fa)
+
+    key = sub.add_parser("key", help="کلیدِ Gemini را تنظیم کن (برای تصحیحِ متن)")
+    key.add_argument("key", nargs="?", help="کلید. بدونِ آن، وضعیتِ فعلی را نشان می‌دهد")
+    key.add_argument("--clear", action="store_true", help="کلید را پاک کن")
+    key.set_defaults(func=cmd_key)
 
     hotkey = sub.add_parser("hotkey", help="یک ترکیبِ کلید را بسنج")
     hotkey.add_argument("spec")
