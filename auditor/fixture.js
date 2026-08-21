@@ -20,6 +20,19 @@ const INV=[
   date:'۱۴۰۵/۰۵/۰۱',items_total:2550000,discount:50000,total_amount:2500000,paid_amount:1000000,status:'partial',note:'',created_at:iso(now-2*864e5)},
  {id:'i2',invoice_number:1002,buyer_name:"مغازه‌ی 'گل'",customer_id:'c2',date:'۱۴۰۵/۰۵/۰۲',items_total:430000,
   discount:0,total_amount:430000,paid_amount:430000,status:'paid',note:'',created_at:iso(now-864e5)}];
+const DATA_BEV=(()=>{ const E=[]; let n=0;
+   const e=(chat,event,pid,mins,meta)=>E.push({id:++n,chat_id:chat,event,product_id:pid||null,meta:meta||null,created_at:iso(now-mins*6e4)});
+   e(1,'start',null,600);
+   e(2,'start',null,590); e(2,'browse',null,589);
+   e(3,'start',null,580); e(3,'browse',null,579); e(3,'view','p1',578);
+   e(4,'start',null,570); e(4,'browse',null,569); e(4,'view','p1',568); e(4,'media','p1',567);
+   e(5,'start',null,560); e(5,'browse',null,559); e(5,'view','p2',558); e(5,'cart_add','p2',557,{qty:1,unit_price:1250000});
+   e(6,'start',null,550); e(6,'browse',null,549); e(6,'view','p1',548); e(6,'cart_add','p1',547,{qty:2,unit_price:850000}); e(6,'checkout',null,546,{items:1});
+   e(7,'start',null,540); e(7,'browse',null,539); e(7,'view','p1',538); e(7,'cart_add','p1',537,{qty:1,unit_price:850000}); e(7,'checkout',null,536,{items:1}); e(7,'order',null,535,{total:850000,items:1});
+   e(8,'start',null,530); e(8,'browse',null,529); e(8,'view','p3',528); e(8,'cart_add','p3',527,{qty:1,unit_price:430000}); e(8,'checkout',null,526,{items:1}); e(8,'order',null,525,{total:430000,items:1}); e(8,'receipt',null,524,{total:430000});
+   e(9,'start',null,520); e(9,'browse',null,519); e(9,'view','p1',518); e(9,'cart_add','p1',517,{qty:2,unit_price:850000}); e(9,'checkout',null,516,{items:1}); e(9,'order',null,515,{total:1700000,items:1}); e(9,'receipt',null,514,{total:1700000}); e(9,'paid',null,513,{total:1700000}); e(9,'order',null,120,{total:850000,items:1});
+   e(10,'start',null,500); e(10,'ask',null,499);
+   return E; })();
 const DATA={products:P,customers:C,invoices:INV,
  invoice_items:[{id:'ii1',invoice_id:'i1',product_id:'p1',product_name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",quantity:3,unit_price:850000,line_total:2550000,created_at:iso(now-2*864e5)},
                 {id:'ii2',invoice_id:'i2',product_id:'p3',product_name:'شومیز',quantity:1,unit_price:430000,line_total:430000,created_at:iso(now-864e5)}],
@@ -48,18 +61,12 @@ const DATA={products:P,customers:C,invoices:INV,
      v10 فقط سؤال پرسید (عمقش مثلِ «لیست دید» است، نه بیشتر)
      پس: ۱۰ بازدیدکننده · ۳ خریدار · نرخِ تبدیل ۳۰٪ · ۱ پرداختِ تأییدشده.
      v9 دو سفارش دارد تا «مشتریِ برگشتی» هم عددِ واقعی داشته باشد. */
- bot_events_public:(()=>{ const E=[]; let n=0;
-   const e=(chat,event,pid,mins,meta)=>E.push({id:++n,chat_id:chat,event,product_id:pid||null,meta:meta||null,created_at:iso(now-mins*6e4)});
-   e(1,'start',null,600);
-   e(2,'start',null,590); e(2,'browse',null,589);
-   e(3,'start',null,580); e(3,'browse',null,579); e(3,'view','p1',578);
-   e(4,'start',null,570); e(4,'browse',null,569); e(4,'view','p1',568); e(4,'media','p1',567);
-   e(5,'start',null,560); e(5,'browse',null,559); e(5,'view','p2',558); e(5,'cart_add','p2',557,{qty:1,unit_price:1250000});
-   e(6,'start',null,550); e(6,'browse',null,549); e(6,'view','p1',548); e(6,'cart_add','p1',547,{qty:2,unit_price:850000}); e(6,'checkout',null,546,{items:1});
-   e(7,'start',null,540); e(7,'browse',null,539); e(7,'view','p1',538); e(7,'cart_add','p1',537,{qty:1,unit_price:850000}); e(7,'checkout',null,536,{items:1}); e(7,'order',null,535,{total:850000,items:1});
-   e(8,'start',null,530); e(8,'browse',null,529); e(8,'view','p3',528); e(8,'cart_add','p3',527,{qty:1,unit_price:430000}); e(8,'checkout',null,526,{items:1}); e(8,'order',null,525,{total:430000,items:1}); e(8,'receipt',null,524,{total:430000});
-   e(9,'start',null,520); e(9,'browse',null,519); e(9,'view','p1',518); e(9,'cart_add','p1',517,{qty:2,unit_price:850000}); e(9,'checkout',null,516,{items:1}); e(9,'order',null,515,{total:1700000,items:1}); e(9,'receipt',null,514,{total:1700000}); e(9,'paid',null,513,{total:1700000}); e(9,'order',null,120,{total:850000,items:1});
-   e(10,'start',null,500); e(10,'ask',null,499);
+ bot_events_public:DATA_BEV,
+ /* جدولِ **خام**: همان ده نفرِ بالا، به‌علاوه‌ی یک مدیر (خودِ مالک) که نما
+    بیرونش می‌گذارد. پس بازدیدکننده باید ۱۰ باشد و با کلیدِ «ترافیکِ خودم» ۱۱. */
+ bot_events:(()=>{ const E=DATA_BEV.slice(); let n=1000;
+   const e=(event,pid,mins)=>E.push({id:++n,chat_id:999,event,product_id:pid||null,meta:null,created_at:iso(now-mins*6e4)});
+   e('start',null,300); e('browse',null,299); e('view','p1',298);
    return E; })(),
  /* دو سبدِ نیمه‌کاره — جمعِ دستی: ۱٬۷۰۰٬۰۰۰ + ۸۵۰٬۰۰۰ = ۲٬۵۵۰٬۰۰۰ */
  bot_carts_open:[

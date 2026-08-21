@@ -667,6 +667,38 @@
       "wait": 600,
       "js": "()=>{const t=document.getElementById('insBody').innerText;return [/۱۴[۰-۹]{2}\\//.test(t),/20\\d\\d-\\d\\d-\\d\\d/.test(t)].join('/')}",
       "expect": "true/false"
+    },
+    {
+      "_why": "کلید باید **خاموش** شروع شود. اگر روشن شروع کند یا حالتش بمانَد، عددهای واقعی بی‌صدا با گشت‌وگذارِ خودِ مالک قاطی می‌شوند و هیچ‌جا معلوم نمی‌شود.",
+      "name": "کلیدِ «ترافیکِ خودم» خاموش شروع می‌شود",
+      "before": "openInsights().then(()=>insFunnel(30))",
+      "wait": 700,
+      "js": "()=>{const b=document.getElementById('funMineBtn');const t=document.getElementById('insBody').innerText;return [window.FUN_MINE===false,b?b.classList.contains('sec'):'دکمه نیست',!t.includes('گشتنِ خودت رو هم دارن')].join('/')}",
+      "expect": "true/true/true"
+    },
+    {
+      "_why": "TEST-06 روی خودِ کلید: فیکسچر ده بازدیدکننده‌ی عمومی دارد و یک مدیر که نما بیرونش می‌گذارد. پس ۱۰ → ۱۱، و این عددِ دستی‌حساب‌شده ثابت می‌کند منبع واقعاً عوض شد، نه اینکه فقط دکمه رنگ عوض کرد.",
+      "name": "کلید که روشن شود، ترافیکِ مدیر هم شمرده می‌شود",
+      "before": "(async()=>{await openInsights();insFunnel(30);const a=document.getElementById('insBody').innerText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));await insFunnelMine();const b=document.getElementById('insBody').innerText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));window.__FUNAB=[(a.match(/بازدیدکننده\\s*(\\d+)/)||[])[1],(b.match(/بازدیدکننده\\s*(\\d+)/)||[])[1]].join('→');})()",
+      "wait": 900,
+      "js": "()=>window.__FUNAB",
+      "expect": "10→11"
+    },
+    {
+      "_why": "روشن بودنِ کلید باید **دیده شود**. عددِ باد‌کرده بدونِ هشدار، همان خبرِ خوشِ دروغ است.",
+      "name": "در حالتِ «خودم» هشدارِ قرمز دیده می‌شود",
+      "before": "(async()=>{await openInsights();insFunnel(30);await insFunnelMine();})()",
+      "wait": 900,
+      "js": "()=>{const t=document.getElementById('insBody').innerText;return [t.includes('گشتنِ خودت رو هم دارن'),t.includes('تکیه نکن')].join('/')}",
+      "expect": "true/true"
+    },
+    {
+      "_why": "**مهم‌ترینِ این چهارتا.** حالتِ چسبنده خطرناک‌تر از نبودنِ خودِ کلید است: یک «روشن»ِ فراموش‌شده هفته‌ها بعد نرخِ تبدیل را بی‌صدا بالا نشان می‌دهد. برای همین در localStorage ذخیره نمی‌شود و هر بار باز شدنِ بینش‌ها صفرش می‌کند.",
+      "name": "با باز شدنِ دوباره‌ی بینش‌ها، کلید خودش خاموش می‌شود",
+      "before": "(async()=>{await openInsights();insFunnel(30);await insFunnelMine();window.__WASON=window.FUN_MINE;await openInsights();insFunnel(30);})()",
+      "wait": 1100,
+      "js": "()=>[window.__WASON,window.FUN_MINE].join('→')",
+      "expect": "true→false"
     }
   ],
   "click_test": {
