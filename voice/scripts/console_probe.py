@@ -24,10 +24,12 @@ be reported as "the app printed nothing" (CORE-05).
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import pathlib
 import subprocess
 import sys
+import traceback
 from ctypes import wintypes
 
 SELFTEST_MARKER = "MLQPROBE-SELFTEST-OK"
@@ -193,7 +195,25 @@ def run_in_console(command: list[str], timeout: int) -> int:
         raise
 
 
+def speak_utf8() -> None:
+    """Make *our own* Persian output survivable, before anything prints.
+
+    The runner hands this script a pipe, and Python picks the ANSI code page
+    for it — so the first Persian ``print`` dies with ``UnicodeEncodeError``.
+    That is exactly what happened on the third run, and the damage was not the
+    crash: the exit code came back as 1, which the caller reads as "the exe
+    failed", and the log then blames the app for the tool's own accident.
+    """
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            with contextlib.suppress(ValueError, OSError, AttributeError):
+                reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str]) -> int:
+    speak_utf8()
     if sys.platform != "win32":
         print("این ابزار فقط روی ویندوز معنی دارد.", file=sys.stderr)
         return 2
@@ -251,5 +271,26 @@ def main(argv: list[str]) -> int:
     return 0 if code == 0 else 1
 
 
+def guarded(argv: list[str]) -> int:
+    """Anything unforeseen in here is the tool breaking, and must say so.
+
+    Exit code 1 means "the exe failed" to every caller. A stray exception in
+    the probe would borrow that meaning and pin its own accident on the
+    program under test — which is the one mistake this whole file exists to
+    prevent (CORE-05). So: unexpected exceptions are code 2, loudly.
+    """
+    try:
+        return main(argv)
+    except Exception:
+        speak_utf8()
+        traceback.print_exc()
+        print(
+            "::error::خودِ آزمایشِ کنسول با یک خطای پیش‌بینی‌نشده افتاد — "
+            "این ایرادِ ابزار است، نه برنامه",
+            file=sys.stderr,
+        )
+        return 2
+
+
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(guarded(sys.argv[1:]))

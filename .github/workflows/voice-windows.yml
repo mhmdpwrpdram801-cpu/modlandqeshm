@@ -220,6 +220,12 @@ jobs:
       # هدایتی، و بعد نویسه‌ها را از خودِ صفحه می‌خواند — تنها راهِ دیدنِ چیزی که
       # کاربر می‌بیند.
       - name: خروجی روی کنسولِ واقعی، نه هدایت‌شده
+        env:
+          # بدونِ این، پایتون برای لوله‌ی لاگ کدپیجِ ANSI را برمی‌دارد و اولین
+          # `print`ِ فارسیِ خودِ ابزار با UnicodeEncodeError می‌افتد. یک بار
+          # همین شد و کدِ خروجی ۱ برگشت — یعنی «exe شکست خورد» — در حالی که
+          # exe اصلاً به آن نرسیده بود.
+          PYTHONIOENCODING: utf-8
         run: |
           $exe = (Resolve-Path "dist\mlqvoice\mlqvoice.exe").Path
           function Read-Console {
@@ -230,14 +236,20 @@ jobs:
             # پیام‌های خودِ ابزار قاطی می‌شد و بررسی‌ها روی چیزِ اشتباه می‌نشستند.
             python scripts\console_probe.py $exe $file @ExeArgs | Out-Host
             $code = $LASTEXITCODE
+
+            # صفحه را **قبل از** هر throw نشان بده. اگر exe کدِ غیرِ صفر بدهد،
+            # همان چیزی که روی صفحه نوشته تنها سرنخِ چراییِ آن است؛ پنهان کردنش
+            # پشتِ یک استثنا یعنی دورِ بعد دوباره کورکورانه حدس بزنیم.
+            $text = ''
+            if (Test-Path $file) { $text = (Get-Content $file -Raw -Encoding utf8) }
+            Write-Host "--- آنچه روی صفحه آمد ($Label) ---"
+            Write-Host $(if ($text) { $text } else { '(خالی)' })
+
             # کدِ ۲ یعنی خودِ آزمایش نتوانست کار کند. این را «برنامه چیزی چاپ
             # نکرد» نخوان — دو چیزِ کاملاً متفاوت‌اند و قاطی کردنشان یعنی چند
             # ساعت دنبالِ باگی گشتن که وجود ندارد.
             if ($code -eq 2) { throw "ابزارِ آزمایشِ کنسول کار نکرد (نه برنامه) — لاگ بالاست" }
             if ($code -ne 0) { throw "exe در «$Label» روی کنسول کدِ $code داد" }
-            $text = Get-Content $file -Raw -Encoding utf8
-            Write-Host "--- آنچه روی صفحه آمد ($Label) ---"
-            Write-Host $text
             return $text
           }
 

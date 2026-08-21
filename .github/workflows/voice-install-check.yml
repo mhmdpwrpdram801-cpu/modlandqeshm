@@ -128,15 +128,21 @@ jobs:
       # نمی‌بیند — که از «اجرا نشد» قابلِ تشخیص نیست. اینجا یک کنسولِ واقعی
       # ساخته می‌شود و نویسه‌ها از خودِ صفحه خوانده می‌شوند.
       - name: و دستورِ key روی کنسول واقعاً چیزی می‌نویسد
+        env:
+          # وگرنه اولین `print`ِ فارسیِ خودِ ابزار روی لوله‌ی لاگ می‌افتد و
+          # کدِ ۱ برمی‌گردد — که به اشتباه «برنامه شکست خورد» خوانده می‌شود.
+          PYTHONIOENCODING: utf-8
         run: |
           $ErrorActionPreference = 'Stop'
           $file = Join-Path $env:RUNNER_TEMP 'installed-key.txt'
           python voice\scripts\console_probe.py $env:MLQ_EXE $file key
           $code = $LASTEXITCODE
+          $text = ''
+          if (Test-Path $file) { $text = (Get-Content $file -Raw -Encoding utf8) }
+          Write-Host "--- آنچه کاربر روی صفحه می‌بیند ---"
+          Write-Host $(if ($text) { $text } else { '(خالی)' })
           if ($code -eq 2) { throw "ابزارِ آزمایشِ کنسول کار نکرد (نه برنامه)" }
           if ($code -ne 0) { throw "دستورِ key کدِ $code داد" }
-          $text = Get-Content $file -Raw -Encoding utf8
-          Write-Host "--- آنچه کاربر روی صفحه می‌بیند ---`n$text"
           if (-not $text) { throw "هیچ چیزی روی کنسول نیامد — کاربر هم هیچ نمی‌بیند" }
           if ($text -notmatch 'aistudio') { throw "راهِ گرفتنِ کلید گفته نشد: $text" }
 
