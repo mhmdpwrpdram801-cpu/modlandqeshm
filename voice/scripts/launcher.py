@@ -16,12 +16,14 @@ Two problems are solved here, both of which only exist in the *built* exe:
    to the parent console when the user launched us from a terminal, and fall
    back to a sink when there is genuinely nowhere to write.
 
-   Attaching is not enough on its own.  A borrowed console still has whatever
-   code page Windows gave it — 437 on an English install — and the streams
-   below write UTF-8.  Persian then arrives as mojibake: output that exists and
-   is useless, which reads as a *different* bug and sends you looking in the
-   wrong place.  ``install.ps1`` learned this the hard way and sets the same
-   thing; the exe had never been told.
+   A borrowed console also keeps whatever code page Windows gave it, while the
+   streams below write UTF-8 — so the code page is set too.  **This part is
+   belt-and-braces, not a proven fix:** when the console output was finally
+   measured for real (``scripts/console_probe.py``), the Persian came out
+   readable, so nothing here has been shown to depend on it.  It stays because
+   it is three lines and the owner's Windows need not match the CI runner's —
+   but do not describe it as fixing anything.  ``install.ps1`` sets the same
+   thing for its own output, where it *was* measured to matter.
 """
 
 from __future__ import annotations

@@ -6,10 +6,15 @@ the console's code page never enters into it — so the one path that always
 works was the only path ever measured.
 
 What the owner actually does is type ``mlqvoice check`` at a prompt. A
-``--windowed`` build owns no console, so ``launcher.py`` borrows the shell's —
-and a borrowed console keeps whatever code page Windows gave it. Nothing had
-ever looked at what actually lands on the screen, so whether the Persian
-arrives readable was simply unknown. This is how it gets known.
+``--windowed`` build owns no console, so ``launcher.py`` borrows the shell's,
+and nothing had ever looked at what lands on that screen. Measured here on
+2026-08-21: the exe does print, and the Persian is readable.
+
+Three runs of this file were red before that answer arrived, and **all three
+were the tool's own fault** — standard handles, handle inheritance, and its own
+output encoding. Each would have been reported as "the app printed nothing" had
+the self-test below not existed. When a measuring instrument is new, the most
+likely explanation for a bad reading is the instrument.
 
 So this allocates a genuine console, starts the exe as a child of it with no
 redirection whatsoever, waits, and then reads the characters off the screen
