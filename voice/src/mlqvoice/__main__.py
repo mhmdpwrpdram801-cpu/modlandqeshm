@@ -151,8 +151,6 @@ def cmd_key(args) -> int:
 
 def cmd_learn(args) -> int:
     """Show — and optionally accept — what the app learned from your edits."""
-    import json
-
     from .text import learning
 
     path = learned_file()
@@ -177,28 +175,16 @@ def cmd_learn(args) -> int:
         print("برای پاک کردنشان:            mlqvoice learn --forget")
         return 0
 
-    accepted = learning.as_dictionary(ranked, min_count=args.min_count)
-    if not accepted:
+    target = user_dictionary_file()
+    try:
+        added = learning.apply_to_dictionary(target, ranked, min_count=args.min_count)
+    except learning.DictionaryUnreadable as exc:
+        print(f"دیکشنریِ تو دست‌نخورده ماند: {exc}", file=sys.stderr)
+        return 1
+    if not added:
         print(f"هیچ پیشنهادی {args.min_count} بار یا بیشتر دیده نشده.")
         return 0
 
-    target = user_dictionary_file()
-    data = {}
-    if target.exists():
-        try:
-            data = json.loads(target.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            print(f"دیکشنریِ تو JSONِ سالم نیست — دست نزدم: {exc}", file=sys.stderr)
-            return 1
-    terms = data.setdefault("terms", {})
-    added = 0
-    for canonical, forms in accepted.items():
-        current = terms.setdefault(canonical, [])
-        for form in forms:
-            if form not in current:
-                current.append(form)
-                added += 1
-    target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{added} شکلِ گفتاری به {target} اضافه شد.")
     print("پیشنهادها نگه داشته شدند؛ برای پاک کردنشان: mlqvoice learn --forget")
     return 0

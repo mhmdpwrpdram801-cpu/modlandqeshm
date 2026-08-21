@@ -43,6 +43,10 @@ class Tray(QSystemTrayIcon):
         self.show_action = QAction("بازکردنِ کادر", self._menu)
         self.dictionary_action = QAction("دیکشنریِ من", self._menu)
         self.learned_action = QAction("آنچه یاد گرفته", self._menu)
+        # Seeing the suggestions was never the hard part — accepting them was,
+        # because it needed a shell command the installed build could not even
+        # reach. One click here is the whole feature becoming usable.
+        self.apply_learned_action = QAction("آموخته‌ها را به دیکشنری اضافه کن", self._menu)
         self.config_action = QAction("تنظیمات", self._menu)
         # The key can also be set with `mlqvoice key …`, but that asks someone to
         # find a shell and know the program is on PATH. This menu is already
@@ -53,6 +57,7 @@ class Tray(QSystemTrayIcon):
             self.show_action,
             self.dictionary_action,
             self.learned_action,
+            self.apply_learned_action,
             self.key_action,
             self.config_action,
         ):
