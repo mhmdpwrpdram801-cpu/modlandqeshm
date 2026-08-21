@@ -15,6 +15,13 @@ Two problems are solved here, both of which only exist in the *built* exe:
    ``AttributeError: 'NoneType' object has no attribute 'write'``.  So: attach
    to the parent console when the user launched us from a terminal, and fall
    back to a sink when there is genuinely nowhere to write.
+
+   Attaching is not enough on its own.  A borrowed console still has whatever
+   code page Windows gave it — 437 on an English install — and the streams
+   below write UTF-8.  Persian then arrives as mojibake: output that exists and
+   is useless, which reads as a *different* bug and sends you looking in the
+   wrong place.  ``install.ps1`` learned this the hard way and sets the same
+   thing; the exe had never been told.
 """
 
 from __future__ import annotations
@@ -23,6 +30,7 @@ import os
 import sys
 
 ATTACH_PARENT_PROCESS = -1
+CP_UTF8 = 65001
 
 
 def attach_parent_console() -> bool:
@@ -32,7 +40,12 @@ def attach_parent_console() -> bool:
     try:
         import ctypes
 
-        return bool(ctypes.windll.kernel32.AttachConsole(ATTACH_PARENT_PROCESS))
+        if not ctypes.windll.kernel32.AttachConsole(ATTACH_PARENT_PROCESS):
+            return False
+        # Best effort: a console that refuses UTF-8 is still better than none,
+        # and Latin text stays readable either way.
+        ctypes.windll.kernel32.SetConsoleOutputCP(CP_UTF8)
+        return True
     except (OSError, AttributeError):
         return False
 
