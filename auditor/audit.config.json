@@ -713,6 +713,13 @@
       "wait": 900,
       "js": "()=>{const kinds=['text','tel','email','search','number',''];const els=Array.from(document.querySelectorAll('input,textarea')).filter(e=>{const t=(e.type||'').toLowerCase();return e.tagName==='TEXTAREA'||kinds.indexOf(t)>=0;});const noLimit=els.filter(e=>!(e.maxLength>0)).map(e=>e.id||e.className||e.type);const pass=document.getElementById('lPass');const money=['pPrice','nPaid','nDiscount','payAmount','salAmount'];const tight=money.filter(id=>{const e=document.getElementById(id);return e&&e.maxLength<13;});const n=document.getElementById('nName');const keep=(()=>{const old=n.value;n.value='x'.repeat(300);const L=n.value.length;n.value=old;return L===300;})();const bad=noLimit.filter(x=>x!=='lPass');return (bad.length?('بی‌سقف: '+bad.join(',')):'همه سقف دارند')+'|'+((pass&&!(pass.maxLength>0))?'رمز آزاد':'رمز محدود شد')+'|'+(tight.length?('پولِ تنگ: '+tight.join(',')):'پول جا دارد')+'|'+(keep?'بارگذاری بریده نمی‌شود':'بارگذاری بریده شد');}",
       "expect": "همه سقف دارند|رمز آزاد|پول جا دارد|بارگذاری بریده نمی‌شود"
+    },
+    {
+      "name": "پنل زوم نمی‌شود و آیفون موقعِ فوکوس خودش زوم نمی‌کند",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "()=>{const m=document.querySelector('meta[name=viewport]');const vc=(m&&m.content)||'';const meta=(/maximum-scale=1(\\.0)?\\b/.test(vc)&&/user-scalable=no\\b/.test(vc))?'متا بسته':'متا باز';const fit=/viewport-fit=cover/.test(vc)?'viewport-fit اضافه شده':'بدونِ viewport-fit';const ta=getComputedStyle(document.body).touchAction;const dbl=(ta==='manipulation'||ta==='pan-x pan-y')?'دو-ضربه بسته':'دو-ضربه باز: '+ta;const e=new Event('gesturestart',{cancelable:true,bubbles:true});document.dispatchEvent(e);const pinch=e.defaultPrevented?'پینچِ سافاری بسته':'پینچِ سافاری باز';const small=Array.from(document.querySelectorAll('input,select,textarea')).filter(x=>parseFloat(getComputedStyle(x).fontSize)<16).map(x=>x.id||x.className);const font=small.length?('کادرِ زیرِ ۱۶: '+small.slice(0,4).join(',')):'همه ۱۶ یا بیشتر';return [meta,fit,dbl,pinch,font].join('|');}",
+      "expect": "متا بسته|بدونِ viewport-fit|دو-ضربه بسته|پینچِ سافاری بسته|همه ۱۶ یا بیشتر"
     }
   ],
   "click_test": {

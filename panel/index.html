@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: https://jdvbvuikbkebwxfsepft.supabase.co; media-src 'self' blob: https://jdvbvuikbkebwxfsepft.supabase.co; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' blob: https://jdvbvuikbkebwxfsepft.supabase.co; base-uri 'none'; object-src 'none'; form-action 'none'">
 <title>مدلند قشم — مدیریت فروش</title>
@@ -113,8 +113,12 @@ body:has(#bulkBar:not(.hidden)) #updBar{display:none}
 .theme-opt.on{background:var(--gold);color:#fff;border-color:var(--gold)}
 .force-light{ --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec; --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06; --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09); --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --danger:#c0392b; --accent:#9a6f08; --profit:#1f7a44; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; --rep-bg:#ffffff; --rep-ink:#221d15; --rep-line:#eeeeee; --rep-mut:#555555; --rep-dim:#999999; color:var(--ink); }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{background:var(--bg);font-family:'Vazirmatn','Tahoma',sans-serif;color:var(--ink);font-size:15px}
+html,body{background:var(--bg);font-family:'Vazirmatn','Tahoma',sans-serif;color:var(--ink);font-size:15px;touch-action:manipulation}
 input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
+/* ۱۶ پیکسل آستانه‌ی خودِ iOS است: روی کادرِ کوچک‌تر، سافاری موقعِ فوکوس صفحه را
+   زوم می‌کند و دیگر برنمی‌گردد. این مهم‌ترین تکه‌ی «مثلِ برنامه‌ی واقعی شدن» است و
+   با متای viewport هم درست نمی‌شود. **زیرِ ۱۶ نبرش.** */
+input,select,textarea{font-size:16px}
 .hidden{display:none!important}
 
 /* LOGIN */
@@ -1236,6 +1240,14 @@ function _ovChanged(){
     }
   }catch(_){}
 }
+/* iOS در تبِ عادیِ سافاری `user-scalable=no` را نادیده می‌گیرد (از iOS 10)، ولی
+   رویدادهای gesture مالِ خودِ سافاری‌اند و جلوی پینچ را می‌گیرند. در حالتِ نصب‌شده
+   روی صفحه‌ی خانه (display:standalone) خودِ متا هم رعایت می‌شود.
+   روی کرومیوم این رویدادها اصلاً وجود ندارند، پس بی‌اثر است نه مضر.
+   ⚠️ این یعنی زومِ دستی روی عکسِ کالا هم دیگر کار نمی‌کند — خواستِ صریحِ مالک بود. */
+['gesturestart','gesturechange','gestureend'].forEach(function(t){
+  document.addEventListener(t, function(e){ e.preventDefault(); }, {passive:false});
+});
 window.addEventListener('popstate', function(){
   // عقب‌رفتنِ خودمان بود، نه کاربر. اگر در همان فاصله پنجره‌ی تازه‌ای باز شده بود،
   // شمارشِ ورودی‌ها عقب مانده — همین‌جا دوباره هماهنگش کن تا انباشته نشود.
