@@ -2562,7 +2562,15 @@ async function addPayment(customerId){
   const btn=document.getElementById('payBtn'); if(btn){ if(btn.disabled)return; btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
   try{ const _fi=PAY_FOR_INV;
     await sbInsert('payments',Object.assign({customer_id:customerId,amount,date:todayJalali(),method:'نقدی',client_request_id:PAY_REQ_ID}, _fi?{invoice_id:_fi}:{}));
-    PAY_FOR_INV=null; toast('پرداخت ثبت شد ✅'); openCustomer(customerId); }
+    PAY_FOR_INV=null; toast('پرداخت ثبت شد ✅');
+    // اگر از روی یک فاکتور آمده بودیم، به همان فاکتور برگرد تا نتیجه‌ی کاری که
+    // کرده را ببیند. قبلاً همین‌جا روی صفحه‌ی مشتری می‌ماند با همان کادرِ خالیِ
+    // پرداخت — به‌نظر می‌رسید دوباره دارد می‌پرسد، در حالی که پرداخت ثبت شده بود.
+    // ⚠️ اول custView بسته می‌شود: هر دو `.overlay` با z-index ۶۰ اند و custView
+    // در سند بعد از invoiceView می‌آید، پس اگر باز بماند فاکتور پشتش گم می‌شود.
+    // بالا بردنِ z-index جوابِ درست نیست — مقیاسِ نام‌دار را می‌شکند.
+    if(_fi){ closeCustomer(); try{ await openInvoiceById(_fi); }catch(_){ } }
+    else { await openCustomer(customerId); } }
   catch(e){
     if(String(e.message||'').includes('duplicate')){ toast('این پرداخت قبلاً ثبت شده'); openCustomer(customerId); return; }
     toast(e.message); if(btn){ btn.disabled=false; btn.textContent='ثبت'; }
