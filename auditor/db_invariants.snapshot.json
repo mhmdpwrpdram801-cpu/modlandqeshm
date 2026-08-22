@@ -238,17 +238,126 @@
     {
       "v": "bot_carts_open",
       "anon": false,
-      "auth": true
+      "auth": true,
+      "inv": false
     },
     {
       "v": "bot_events_public",
       "anon": false,
-      "auth": true
+      "auth": true,
+      "inv": false
     },
     {
       "v": "customer_balances",
       "anon": true,
-      "auth": true
+      "auth": true,
+      "inv": true
     }
-  ]
+  ],
+  "uniques": [
+    {
+      "t": "app_config",
+      "c": "app_config_pkey",
+      "d": "PRIMARY KEY (key)"
+    },
+    {
+      "t": "bot_admins",
+      "c": "bot_admins_pkey",
+      "d": "PRIMARY KEY (chat_id)"
+    },
+    {
+      "t": "bot_events",
+      "c": "bot_events_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "client_errors",
+      "c": "client_errors_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "customers",
+      "c": "customers_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "discount_codes",
+      "c": "discount_codes_code_key",
+      "d": "UNIQUE (code)"
+    },
+    {
+      "t": "discount_codes",
+      "c": "discount_codes_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "expenses",
+      "c": "expenses_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "invoice_items",
+      "c": "invoice_items_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "invoices",
+      "c": "invoices_invoice_number_key",
+      "d": "UNIQUE (invoice_number)"
+    },
+    {
+      "t": "invoices",
+      "c": "invoices_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "payments",
+      "c": "payments_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "products",
+      "c": "products_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "quotes",
+      "c": "quotes_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "returns",
+      "c": "returns_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "salaries",
+      "c": "salaries_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "settings",
+      "c": "settings_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "shipments",
+      "c": "shipments_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "telegram_orders",
+      "c": "telegram_orders_pkey",
+      "d": "PRIMARY KEY (id)"
+    },
+    {
+      "t": "telegram_sessions",
+      "c": "telegram_sessions_pkey",
+      "d": "PRIMARY KEY (chat_id)"
+    }
+  ],
+  "invoice_numbering": {
+    "seq_last": 7025,
+    "max_no": 7025
+  }
 }

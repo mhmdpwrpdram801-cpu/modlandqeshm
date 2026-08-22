@@ -375,7 +375,7 @@ def db_checks(path, max_age=None):
             else f"{t} حالا {cmds or 'هیچ سیاستی'} دارد — نوشتنِ مستقیم باز شد")
 
     # قیدها و تریگرها نباید بی‌صدا حذف شوند
-    for key, label in (("checks", "قیدِ CHECK"), ("triggers", "تریگر")):
+    for key, label in (("checks", "قیدِ CHECK"), ("uniques", "قیدِ یکتا"), ("triggers", "تریگر")):
         a, b = norm(got.get(key)), norm(exp.get(key))
         missing = [json.loads(x) for x in b if x not in a]
         (ok if not missing else bad)(
@@ -403,7 +403,18 @@ def db_checks(path, max_age=None):
                   if g.get("anon") and not (gw_exp.get(v) or {}).get("anon")]
         unknown = [v for v in gw_got if v not in gw_exp]
         noauth = [v for v, g in gw_got.items() if not g.get("auth")]
-        if leaked:
+        # نمایی که anon رویش گرانت دارد **فقط** وقتی بی‌خطر است که
+        # security_invoker روشن باشد؛ آن‌وقت RLSِ جدول‌های زیرین پشتش می‌ایستد.
+        # با خاموش بودنش، گرانت خودش تمامِ کنترلِ دسترسی است و داده عمومی می‌شود.
+        # اندازه‌گیری‌شده: customer_balances با کلیدِ عمومی 200 و [] می‌دهد در حالی
+        # که ۲ ردیف دارد — تنها به‌خاطرِ همین کلید. اگر کسی خاموشش کند، بی‌صدا
+        # نامِ مشتری و شماره و بدهی‌اش عمومی می‌شود و هیچ چیزِ دیگری قرمز نمی‌دهد.
+        openrls = [v for v, g in gw_got.items() if g.get("anon") and not g.get("inv")]
+        if openrls:
+            bad("نما برای کلیدِ عمومی باز است و security_invoker هم ندارد: " + "، ".join(openrls) +
+                " — یعنی RLS دور زده می‌شود و داده واقعاً عمومی است (SEC-02). "
+                "یا revoke کن یا security_invoker را روشن کن")
+        elif leaked:
             bad("نما برای کلیدِ عمومی خواندنی است و در انتظار ثبت نشده: " + "، ".join(leaked) +
                 " — نما RLS را دور می‌زند، پس این یعنی داده عمومی است (SEC-02)")
         elif unknown:
@@ -412,6 +423,33 @@ def db_checks(path, max_age=None):
             bad("نما برای کاربرِ واردشده خواندنی نیست: " + "، ".join(noauth) + " — پنل نمی‌تواند بخواندش")
         else:
             ok(f"دسترسیِ هر {len(gw_got)} نما همان است که ثبت شده")
+
+    # شماره‌ی فاکتور — دو چیزِ جدا، و هر دو لازم‌اند
+    #
+    # تا قبل از افزودنِ حذفِ فاکتور این اصلاً دیده نمی‌شد: نمی‌شد بالاترین فاکتور را
+    # برداشت، پس فرقِ nextval و «max+1» عملاً هیچ‌وقت خودش را نشان نمی‌داد. حالا
+    # نشان می‌دهد — با max+1، حذفِ آخرین فاکتور همان شماره را دوباره می‌دهد و دو
+    # سندِ متفاوت با یک شماره بیرون می‌رود. قیدِ یکتا تنها چیزی است که آن را از
+    # «خرابیِ خاموش» به «خطای بلند» تبدیل می‌کند.
+    uq = [u for u in (got.get("uniques") or [])
+          if u.get("t") == "invoices" and "invoice_number" in (u.get("d") or "")]
+    (ok if uq else bad)(
+        "شماره‌ی فاکتور قیدِ یکتا دارد — دو فاکتور نمی‌توانند یک شماره بگیرند"
+        if uq else "قیدِ یکتای invoices.invoice_number نیست — شماره‌ی تکراری بی‌صدا رد می‌شود")
+
+    num = got.get("invoice_numbering") or {}
+    if not num:
+        bad("وضعیتِ شماره‌ی فاکتور در عکس نیست — این بررسی چیزی نسنجید (CORE-12)")
+    else:
+        seq_last, max_no = num.get("seq_last"), num.get("max_no")
+        if seq_last is None or max_no is None:
+            bad(f"وضعیتِ شماره‌ی فاکتور ناقص است: {num}")
+        elif seq_last < max_no:
+            bad(f"ترتیب‌شمار ({seq_last}) از بالاترین فاکتور ({max_no}) عقب است — "
+                "فاکتورِ بعدی به قیدِ یکتا می‌خورد و اصلاً ثبت نمی‌شود. "
+                "درست‌کردنش: select setval('invoice_seq', (select max(invoice_number) from invoices), true);")
+        else:
+            ok(f"ترتیب‌شمار از داده عقب نیست (بعدی={seq_last + 1}، بالاترین={max_no}) — سرِ عکس‌برداری")
 
     added = [json.loads(x) for x in norm(got.get("checks")) if x not in norm(exp.get("checks"))]
     if added:
