@@ -542,6 +542,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <button id="invRetBtn" class="sheet-b" onclick="invMore(false);openInvoiceReturn()">↩️ ثبتِ مرجوعی<span class="sub">جنس برگشته؛ از فاکتور کم می‌شود</span></button>
     <div class="sheet-sep"></div>
     <button id="voidBtn" class="sheet-b danger" onclick="invMore(false);voidCurrentInvoice()">🚫 ابطالِ فاکتور<span class="sub">کلِ فاکتور باطل می‌شود — برگشت‌ناپذیر</span></button>
+    <button id="invDelBtn" class="sheet-b danger" style="display:none" onclick="invMore(false);deleteCurrentInvoice()">🗑 حذفِ کاملِ فاکتور<span class="sub">فقط برای فاکتورِ باطل‌شده — با قلم‌ها و پرداخت‌هایش پاک می‌شود</span></button>
     <button class="sheet-b cancel" onclick="invMore(false)">بی‌خیال</button>
   </div>
 </div>
@@ -1303,7 +1304,7 @@ function updateBulkBar(){
   const bar=document.getElementById('bulkBar'); if(!bar)return;
   if(!SEL.mode||SEL.ids.size===0){ bar.classList.add('hidden'); bar.innerHTML=''; return; }
   const n=SEL.ids.size; let btns='';
-  if(SEL.mode==='inv')btns='<button class="btn sm" onclick="bulkInvSettle()">✅ تسویه شد</button><button class="btn sm sec" onclick="bulkInvReturn()">↩︎ مرجوعی</button><button class="btn sm red" onclick="bulkInvCancel()">🚫 ابطال</button>';
+  if(SEL.mode==='inv')btns='<button class="btn sm" onclick="bulkInvSettle()">✅ تسویه شد</button><button class="btn sm sec" onclick="bulkInvReturn()">↩︎ مرجوعی</button><button class="btn sm red" onclick="bulkInvCancel()">🚫 ابطال</button><button class="btn sm red" onclick="bulkInvDelete()">🗑 حذفِ باطل‌شده‌ها</button>';
   else if(SEL.mode==='prod')btns='<button class="btn sm red" onclick="bulkProdDelete()">🗑 حذف</button>';
   else if(SEL.mode==='cust')btns='<button class="btn sm" onclick="bulkCustSettle()">✅ تسویه شد</button><button class="btn sm red" onclick="bulkCustDelete()">🗑 حذف</button>';
   bar.innerHTML='<div class="bulk-count">'+faNum(n)+' انتخاب</div><div class="bulk-actions">'+btns+'</div><button class="bulk-x" onclick="endSel()">لغو</button>';
@@ -1329,6 +1330,26 @@ async function bulkProgress(ids,worker,doneMsg){
   if(fails.length===0)toast(doneMsg.replace('{n}',faNum(ok)));
   else toast(faNum(ok)+' تا شد، '+faNum(fails.length)+' تا نشد: '+fails[0]);
   return {ok,fails};
+}
+/* حذفِ گروهی — عمداً فقط باطل‌شده‌ها. اگر فاکتورِ زنده هم در انتخاب باشد
+   نادیده گرفته می‌شود و تعدادش صریح گفته می‌شود، وگرنه کاربر فکر می‌کند همه رفتند. */
+async function bulkInvDelete(){
+  const ids=[...SEL.ids]; if(!ids.length)return;
+  let invs; try{ invs=await sbGet("invoices?select=id,invoice_number,status&id=in.("+_inList(ids)+")"); }catch(e){ toast(e.message); return; }
+  const dead=invs.filter(v=>v.status==='cancelled');
+  const alive=invs.length-dead.length;
+  if(!dead.length){ toast('هیچ‌کدام از انتخاب‌شده‌ها باطل نیستند — فقط فاکتورِ باطل‌شده پاک می‌شود'); return; }
+  let pays=[], payOk=true;
+  try{ pays=await sbGetAll("payments?select=amount,invoice_id&invoice_id=in.("+_inList(dead.map(v=>v.id))+")"); }catch(e){ payOk=false; }
+  const paySum=(pays||[]).reduce((s,p)=>s+Number(p.amount||0),0);
+  let m='⚠️ '+faNum(dead.length)+' فاکتورِ باطل‌شده برای همیشه پاک شود؟\n\n';
+  m+='قلم‌هایشان هم پاک می‌شوند و برگشت‌پذیر نیست.';
+  if(alive)m+='\n\n'+faNum(alive)+' فاکتورِ غیرِباطل در انتخابت هست که دست نمی‌خورد.';
+  if(!payOk)m+='\n\n⚠️ نتونستم پرداخت‌هایشان را چک کنم (خطای شبکه). اگر پرداختی رویشان باشد، آن هم پاک می‌شود.';
+  else if(pays.length)m+='\n\n⚠️ '+faNum(pays.length)+' پرداخت به مبلغِ '+faNum(paySum)+' تومان روی این‌ها ثبت شده و پاک می‌شود.';
+  if(!await ask(m))return;
+  await bulkProgress(dead.map(v=>v.id), id=>sbRpc('delete_invoice',{p_invoice_id:id}), '{n} فاکتور پاک شد ✅');
+  endSel(); renderInvoices();
 }
 async function bulkInvCancel(){
   const ids=[...SEL.ids]; if(!ids.length)return;
@@ -2084,6 +2105,7 @@ function showInvoice(res,args){
   const data={ id:res.id, invoice_number:res.invoice_number, date:args.p_date, buyer_name:args.p_buyer_name, buyer_phone:args.p_buyer_phone, buyer_city:args.p_buyer_city, items_total:res.items_total, discount:res.discount, total_amount:res.total_amount, paid_amount:res.paid_amount, status:res.status, items:args.p_items.map(it=>{ const p=PRODUCTS.find(x=>x.id===it.product_id)||{}; return {name:p.name||'کالا',quantity:it.quantity,unit_price:it.unit_price}; }) };
   CURRENT_INV={id:res.id,status:res.status,buyer_name:args.p_buyer_name,paid_amount:res.paid_amount,total_amount:res.total_amount,discount:res.discount,items:args.p_items.map(it=>{ const p=PRODUCTS.find(x=>x.id===it.product_id)||{}; return {product_id:it.product_id,name:p.name||'کالا',quantity:it.quantity,unit_price:it.unit_price}; })};
   document.getElementById('voidBtn').style.display=''; document.getElementById('invRetBtn').style.display='';
+  { const d=document.getElementById('invDelBtn'); if(d)d.style.display='none'; }   /* فاکتورِ تازه هیچ‌وقت باطل نیست */
   { const _pb=document.getElementById('payInvBtn'); if(_pb)_pb.style.display=''; }
   document.getElementById('invoiceRender').innerHTML=buildInvoiceHTML(data);
   document.getElementById('invoiceView').classList.remove('hidden'); window.scrollTo(0,0);
@@ -2170,6 +2192,32 @@ async function shareInvoiceImage(target){
         appName?('عکس ذخیره شد ✅ حالا در '+appName+' بفرستش'):'عکس فاکتور دانلود شد ✅');
     },'image/png');
   }catch(e){ toast('خطا در ساخت عکس'); }
+}
+/* حذفِ کاملِ فاکتورِ باطل‌شده. برگشت‌ناپذیر است، پس مثلِ «ابطال» ته کشوی «⋯ بیشتر»
+   می‌نشیند و نه در نوارِ بالا — نوارِ بالا عمداً فقط سه دکمه دارد.
+   دو محافظ: دیتابیس خودش فاکتورِ غیرِ‌باطل را رد می‌کند، و اینجا هم قبل از پرسیدن
+   می‌شماریم که دقیقاً چه چیزی قرار است پاک شود تا کاربر کورکورانه تأیید نکند. */
+async function deleteCurrentInvoice(){
+  const inv=CURRENT_INV;
+  if(!inv||!inv.id){ toast('فاکتوری باز نیست'); return; }
+  if(inv.status!=='cancelled'){ toast('فقط فاکتورِ باطل‌شده پاک می‌شود — اول باطلش کن 🙏'); return; }
+  let pays=[], payOk=true;
+  try{ pays=await sbGetAll("payments?select=amount&invoice_id=eq."+encodeURIComponent(inv.id)); }catch(e){ payOk=false; }
+  const paySum=(pays||[]).reduce((s,p)=>s+Number(p.amount||0),0);
+  const no=inv.invoice_number?('#'+faNum(inv.invoice_number)):'';
+  let m='⚠️ فاکتورِ '+no+' برای همیشه پاک شود؟\n\n';
+  m+='قلم‌های فاکتور هم با آن پاک می‌شوند و دیگر در هیچ گزارشی نمی‌آید. برگشت‌پذیر نیست.';
+  if(!payOk) m+='\n\n⚠️ نتونستم پرداخت‌های این فاکتور رو چک کنم (خطای شبکه). اگه پرداختی روش باشه، اونم پاک می‌شه.';
+  else if(pays.length) m+='\n\n⚠️ '+faNum(pays.length)+' پرداخت به مبلغِ '+faNum(paySum)+' تومان هم روی این فاکتور ثبت شده و پاک می‌شود — یعنی سابقه‌ی دریافتِ آن پول از بین می‌رود.';
+  if(!await ask(m))return;
+  if(window.__busyDelInv)return; window.__busyDelInv=true;
+  try{
+    await sbRpc('delete_invoice',{p_invoice_id:inv.id});
+    toast('فاکتور '+no+' پاک شد');
+    CURRENT_INV=null; closeInvoice();
+    try{ await renderInvoices(); }catch(_){ }
+  }catch(e){ toast(e.message); }
+  finally{ window.__busyDelInv=false; }
 }
 async function voidCurrentInvoice(){
   if(!CURRENT_INV||!CURRENT_INV.id)return;
@@ -2334,6 +2382,8 @@ async function openInvoiceById(id){
     const data={ id:inv.id, invoice_number:inv.invoice_number, date:inv.date, buyer_name:inv.buyer_name, buyer_phone:inv.buyer_phone, buyer_city:inv.buyer_city, items_total:inv.items_total, discount:inv.discount, total_amount:inv.total_amount, paid_amount:inv.paid_amount, status:inv.status, items:items.map(it=>({name:it.product_name,quantity:it.quantity,unit_price:it.unit_price})) };
     CURRENT_INV={id:inv.id,status:inv.status,buyer_name:inv.buyer_name,customer_id:inv.customer_id,paid_amount:inv.paid_amount,total_amount:inv.total_amount,discount:inv.discount,items:items.map(it=>({iid:it.id,product_id:it.product_id,name:it.product_name,quantity:it.quantity,unit_price:it.unit_price}))};
     document.getElementById('voidBtn').style.display=inv.status==='cancelled'?'none':''; document.getElementById('invRetBtn').style.display=inv.status==='cancelled'?'none':'';
+    { const d=document.getElementById('invDelBtn');
+      if(d)d.style.display=inv.status==='cancelled'?'':'none'; }
     { const _pb=document.getElementById('payInvBtn'); if(_pb)_pb.style.display=inv.status==='cancelled'?'none':''; }
     document.getElementById('invoiceRender').innerHTML=buildInvoiceHTML(data);
     const _pi=document.getElementById('invPayInfo'); if(_pi)_pi.innerHTML='';
