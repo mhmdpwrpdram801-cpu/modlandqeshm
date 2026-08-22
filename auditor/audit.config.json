@@ -725,6 +725,24 @@
       "name": "بعد از ثبتِ پرداخت، به همان فاکتور برمی‌گردد و پشتِ صفحه‌ی مشتری گم نمی‌شود",
       "js": "()=>{const w=(ms)=>new Promise(r=>setTimeout(r,ms));return openInvoiceById('i1').then(()=>w(700)).then(()=>payFromInvoice()).then(()=>w(900)).then(()=>{const pa=document.getElementById('payAmount');if(!pa)throw new Error('کادرِ پرداخت نیامد');pa.value='100000';pa.dispatchEvent(new Event('input',{bubbles:true}));const b=document.getElementById('payBtn');if(!b)throw new Error('دکمه‌ی ثبت نیست');b.click();return w(1500);}).then(()=>{const op=Array.from(document.querySelectorAll('.overlay')).filter(x=>!x.classList.contains('hidden'));const top=op.length?op[op.length-1].id:'هیچ';const cust=document.getElementById('custView').classList.contains('hidden')?'بسته':'باز';const inv=document.getElementById('invoiceView').classList.contains('hidden')?'بسته':'باز';return 'رویی:'+top+'|فاکتور:'+inv+'|مشتری:'+cust;});}",
       "expect": "رویی:invoiceView|فاکتور:باز|مشتری:بسته"
+    },
+    {
+      "_note": "حذفِ کاملِ فاکتور برگشت‌ناپذیر است، پس مثلِ «ابطال» فقط ته کشوی «⋯ بیشتر» می‌نشیند و فقط روی فاکتورِ باطل‌شده دیده می‌شود. نوارِ بالا عمداً سه دکمه دارد و دکمه‌ی چهارم به آن اضافه نمی‌شود. اندازه با getBoundingClientRect گرفته می‌شود نه با style.display، چون چیزی که مهم است دیده‌شدنِ واقعی است.",
+      "name": "دکمه‌ی حذفِ فاکتور فقط روی باطل‌شده و فقط ته کشو دیده می‌شود",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const vis=()=>{const d=document.getElementById('invDelBtn');if(!d)return false;const r=d.getBoundingClientRect();return r.width>0&&r.height>0;};try{await openInvoiceById('i1');await w(700);invMore(true);await w(500);const live=vis();invMore(false);await w(300);closeInvoice();await w(400);await openInvoiceById('i3');await w(700);invMore(true);await w(500);const dead=vis();const d=document.getElementById('invDelBtn');const bar=document.querySelector('#invoiceView .ov-bar');return 'زنده:'+(live?'دیده':'پنهان')+'|باطل:'+(dead?'دیده':'پنهان')+'|کشو:'+document.getElementById('invMenu').contains(d)+'|نوار:'+bar.querySelectorAll('button').length+'|درنوار:'+bar.contains(d);}finally{try{invMore(false);closeInvoice();}catch(_){}}}",
+      "expect": "زنده:پنهان|باطل:دیده|کشو:true|نوار:3|درنوار:false"
+    },
+    {
+      "_note": "سه شکستِ ممکن، هر سه بی‌صدا و برگشت‌ناپذیر: (۱) نبودنِ await روی ask یعنی حذف بدونِ تأیید — Promise همیشه truthy است؛ (۲) نبودنِ محافظِ status یعنی فاکتورِ زنده هم پاک می‌شود و فروش بی‌صدا از گزارش می‌افتد؛ (۳) کلیکِ واقعی روی دکمه‌ی کشو باید همان فاکتورِ باز را بفرستد، نه چیزِ دیگر. تابع صدا زده نمی‌شود، دکمه کلیک می‌شود (TEST-02).",
+      "name": "حذفِ فاکتور بدونِ تأیید یا روی فاکتورِ زنده انجام نمی‌شود",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const ok=window.ask;const rpcs=()=>window.__WRITES.filter(x=>x.rpc==='delete_invoice');try{window.ask=async()=>false;await openInvoiceById('i3');await w(700);window.__WRITES.length=0;await deleteCurrentInvoice();await w(700);const noConf=rpcs().length;window.ask=async()=>true;closeInvoice();await w(400);await openInvoiceById('i1');await w(700);window.__WRITES.length=0;await deleteCurrentInvoice();await w(700);const onLive=rpcs().length;closeInvoice();await w(400);await openInvoiceById('i3');await w(700);invMore(true);await w(500);window.__WRITES.length=0;document.getElementById('invDelBtn').click();await w(1200);const r=rpcs();return 'بی‌تأیید:'+noConf+'|زنده:'+onLive+'|باطل:'+r.length+'|شناسه:'+(r[0]&&r[0].body?r[0].body.p_invoice_id:'—');}finally{window.ask=ok;try{invMore(false);closeInvoice();}catch(_){}}}",
+      "expect": "بی‌تأیید:0|زنده:0|باطل:1|شناسه:i3"
+    },
+    {
+      "_note": "بدترین حالتِ حذفِ گروهی: کاربر چندتا را انتخاب می‌کند که بعضی باطل‌اند و بعضی نه. اگر فیلترِ status نباشد، فاکتورِ زنده هم با یک تأیید پاک می‌شود — و چون گروهی است، چندتا با هم. اینجا i1 (زنده) و i3 (باطل) با هم انتخاب می‌شوند و فقط باید i3 برود.",
+      "name": "حذفِ گروهی فقط باطل‌شده‌ها را پاک می‌کند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const ok=window.ask;window.ask=async()=>true;try{nav('invoices');await w(900);await renderInvoices();await w(500);startSel('inv');toggleSel('inv','i1');toggleSel('inv','i3');await w(300);window.__WRITES.length=0;await bulkInvDelete();await w(1500);const r=window.__WRITES.filter(x=>x.rpc==='delete_invoice');return 'تعداد:'+r.length+'|شناسه:'+r.map(x=>x.body&&x.body.p_invoice_id).join(',');}finally{window.ask=ok;try{endSel();}catch(_){}}}",
+      "expect": "تعداد:1|شناسه:i3"
     }
   ],
   "click_test": {
