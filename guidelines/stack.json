@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "guideline_version": "2026.08.10",
-  "checked_at": "2026-08-15",
+  "checked_at": "2026-08-22",
   "note": "منبعِ حقیقتِ نسخه‌ها. جدولِ «پشته» در FULLSTACK.md از روی همین ساخته می‌شود (guidelines/sync-table.py) — جدول را دستی ویرایش نکن. سنجش با check-drift.py.",
   "policy": {
     "manifest": "در package.json بازه‌ی ^ بنویس، ولی lockfile را کامیت کن و همان تعیین‌کننده باشد",
@@ -30,7 +30,7 @@
       "id": "pnpm",
       "registry": "npm",
       "name": "pnpm",
-      "pinned": "11.21.0",
+      "pinned": "11.22.0",
       "role": "مدیرِ بسته",
       "display": "pnpm"
     },
@@ -38,7 +38,7 @@
       "id": "vite",
       "registry": "npm",
       "name": "vite",
-      "pinned": "8.2.1",
+      "pinned": "8.2.2",
       "role": "باندلر (SPA)",
       "display": "Vite"
     },
@@ -46,7 +46,7 @@
       "id": "next",
       "registry": "npm",
       "name": "next",
-      "pinned": "16.3.1",
+      "pinned": "16.3.2",
       "role": "فریم‌ورکِ سرور",
       "display": "Next.js"
     },
@@ -70,7 +70,7 @@
       "id": "biome",
       "registry": "npm",
       "name": "@biomejs/biome",
-      "pinned": "2.5.8",
+      "pinned": "2.5.10",
       "role": "لینت + فرمت",
       "display": "Biome — پیش‌فرضِ پروژه‌ی تازه"
     },
@@ -78,7 +78,7 @@
       "id": "eslint",
       "registry": "npm",
       "name": "eslint",
-      "pinned": "10.8.1",
+      "pinned": "10.9.0",
       "role": "لینت",
       "display": "ESLint — پروژه‌های موجود"
     },
@@ -86,7 +86,7 @@
       "id": "vitest",
       "registry": "npm",
       "name": "vitest",
-      "pinned": "4.1.10",
+      "pinned": "4.1.11",
       "role": "تستِ واحد",
       "display": "Vitest"
     },
@@ -126,7 +126,7 @@
       "id": "hono",
       "registry": "npm",
       "name": "hono",
-      "pinned": "4.13.2",
+      "pinned": "4.13.3",
       "role": "HTTP روی لبه",
       "display": "Hono"
     },
@@ -158,7 +158,7 @@
       "id": "ruff",
       "registry": "pypi",
       "name": "ruff",
-      "pinned": "0.16.3",
+      "pinned": "0.16.4",
       "role": "پایتون — لینت و فرمت",
       "display": "Ruff"
     },
@@ -166,7 +166,7 @@
       "id": "wrangler",
       "registry": "npm",
       "name": "wrangler",
-      "pinned": "4.123.0",
+      "pinned": "4.125.0",
       "role": "استقرار (همین مخزن)",
       "display": "Wrangler"
     },
