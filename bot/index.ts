@@ -14,11 +14,17 @@ const TG_UPLOAD_MAX = 50 * 1024 * 1024;
 const PER_PAGE = 20;
 const NEW_DAYS = 21;
 const MED_BUCKET = 'product-media';
-// بسته‌بندیِ فروش: نیم‌جین ۶ عدد و جینِ کامل ۱۲ عدد. عددِ دیگری نداریم.
+// بسته‌بندیِ فروش: نیم‌جین ۶ عدد و جینِ کامل ۱۲ عدد.
+// مشتری می‌تواند چند جین بگیرد، و روی هر تعداد جین یک نیم‌جین هم اضافه کند:
+//   ۶ (نیم‌جین) · ۱۲ (یک جین) · ۱۸ (جین‌ونیم) · ۲۴ (دو جین) · ۳۰ (دو جین‌ونیم) …
+// یعنی هر مضربِ ۶. کمتر از ۶ نداریم و عددِ غیرِ‌مضرب هم نداریم.
 // هم در پیامِ پرسش گفته می‌شود هم در ورودی سد می‌شود — گفتنِ قاعده بدونِ اجرا
 // کردنش یعنی سفارشی که نمی‌شود فرستاد و مالک باید زنگ بزند و درستش کند.
-const PACK_QTYS = [6, 12];
-const PACK_HINT = '📦 نیم‌جین = <b>۶ عدد</b>\n📦 جینِ کامل = <b>۱۲ عدد</b>';
+// **عدد گرفته می‌شود نه تعدادِ جین** (خواستِ صریحِ مالک)، چون «یک و نیم» هم
+// می‌تواند یعنی ۱۸ باشد هم اشتباهِ تایپی — و حدس زدنش سفارشِ غلط می‌سازد.
+const PACK_STEP = 6;
+function packOk(q: number) { return q > 0 && q % PACK_STEP === 0; }
+const PACK_HINT = '📦 نیم‌جین = <b>۶ عدد</b>\n📦 جینِ کامل = <b>۱۲ عدد</b>\n\nچند جین یا جین‌ونیم هم می‌شه: <b>۱۸</b> · <b>۲۴</b> · <b>۳۰</b> · <b>۳۶</b> …\n\n☝️ <b>تعدادِ عدد رو بنویس، نه تعدادِ جین رو</b> — برای یک جین و نیم بنویس <b>۱۸</b>.';
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -556,7 +562,7 @@ async function medCheck(pid: string, which: string, tok: string): Promise<boolea
 
 // نسخه‌ی این فایل. بازرسِ سرور آن را با عددی که در bot/README.md ثبت شده مقابله
 // می‌کند، پس دیگر نمی‌شود مستقر کرد و یادت برود مستند را جلو ببری.
-const BOT_VER = 42;
+const BOT_VER = 43;
 
 // ── لاگِ ساخت‌یافته (OPS-01، OPS-02) ────────────────────────────────────────
 // لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست: نمی‌شود پرسید «این درخواست چه بر
@@ -922,7 +928,7 @@ Deno.serve(async (req) => {
       } else if (data.startsWith('buy_')) {
         const pid = data.slice(4);
         await setSession(chatId, { temp_product_id: pid, step: 'qty' });
-        await send(chatId, 'چند عدد می‌خوای؟\n\n' + PACK_HINT + '\n\nکمتر از ۶ تا نداریم — فقط <b>۶</b> یا <b>۱۲</b> بفرست.');
+        await send(chatId, 'چند عدد می‌خوای؟\n\n' + PACK_HINT);
       } else if (data.startsWith('p_')) {
         await showProductDetail(chatId, data.slice(2));
       } else if (data === 'done_items') {
@@ -1063,8 +1069,18 @@ Deno.serve(async (req) => {
 
         if (s.step === 'qty') {
           const qty = parseInt(text.replace(/[۰-۹]/g, (d: string) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString()));
-          if (!qty || qty <= 0) { await send(chatId, 'یه عددِ درست بفرست — فقط <b>۶</b> یا <b>۱۲</b>.\n\n' + PACK_HINT); return new Response('ok'); }
-          if (!PACK_QTYS.includes(qty)) { await send(chatId, '❌ ما فقط ۶ تایی و ۱۲ تایی داریم.\n\n' + PACK_HINT + '\n\nلطفاً <b>۶</b> یا <b>۱۲</b> بفرست.'); return new Response('ok'); }
+          if (!qty || qty <= 0) { await send(chatId, 'یه عددِ درست بفرست 🙏\n\n' + PACK_HINT); return new Response('ok'); }
+          if (!packOk(qty)) {
+            // نزدیک‌ترین تعدادهای درست را پیشنهاد بده — «مضربِ ۶ بفرست» به‌تنهایی
+            // یعنی مشتری باید خودش حساب کند، و همان‌جا رها می‌کند.
+            const lo = Math.floor(qty / PACK_STEP) * PACK_STEP;
+            let m = '❌ تعداد باید مضربی از ۶ باشه، چون کمترین بسته‌مون نیم‌جین (۶ عدد) است.';
+            m += (lo >= PACK_STEP)
+              ? `\n\nمنظورت <b>${fa(lo)}</b> بود یا <b>${fa(lo + PACK_STEP)}</b>؟`
+              : `\n\nکمترین تعداد <b>۶</b> عدده.`;
+            await send(chatId, m + '\n\n' + PACK_HINT);
+            return new Response('ok');
+          }
           const { data: prod } = await supabase.from('products').select('id,name,price').eq('id', s.temp_product_id).maybeSingle();
           if (!prod) { await setSession(chatId, { temp_product_id: null, step: 'choosing' }); await send(chatId, 'این کالا دیگه تو لیست نیست 🙏'); await showProducts(chatId); return new Response('ok'); }
           const cart = s.cart || [];
