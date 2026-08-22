@@ -399,7 +399,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
   </div>
   <div class="lcard">
     <h2>ورود به سیستم</h2>
-    <div class="field"><label>ایمیل</label><input id="lEmail" class="inp" dir="ltr" type="email" placeholder="you@example.com" autocomplete="username"></div>
+    <div class="field"><label>ایمیل</label><input id="lEmail" maxlength="254" class="inp" dir="ltr" type="email" placeholder="you@example.com" autocomplete="username"></div>
     <div class="field"><label>رمز عبور</label><input id="lPass" class="inp" dir="ltr" type="password" placeholder="••••••••" autocomplete="current-password"></div>
     <button id="lBtn" class="btn">ورود</button>
     <div id="lMsg" class="msg"></div>
@@ -444,13 +444,13 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <div id="quoteBanner" class="quote-banner hidden">📋 این فاکتور از یک <b>پیش‌فاکتور</b> بارگذاری شده — با ثبتِ فاکتور، آن پیش‌فاکتور خودکار بسته می‌شود.<br><button class="btn sm sec" style="margin-top:8px" onclick="clearPendingQuote()">لغو اتصالِ پیش‌فاکتور</button></div>
     <div class="card">
       <div class="field"><label>نام خریدار</label>
-        <input id="nName" class="inp" list="custNames" autocomplete="off" placeholder="مثلاً خانم رضایی" oninput="checkCustomerMatch()">
+        <input id="nName" maxlength="60" class="inp" list="custNames" autocomplete="off" placeholder="مثلاً خانم رضایی" oninput="checkCustomerMatch()">
         <datalist id="custNames"></datalist>
         <div id="custMatchHint" class="words-hint"></div>
       </div>
       <div class="ir-grid">
-        <div class="f field" style="flex:1"><label>شماره تماس</label><input id="nPhone" class="inp" dir="ltr" inputmode="numeric" placeholder="0912..." oninput="phoneInput(this);checkCustomerMatch()"></div>
-        <div class="f field" style="flex:1"><label>شهر</label><input id="nCity" class="inp" placeholder="بندرعباس"></div>
+        <div class="f field" style="flex:1"><label>شماره تماس</label><input id="nPhone" maxlength="18" class="inp" dir="ltr" inputmode="numeric" placeholder="0912..." oninput="phoneInput(this);checkCustomerMatch()"></div>
+        <div class="f field" style="flex:1"><label>شهر</label><input id="nCity" maxlength="40" class="inp" placeholder="بندرعباس"></div>
       </div>
     </div>
     <div class="section-head"><div style="font-weight:700">اقلام فاکتور</div><button class="btn sm sec" style="width:auto;padding:6px 12px" onclick="fillFromLastInvoice()">🔁 مثلِ فاکتورِ قبلیش</button></div>
@@ -458,13 +458,13 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <button class="addrow" onclick="addItemRow()">+ افزودن ردیف کالا</button>
     <div class="totbox">
       <div class="totrow"><span>جمع کل اقلام</span><b id="tItems" class="num">۰</b></div>
-      <div class="totrow"><span>تخفیف</span><span style="display:flex;gap:6px;align-items:center"><select id="nDiscMode" class="inp" style="width:82px;padding:7px 6px" onchange="onDiscMode()"><option value="t">تومان</option><option value="p">درصد ٪</option></select><input id="nDiscount" class="inp" style="width:104px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="discInput(this);recalc()"></span></div>
+      <div class="totrow"><span>تخفیف</span><span style="display:flex;gap:6px;align-items:center"><select id="nDiscMode" class="inp" style="width:82px;padding:7px 6px" onchange="onDiscMode()"><option value="t">تومان</option><option value="p">درصد ٪</option></select><input id="nDiscount" maxlength="13" class="inp" style="width:104px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="discInput(this);recalc()"></span></div>
       <div class="totrow" id="tDiscRow" style="display:none"><span style="font-size:11.5px;color:var(--muted)">یعنی این‌قدر تخفیف</span><b id="tDiscVal" class="num" style="font-size:12.5px;color:var(--muted)">۰</b></div>
-      <div class="totrow"><span>پرداخت‌شده (تومان)</span><input id="nPaid" class="inp" style="width:130px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="grpInput(this);recalc()"></div>
+      <div class="totrow"><span>پرداخت‌شده (تومان)</span><input id="nPaid" maxlength="13" class="inp" style="width:130px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="grpInput(this);recalc()"></div>
       <div class="totrow grand"><span class="gl">مبلغ نهایی</span><span class="gv num" id="tFinal">۰</span></div>
       <div id="tFinalWords" class="words-hint" style="text-align:left"></div>
     </div>
-    <div class="field"><label>توضیحات (اختیاری)</label><input id="nNote" class="inp" placeholder="مثلاً تسویه تا آخر ماه"></div>
+    <div class="field"><label>توضیحات (اختیاری)</label><input id="nNote" maxlength="200" class="inp" placeholder="مثلاً تسویه تا آخر ماه"></div>
     <button id="submitInv" class="btn" onclick="submitInvoice()">ثبت فاکتور</button>
     <div class="rowline" style="margin-top:8px;gap:8px">
       <button class="btn sec" style="flex:1" onclick="saveQuote()">💾 ذخیره به‌عنوان پیش‌فاکتور</button>
@@ -477,7 +477,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
   <div id="scr-invoices" class="screen hidden">
     <div class="section-head"><div class="screen-title">فاکتورها</div><button id="selbtn-inv" class="btn sm sec" onclick="toggleSelMode('inv')">☑️ انتخاب</button></div>
     <div class="screen-sub">آخرین فاکتورها. برای دیدن، روی هرکدام بزن.</div>
-    <div class="field" style="margin-bottom:10px"><input id="invSearch" class="inp" placeholder="🔎 جستجو: شماره فاکتور یا نام مشتری" oninput="searchInvoicesDebounced()"></div>
+    <div class="field" style="margin-bottom:10px"><input id="invSearch" maxlength="60" class="inp" placeholder="🔎 جستجو: شماره فاکتور یا نام مشتری" oninput="searchInvoicesDebounced()"></div>
     <div id="invList"><div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div></div>
   </div>
 
@@ -571,7 +571,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
 <div id="searchView" class="overlay hidden">
   <div class="ov-bar"><button class="btn sm sec" onclick="closeSearch()">بستن</button></div>
   <div class="ov-body"><div class="ov-sheet">
-    <input id="gsInput" class="inp" placeholder="🔎 جستجو در کالا، مشتری، فاکتور…" oninput="gsGo()" style="margin-bottom:14px">
+    <input id="gsInput" maxlength="60" class="inp" placeholder="🔎 جستجو در کالا، مشتری، فاکتور…" oninput="gsGo()" style="margin-bottom:14px">
     <div id="searchBody"></div>
   </div></div>
 </div>
@@ -1485,8 +1485,8 @@ async function renderShipments(){
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">📦 ارسالی‌ها</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">خودت دستی ثبت می‌کنی: چی برای کی به کدوم شهر فرستادی.</div>
     <div class="card" style="padding:14px;margin-bottom:16px">
-      <div class="ir-grid"><div class="f field" style="flex:1.4"><label>نام مشتری</label><input id="shipName" class="inp" placeholder="مثلاً حاج قاسم"></div><div class="f field" style="flex:.8"><label>تعداد جنس</label><input id="shipQty" class="inp" dir="ltr" inputmode="numeric" placeholder="۰"></div></div>
-      <div class="field"><label>شهر مقصد</label><input id="shipCity" class="inp" placeholder="مثلاً بندرعباس"></div>
+      <div class="ir-grid"><div class="f field" style="flex:1.4"><label>نام مشتری</label><input id="shipName" maxlength="60" class="inp" placeholder="مثلاً حاج قاسم"></div><div class="f field" style="flex:.8"><label>تعداد جنس</label><input id="shipQty" maxlength="6" class="inp" dir="ltr" inputmode="numeric" placeholder="۰"></div></div>
+      <div class="field"><label>شهر مقصد</label><input id="shipCity" maxlength="40" class="inp" placeholder="مثلاً بندرعباس"></div>
       <button onclick="addShipment()" style="width:100%;background:var(--gold);color:#fff;border:0;border-radius:11px;padding:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">➕ ثبتِ ارسالی</button>
     </div>`;
   if(rows.length===0){ html+='<div class="empty" style="padding:18px">هنوز ارسالی‌ای ثبت نکردی</div></div>'; body.innerHTML=html; return; }
@@ -1649,7 +1649,7 @@ function addItemRow(){
   const wrap=document.getElementById('itemsWrap'), div=document.createElement('div');
   div.className='itemrow';
   div.innerHTML=`<div class="ir-top"><select class="inp ir-prod" onchange="onPickProduct(this)">${productOptions()}</select><button class="del" title="حذفِ این قلم" aria-label="حذفِ این قلم" onclick="this.closest('.itemrow').remove();recalc()">×</button></div>
-    <div class="ir-grid"><div class="f"><label>تعداد</label><input class="inp ir-qty" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div></div>
+    <div class="ir-grid"><div class="f"><label>تعداد</label><input class="inp ir-qty" maxlength="6" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div></div>
     <div class="ir-line">جمع: <span class="ir-linev">۰</span></div><div class="ir-linecalc"></div>`;
   wrap.appendChild(div); recalc();
 }
@@ -2211,7 +2211,7 @@ async function openInvoiceReturn(){
   html+=items.map(it=>`<div class="card" style="padding:12px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(it.name||'کالا')}</b><span style="font-size:12px;color:var(--muted)">${faNum(it.quantity)} عدد × ${faNum(it.unit_price)} ت</span></div>
     <div class="f"><label>تعدادِ مرجوعی (حداکثر ${faNum(it.quantity)})</label>
-      <input class="inp invret-qty" data-iid="${esc(it.iid||'')}" data-pid="${esc(it.product_id)}" data-max="${it.quantity}" data-price="${it.unit_price}" dir="ltr" inputmode="numeric" value="0" oninput="invReturnRecalc()"></div>
+      <input class="inp invret-qty" maxlength="6" data-iid="${esc(it.iid||'')}" data-pid="${esc(it.product_id)}" data-max="${it.quantity}" data-price="${it.unit_price}" dir="ltr" inputmode="numeric" value="0" oninput="invReturnRecalc()"></div>
   </div>`).join('');
   html+=`<div class="card warnbox" style="padding:14px;display:flex;justify-content:space-between;align-items:center"><b>مبلغی که به مشتری برمی‌گردد</b><div style="text-align:left"><b class="num" id="invRetTotal" style="font-size:18px;color:var(--gold)">۰ تومان</b><div class="sw" id="invRetWords"></div></div></div>
     <div id="invRetMsg" class="msg"></div>
@@ -2346,7 +2346,7 @@ function renderProducts(){
   if(DATA_LOADING && PRODUCTS.length===0){ box.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>'; return; }
   if(PRODUCTS.length===0){ box.innerHTML='<div class="empty">هنوز کالایی ثبت نشده. با «کالای جدید» اضافه کن.</div>'; return; }
   const sorted=[...PRODUCTS].sort((a,b)=>{return String(a.name||'').localeCompare(String(b.name||''),'fa');});
-  box.innerHTML='<input id="prodSearch" class="inp" placeholder="🔎 جستجوی کالا" oninput="filterList(\'prodSearch\',\'prodList\')" style="margin-bottom:10px">'+sorted.map(p=>{
+  box.innerHTML='<input id="prodSearch" maxlength="60" class="inp" placeholder="🔎 جستجوی کالا" oninput="filterList(\'prodSearch\',\'prodList\')" style="margin-bottom:10px">'+sorted.map(p=>{
     return `<div class="list-item${SEL.mode==='prod'&&SEL.ids.has(p.id)?' selected':''}" data-id="${p.id}" data-s="${esc(p.name)}" onclick="rowTap('prod','${p.id}',event)">${selCbx('prod',p.id)}<div style="flex:1"><div class="li-main">${esc(p.name)}</div><div class="li-sub">قیمت: ${faNum(p.price)} تومان${(p.video_jin_url||p.video_jin_fid||p.video_carton_url||p.video_carton_fid)?' · 🎬':''}${(Array.isArray(p.photos)&&p.photos.length)?' · 👗':''}${(p.size_info&&String(p.size_info).trim())?' · 📏':''}</div></div></div>`;
   }).join('');
 }
@@ -2358,9 +2358,9 @@ function openProductForm(id){
   const p=id?PRODUCTS.find(x=>x.id===id):null, w=document.getElementById('prodFormWrap');
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${p?'ویرایشِ کالا':'کالای جدید'}</div>${p?`<div class="form-title">${esc(p.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeProductForm()">‹ برگشت به لیست</button></div>
-    <div class="field"><label>نام کالا *</label><input id="pName" class="inp" value="${p?esc(p.name):''}"></div>
-    <div class="ir-grid"><div class="f field" style="flex:1"><label>قیمت فروش (تومان)</label><input id="pPrice" class="inp" dir="ltr" inputmode="numeric" value="${p?Math.round(p.price||0):0}" oninput="grpInput(this);updatePPriceWords()"><div id="pPriceWords" class="words-hint"></div></div></div>
-    <div class="field"><label>اندازه و قواره (برای رباتِ تلگرام)</label><textarea id="pSize" class="inp" rows="3" style="resize:vertical;min-height:70px" placeholder="مثلاً: قد ۷۵ سانت · فری‌سایز تا ۴۶ · جنس نخ‌پنبه">${p?esc(p.size_info||''):''}</textarea><div style="font-size:10.5px;color:var(--muted);margin-top:4px">مشتری تو تلگرام با دکمه‌ی «📏 اندازه قد و قواره کالا» همین متن را می‌بیند</div></div>
+    <div class="field"><label>نام کالا *</label><input id="pName" maxlength="100" class="inp" value="${p?esc(p.name):''}"></div>
+    <div class="ir-grid"><div class="f field" style="flex:1"><label>قیمت فروش (تومان)</label><input id="pPrice" maxlength="13" class="inp" dir="ltr" inputmode="numeric" value="${p?Math.round(p.price||0):0}" oninput="grpInput(this);updatePPriceWords()"><div id="pPriceWords" class="words-hint"></div></div></div>
+    <div class="field"><label>اندازه و قواره (برای رباتِ تلگرام)</label><textarea id="pSize" maxlength="500" class="inp" rows="3" style="resize:vertical;min-height:70px" placeholder="مثلاً: قد ۷۵ سانت · فری‌سایز تا ۴۶ · جنس نخ‌پنبه">${p?esc(p.size_info||''):''}</textarea><div style="font-size:10.5px;color:var(--muted);margin-top:4px">مشتری تو تلگرام با دکمه‌ی «📏 اندازه قد و قواره کالا» همین متن را می‌بیند</div></div>
     <div class="section-head" style="margin-top:2px"><div style="font-weight:700">🎥 فیلم و عکسِ کالا</div></div>
     <div style="font-size:11px;color:var(--muted);margin:-2px 2px 9px">فیلمِ بزرگ‌تر از ۵۰ مگ خودکار کوچیک می‌شه و صداش هم می‌مونه — بعدش می‌ره رو تلگرام و فضای پنل آزاد می‌مونه</div>
     <div id="medJin" class="medbox"></div>
@@ -2425,7 +2425,7 @@ async function renderCustomers(){
   fillCustomerSelect();                       /* این به‌روزرسانیِ سراسری هرحال مفید است */
   if(seqStale('custList',_q))return;          /* ولی نوشتن در جعبه فقط مالِ تازه‌ترین */
   if(CUSTOMERS.length===0){ box.innerHTML='<div class="empty">هنوز مشتری‌ای ثبت نشده.</div>'; return; }
-  box.innerHTML=(balOk?'':'<div class="card" style="padding:11px 13px;margin-bottom:10px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06);font-size:12.5px"><b style="color:var(--danger)">⚠️ ماندهٔ حساب‌ها بارگذاری نشد</b><div style="color:var(--muted);margin-top:3px">تا وقتی درست نخونم، «تسویه» یا «طلب» نشون نمی‌دم که اشتباهی نکنی. اینترنت رو چک کن و دوباره باز کن.</div></div>')+'<input id="custSearch" class="inp" placeholder="🔎 جستجوی مشتری (نام، شماره، شهر)" oninput="filterList(\'custSearch\',\'custList\')" style="margin-bottom:10px">'+CUSTOMERS.map(c=>{
+  box.innerHTML=(balOk?'':'<div class="card" style="padding:11px 13px;margin-bottom:10px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06);font-size:12.5px"><b style="color:var(--danger)">⚠️ ماندهٔ حساب‌ها بارگذاری نشد</b><div style="color:var(--muted);margin-top:3px">تا وقتی درست نخونم، «تسویه» یا «طلب» نشون نمی‌دم که اشتباهی نکنی. اینترنت رو چک کن و دوباره باز کن.</div></div>')+'<input id="custSearch" maxlength="60" class="inp" placeholder="🔎 جستجوی مشتری (نام، شماره، شهر)" oninput="filterList(\'custSearch\',\'custList\')" style="margin-bottom:10px">'+CUSTOMERS.map(c=>{
     const b=balMap[c.id]||0;
     let badge='';
     if(!balOk)badge=`<span class="pill cancelled">مانده: نامشخص</span>`;
@@ -2455,9 +2455,9 @@ function openCustomerForm(id){
   const c=id?CUSTOMERS.find(x=>x.id===id):null, w=document.getElementById('custFormWrap');
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${c?'ویرایشِ مشتری':'مشتری جدید'}</div>${c?`<div class="form-title">${esc(c.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeCustomerForm()">‹ برگشت به لیست</button></div>
-    <div class="field"><label>نام مشتری / فروشگاه *</label><input id="cName" class="inp" value="${c?esc(c.name):''}"></div>
-    <div class="ir-grid"><div class="f field" style="flex:1"><label>شماره تماس</label><input id="cPhone" class="inp" dir="ltr" inputmode="numeric" oninput="phoneInput(this)" value="${c?esc(phoneFmt(c.phone||'')):''}"></div><div class="f field" style="flex:1"><label>شهر</label><input id="cCity" class="inp" value="${c?esc(c.city||''):''}"></div></div>
-    <div class="field"><label>آدرس</label><input id="cAddr" class="inp" value="${c?esc(c.address||''):''}"></div>
+    <div class="field"><label>نام مشتری / فروشگاه *</label><input id="cName" maxlength="60" class="inp" value="${c?esc(c.name):''}"></div>
+    <div class="ir-grid"><div class="f field" style="flex:1"><label>شماره تماس</label><input id="cPhone" maxlength="18" class="inp" dir="ltr" inputmode="numeric" oninput="phoneInput(this)" value="${c?esc(phoneFmt(c.phone||'')):''}"></div><div class="f field" style="flex:1"><label>شهر</label><input id="cCity" maxlength="40" class="inp" value="${c?esc(c.city||''):''}"></div></div>
+    <div class="field"><label>آدرس</label><input id="cAddr" maxlength="200" class="inp" value="${c?esc(c.address||''):''}"></div>
     <div class="rowline" style="margin-top:6px"><button class="btn" style="flex:1" onclick="saveCustomer('${c?c.id:''}')">${c?'ذخیره تغییرات':'افزودن مشتری'}</button><button class="btn sec sm" onclick="closeCustomerForm()">انصراف</button></div>
     <div id="cMsg" class="msg"></div></div>`;
   w.scrollIntoView({behavior:'smooth',block:'start'});
@@ -2514,7 +2514,7 @@ async function openCustomer(id){
       ${bal>0?`<button onclick="waReminderFor('${id}',${bal})" style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:0;border-radius:12px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">📲 ارسالِ یادآوریِ بدهی در واتساپ</button>`:''}
       <button onclick="shareStatement('${id}')" style="width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer">📋 صورت‌حساب (عکس برای مشتری)</button>
       <div class="card" id="payBox" style="margin-top:12px;box-shadow:none"><div style="font-weight:700;margin-bottom:10px">ثبت پرداخت</div><div id="payForInv" style="font-size:11.5px;color:var(--paid,#0a7);margin:-6px 0 8px"></div>
-        <div class="ir-grid"><input id="payAmount" class="inp" dir="ltr" inputmode="numeric" placeholder="مبلغ دریافتی (تومان)" style="flex:1"><button id="payBtn" class="btn" style="width:auto;padding:11px 18px" onclick="addPayment('${id}')">ثبت</button></div>
+        <div class="ir-grid"><input id="payAmount" maxlength="13" class="inp" dir="ltr" inputmode="numeric" placeholder="مبلغ دریافتی (تومان)" style="flex:1"><button id="payBtn" class="btn" style="width:auto;padding:11px 18px" onclick="addPayment('${id}')">ثبت</button></div>
         <div id="payWords" class="words-hint"></div></div>
       <div class="block-title" style="margin-top:16px">🛒 پرخریدترین کالاهای این مشتری</div>
       ${topItems.length===0?'<div class="empty" style="padding:14px">هنوز خریدی ثبت نشده</div>':topItems.slice(0,6).map((t,i)=>`<div class="mini"><span><span class="rank">${faNum(i+1)}</span>${esc(t.name)}</span><b class="num">${faNum(t.qty)} عدد · ${faNum(t.total)} ت</b></div>`).join('')}
@@ -2565,13 +2565,13 @@ function renderSettings(){
   box.innerHTML=`<div class="card">
     <div class="card-h">🏪 اطلاعاتِ فروشگاه</div>
     <div class="card-sub">این‌ها روی فاکتور و پیش‌فاکتورِ مشتری چاپ می‌شوند.</div>
-    <div class="field"><label>نام فروشگاه</label><input id="sShop" class="inp" value="${esc(S.shop_name||'مدلند قشم')}"></div>
-    <div class="field"><label>زیرعنوان</label><input id="sSub" class="inp" value="${esc(S.subtitle||'پخش عمده پوشاک')}"></div>
-    <div class="field"><label>آدرس</label><input id="sAddr" class="inp" value="${esc(S.address||'')}"></div>
-    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone||''))}"></div>
-    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone2||''))}"></div>
-    <div class="ir-grid"><div class="f field" style="flex:1"><label>اینستاگرام</label><input id="sIg" class="inp" dir="ltr" value="${esc(S.instagram||'')}"></div><div class="f field" style="flex:1"><label>تلگرام</label><input id="sTg" class="inp" dir="ltr" value="${esc(S.telegram||'')}"></div></div>
-    <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" class="inp" value="${esc(S.return_policy||'')}"></div>
+    <div class="field"><label>نام فروشگاه</label><input id="sShop" maxlength="60" class="inp" value="${esc(S.shop_name||'مدلند قشم')}"></div>
+    <div class="field"><label>زیرعنوان</label><input id="sSub" maxlength="80" class="inp" value="${esc(S.subtitle||'پخش عمده پوشاک')}"></div>
+    <div class="field"><label>آدرس</label><input id="sAddr" maxlength="200" class="inp" value="${esc(S.address||'')}"></div>
+    <div class="field"><label>شماره تماس</label><input id="sPhone" maxlength="18" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone||''))}"></div>
+    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" maxlength="18" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone2||''))}"></div>
+    <div class="ir-grid"><div class="f field" style="flex:1"><label>اینستاگرام</label><input id="sIg" maxlength="40" class="inp" dir="ltr" value="${esc(S.instagram||'')}"></div><div class="f field" style="flex:1"><label>تلگرام</label><input id="sTg" maxlength="40" class="inp" dir="ltr" value="${esc(S.telegram||'')}"></div></div>
+    <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" maxlength="200" class="inp" value="${esc(S.return_policy||'')}"></div>
     <button class="btn" onclick="saveSettings()">ذخیره تنظیمات</button>
     <div id="sMsg" class="msg"></div>
   </div>
@@ -2613,10 +2613,10 @@ async function renderSalaries(){
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">👥 حقوقِ کارکنان</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">پرداختیِ حقوقِ کارکنان رو ثبت کن تا سابقه‌اش بمونه.</div>
     <div class="card" style="padding:14px;margin-bottom:14px">
-      <div class="field"><label>نامِ کارمند</label><input id="salName" class="inp" placeholder="مثلاً علی محمدی"></div>
-      <div class="field"><label>مبلغ (تومان)</label><input id="salAmount" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۵۰۰۰۰۰۰" oninput="grpInput(this);(function(t){var w=document.getElementById('salWords');var v=parseNum(t.value);w.textContent=v>0?numToFaWords(v)+' تومان':'';})(this)"><div id="salWords" class="words-hint"></div></div>
-      <div class="field"><label>بابتِ ماهِ</label><input id="salMonth" class="inp" value="${esc(curMonth)}"></div>
-      <div class="field"><label>توضیح (اختیاری)</label><input id="salNote" class="inp" placeholder=""></div>
+      <div class="field"><label>نامِ کارمند</label><input id="salName" maxlength="60" class="inp" placeholder="مثلاً علی محمدی"></div>
+      <div class="field"><label>مبلغ (تومان)</label><input id="salAmount" maxlength="13" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۵۰۰۰۰۰۰" oninput="grpInput(this);(function(t){var w=document.getElementById('salWords');var v=parseNum(t.value);w.textContent=v>0?numToFaWords(v)+' تومان':'';})(this)"><div id="salWords" class="words-hint"></div></div>
+      <div class="field"><label>بابتِ ماهِ</label><input id="salMonth" maxlength="10" class="inp" value="${esc(curMonth)}"></div>
+      <div class="field"><label>توضیح (اختیاری)</label><input id="salNote" maxlength="200" class="inp" placeholder=""></div>
       <div id="salMsg" class="msg"></div>
       <button class="btn" onclick="addSalary()">➕ ثبتِ حقوق</button>
     </div>
@@ -3164,8 +3164,8 @@ async function renderDiscounts(){
     <div style="font-size:18px;font-weight:800;margin-bottom:4px">🎟 کدهای تخفیف</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">این کدها رو مشتری موقعِ سفارش تو رباتِ تلگرام وارد می‌کنه و تخفیف می‌گیره.</div>
     <div class="card" style="padding:14px;margin-bottom:14px">
-      <div class="field"><label>کدِ تخفیف (مثلاً EID یا نوروز)</label><input id="dcCode" class="inp" placeholder="یه کدِ ساده"></div>
-      <div class="field"><label>درصدِ تخفیف</label><input id="dcPct" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۰"></div>
+      <div class="field"><label>کدِ تخفیف (مثلاً EID یا نوروز)</label><input id="dcCode" maxlength="30" class="inp" placeholder="یه کدِ ساده"></div>
+      <div class="field"><label>درصدِ تخفیف</label><input id="dcPct" maxlength="6" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۰"></div>
       <div id="dcMsg" class="msg"></div>
       <button class="btn" onclick="addDiscount()">➕ ساختِ کد</button>
     </div>
