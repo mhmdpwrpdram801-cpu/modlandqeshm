@@ -1,250 +1,254 @@
 {
- "taken_at": "2026-08-21",
- "source": "auditor/db_invariants.sql",
- "tables": [
-  {
-   "t": "app_config",
-   "rls": true
-  },
-  {
-   "t": "bot_admins",
-   "rls": true
-  },
-  {
-   "t": "bot_events",
-   "rls": true
-  },
-  {
-   "t": "client_errors",
-   "rls": true
-  },
-  {
-   "t": "customers",
-   "rls": true
-  },
-  {
-   "t": "discount_codes",
-   "rls": true
-  },
-  {
-   "t": "expenses",
-   "rls": true
-  },
-  {
-   "t": "invoice_items",
-   "rls": true
-  },
-  {
-   "t": "invoices",
-   "rls": true
-  },
-  {
-   "t": "payments",
-   "rls": true
-  },
-  {
-   "t": "products",
-   "rls": true
-  },
-  {
-   "t": "quotes",
-   "rls": true
-  },
-  {
-   "t": "returns",
-   "rls": true
-  },
-  {
-   "t": "salaries",
-   "rls": true
-  },
-  {
-   "t": "settings",
-   "rls": true
-  },
-  {
-   "t": "shipments",
-   "rls": true
-  },
-  {
-   "t": "telegram_orders",
-   "rls": true
-  },
-  {
-   "t": "telegram_sessions",
-   "rls": true
-  }
- ],
- "policies": [
-  {
-   "t": "bot_events",
-   "p": "ro_bot_events",
-   "cmd": "SELECT"
-  },
-  {
-   "t": "client_errors",
-   "p": "panel may insert errors",
-   "cmd": "INSERT"
-  },
-  {
-   "t": "customers",
-   "p": "rw_customers",
-   "cmd": "ALL"
-  },
-  {
-   "t": "discount_codes",
-   "p": "disc auth all",
-   "cmd": "ALL"
-  },
-  {
-   "t": "expenses",
-   "p": "expenses_all",
-   "cmd": "ALL"
-  },
-  {
-   "t": "invoice_items",
-   "p": "ro_items",
-   "cmd": "SELECT"
-  },
-  {
-   "t": "invoices",
-   "p": "ro_invoices",
-   "cmd": "SELECT"
-  },
-  {
-   "t": "payments",
-   "p": "rw_payments",
-   "cmd": "ALL"
-  },
-  {
-   "t": "products",
-   "p": "rw_products",
-   "cmd": "ALL"
-  },
-  {
-   "t": "quotes",
-   "p": "quotes_all",
-   "cmd": "ALL"
-  },
-  {
-   "t": "returns",
-   "p": "returns_all",
-   "cmd": "ALL"
-  },
-  {
-   "t": "salaries",
-   "p": "salaries_all",
-   "cmd": "ALL"
-  },
-  {
-   "t": "settings",
-   "p": "rw_settings",
-   "cmd": "ALL"
-  },
-  {
-   "t": "shipments",
-   "p": "rw_shipments",
-   "cmd": "ALL"
-  },
-  {
-   "t": "telegram_orders",
-   "p": "rw_tg_orders",
-   "cmd": "ALL"
-  },
-  {
-   "t": "telegram_sessions",
-   "p": "rw_tg_sessions",
-   "cmd": "ALL"
-  }
- ],
- "checks": [
-  {
-   "t": "bot_events",
-   "c": "bot_events_event_known",
-   "d": "CHECK ((event = ANY (ARRAY['start'::text, 'browse'::text, 'view'::text, 'media'::text, 'cart_add'::text, 'checkout'::text, 'order'::text, 'pay_click'::text, 'receipt'::text, 'paid'::text, 'ask'::text])))"
-  },
-  {
-   "t": "expenses",
-   "c": "expenses_amount_check",
-   "d": "CHECK ((amount > (0)::numeric))"
-  },
-  {
-   "t": "invoice_items",
-   "c": "invoice_items_line_matches",
-   "d": "CHECK ((COALESCE(line_total, (0)::numeric) = ((quantity)::numeric * COALESCE(unit_price, (0)::numeric))))"
-  },
-  {
-   "t": "invoice_items",
-   "c": "invoice_items_price_nonneg",
-   "d": "CHECK ((COALESCE(unit_price, (0)::numeric) >= (0)::numeric))"
-  },
-  {
-   "t": "invoice_items",
-   "c": "invoice_items_qty_positive",
-   "d": "CHECK ((quantity > 0))"
-  },
-  {
-   "t": "invoices",
-   "c": "invoices_amounts_nonneg",
-   "d": "CHECK (((COALESCE(items_total, (0)::numeric) >= (0)::numeric) AND (COALESCE(discount, (0)::numeric) >= (0)::numeric) AND (COALESCE(total_amount, (0)::numeric) >= (0)::numeric) AND (COALESCE(paid_amount, (0)::numeric) >= (0)::numeric)))"
-  },
-  {
-   "t": "invoices",
-   "c": "invoices_total_matches",
-   "d": "CHECK ((COALESCE(total_amount, (0)::numeric) = (COALESCE(items_total, (0)::numeric) - COALESCE(discount, (0)::numeric))))"
-  },
-  {
-   "t": "invoices",
-   "c": "invoices_discount_not_over_items",
-   "d": "CHECK ((COALESCE(discount, (0)::numeric) <= COALESCE(items_total, (0)::numeric)))"
-  },
-  {
-   "t": "payments",
-   "c": "payments_amount_positive",
-   "d": "CHECK ((amount > (0)::numeric))"
-  },
-  {
-   "t": "products",
-   "c": "products_price_nonneg",
-   "d": "CHECK ((COALESCE(price, (0)::numeric) >= (0)::numeric))"
-  },
-  {
-   "t": "returns",
-   "c": "returns_value_nonneg",
-   "d": "CHECK ((COALESCE(total_value, (0)::numeric) >= (0)::numeric))"
-  },
-  {
-   "t": "salaries",
-   "c": "salaries_amount_check",
-   "d": "CHECK ((amount > (0)::numeric))"
-  },
-  {
-   "t": "telegram_orders",
-   "c": "telegram_orders_total_nonneg",
-   "d": "CHECK ((COALESCE(total, (0)::numeric) >= (0)::numeric))"
-  }
- ],
- "triggers": [
-  {
-   "t": "payments",
-   "trg": "trg_payment_not_on_cancelled"
-  }
- ],
- "view_grants": [
-  {
-   "v": "bot_carts_open",
-   "anon": false,
-   "auth": true
-  },
-  {
-   "v": "bot_events_public",
-   "anon": false,
-   "auth": true
-  },
-  {
-   "v": "customer_balances",
-   "anon": true,
-   "auth": true
-  }
- ]
+  "taken_at": "2026-08-22",
+  "source": "auditor/db_invariants.sql",
+  "tables": [
+    {
+      "t": "app_config",
+      "rls": true
+    },
+    {
+      "t": "bot_admins",
+      "rls": true
+    },
+    {
+      "t": "bot_events",
+      "rls": true
+    },
+    {
+      "t": "client_errors",
+      "rls": true
+    },
+    {
+      "t": "customers",
+      "rls": true
+    },
+    {
+      "t": "discount_codes",
+      "rls": true
+    },
+    {
+      "t": "expenses",
+      "rls": true
+    },
+    {
+      "t": "invoice_items",
+      "rls": true
+    },
+    {
+      "t": "invoices",
+      "rls": true
+    },
+    {
+      "t": "payments",
+      "rls": true
+    },
+    {
+      "t": "products",
+      "rls": true
+    },
+    {
+      "t": "quotes",
+      "rls": true
+    },
+    {
+      "t": "returns",
+      "rls": true
+    },
+    {
+      "t": "salaries",
+      "rls": true
+    },
+    {
+      "t": "settings",
+      "rls": true
+    },
+    {
+      "t": "shipments",
+      "rls": true
+    },
+    {
+      "t": "telegram_orders",
+      "rls": true
+    },
+    {
+      "t": "telegram_sessions",
+      "rls": true
+    }
+  ],
+  "policies": [
+    {
+      "t": "bot_events",
+      "p": "ro_bot_events",
+      "cmd": "SELECT"
+    },
+    {
+      "t": "client_errors",
+      "p": "panel may insert errors",
+      "cmd": "INSERT"
+    },
+    {
+      "t": "customers",
+      "p": "rw_customers",
+      "cmd": "ALL"
+    },
+    {
+      "t": "discount_codes",
+      "p": "disc auth all",
+      "cmd": "ALL"
+    },
+    {
+      "t": "expenses",
+      "p": "expenses_all",
+      "cmd": "ALL"
+    },
+    {
+      "t": "invoice_items",
+      "p": "ro_items",
+      "cmd": "SELECT"
+    },
+    {
+      "t": "invoices",
+      "p": "ro_invoices",
+      "cmd": "SELECT"
+    },
+    {
+      "t": "payments",
+      "p": "rw_payments",
+      "cmd": "ALL"
+    },
+    {
+      "t": "products",
+      "p": "rw_products",
+      "cmd": "ALL"
+    },
+    {
+      "t": "quotes",
+      "p": "quotes_all",
+      "cmd": "ALL"
+    },
+    {
+      "t": "returns",
+      "p": "returns_all",
+      "cmd": "ALL"
+    },
+    {
+      "t": "salaries",
+      "p": "salaries_all",
+      "cmd": "ALL"
+    },
+    {
+      "t": "settings",
+      "p": "rw_settings",
+      "cmd": "ALL"
+    },
+    {
+      "t": "shipments",
+      "p": "rw_shipments",
+      "cmd": "ALL"
+    },
+    {
+      "t": "telegram_orders",
+      "p": "rw_tg_orders",
+      "cmd": "ALL"
+    },
+    {
+      "t": "telegram_sessions",
+      "p": "rw_tg_sessions",
+      "cmd": "ALL"
+    }
+  ],
+  "checks": [
+    {
+      "t": "bot_events",
+      "c": "bot_events_event_known",
+      "d": "CHECK ((event = ANY (ARRAY['start'::text, 'browse'::text, 'view'::text, 'media'::text, 'cart_add'::text, 'checkout'::text, 'order'::text, 'pay_click'::text, 'receipt'::text, 'paid'::text, 'ask'::text])))"
+    },
+    {
+      "t": "expenses",
+      "c": "expenses_amount_check",
+      "d": "CHECK ((amount > (0)::numeric))"
+    },
+    {
+      "t": "invoice_items",
+      "c": "invoice_items_line_matches",
+      "d": "CHECK ((COALESCE(line_total, (0)::numeric) = ((quantity)::numeric * COALESCE(unit_price, (0)::numeric))))"
+    },
+    {
+      "t": "invoice_items",
+      "c": "invoice_items_price_nonneg",
+      "d": "CHECK ((COALESCE(unit_price, (0)::numeric) >= (0)::numeric))"
+    },
+    {
+      "t": "invoice_items",
+      "c": "invoice_items_qty_positive",
+      "d": "CHECK ((quantity > 0))"
+    },
+    {
+      "t": "invoices",
+      "c": "invoices_amounts_nonneg",
+      "d": "CHECK (((COALESCE(items_total, (0)::numeric) >= (0)::numeric) AND (COALESCE(discount, (0)::numeric) >= (0)::numeric) AND (COALESCE(total_amount, (0)::numeric) >= (0)::numeric) AND (COALESCE(paid_amount, (0)::numeric) >= (0)::numeric)))"
+    },
+    {
+      "t": "invoices",
+      "c": "invoices_total_matches",
+      "d": "CHECK ((COALESCE(total_amount, (0)::numeric) = (COALESCE(items_total, (0)::numeric) - COALESCE(discount, (0)::numeric))))"
+    },
+    {
+      "t": "invoices",
+      "c": "invoices_discount_not_over_items",
+      "d": "CHECK ((COALESCE(discount, (0)::numeric) <= COALESCE(items_total, (0)::numeric)))"
+    },
+    {
+      "t": "payments",
+      "c": "payments_amount_positive",
+      "d": "CHECK ((amount > (0)::numeric))"
+    },
+    {
+      "t": "products",
+      "c": "products_price_nonneg",
+      "d": "CHECK ((COALESCE(price, (0)::numeric) >= (0)::numeric))"
+    },
+    {
+      "t": "returns",
+      "c": "returns_value_nonneg",
+      "d": "CHECK ((COALESCE(total_value, (0)::numeric) >= (0)::numeric))"
+    },
+    {
+      "t": "salaries",
+      "c": "salaries_amount_check",
+      "d": "CHECK ((amount > (0)::numeric))"
+    },
+    {
+      "t": "telegram_orders",
+      "c": "telegram_orders_total_nonneg",
+      "d": "CHECK ((COALESCE(total, (0)::numeric) >= (0)::numeric))"
+    }
+  ],
+  "triggers": [
+    {
+      "t": "payments",
+      "trg": "trg_payment_not_on_cancelled"
+    },
+    {
+      "t": "payments",
+      "trg": "trg_payments_sync_invoice_status"
+    }
+  ],
+  "view_grants": [
+    {
+      "v": "bot_carts_open",
+      "anon": false,
+      "auth": true
+    },
+    {
+      "v": "bot_events_public",
+      "anon": false,
+      "auth": true
+    },
+    {
+      "v": "customer_balances",
+      "anon": true,
+      "auth": true
+    }
+  ]
 }
