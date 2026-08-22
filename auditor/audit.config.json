@@ -218,10 +218,9 @@
     },
     {
       "name": "فروشِ ماه: ۲٬۹۳۰٬۰۰۰ فاکتور منهای ۸۵۰٬۰۰۰ مرجوعیِ مستقل",
-      "before": "openReport()",
-      "wait": 1500,
-      "js": "()=>{const d=[...document.querySelectorAll('#repCard div')].find(x=>/^فروش/.test((x.innerText||'').trim()));return d?d.querySelector('b').textContent:'پیدا نشد'}",
-      "expect": "۲٬۰۸۰٬۰۰۰ ت"
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));await openReport();await w(1200);const mon=r=>iranJalaliKey(new Date(r.created_at)).slice(0,7);const live=(REPORT_DATA.invs||[]).filter(v=>v.status!=='cancelled');const months=new Set([...live.map(mon),...(REPORT_DATA.rets||[]).map(mon)]);if(months.size!==1)return 'دادهٔ شبیه‌ساز بینِ '+[...months].join(' و ')+' پخش شده — این بررسی یک ماه لازم دارد';const m=[...months][0];const sel=document.getElementById('repMonth');if(sel)sel.value=m;renderReport(m);await w(700);const d=[...document.querySelectorAll('#repCard div')].find(x=>/^فروش/.test((x.innerText||'').trim()));return d?d.querySelector('b').textContent:'پیدا نشد';}",
+      "expect": "۲٬۰۸۰٬۰۰۰ ت",
+      "_note": "مرجوعیِ مستقل باید از فروش کم شود؛ مرجوعیِ روی فاکتور نه (آن قبلاً کم شده). ⚠️ این بررسی قبلاً به «ماهی که گزارش خودش باز می‌کند» تکیه می‌کرد، یعنی ماهِ جاری. شبِ اولِ هر ماهِ جلالی، دادهٔ شبیه‌ساز در ماهِ قبل می‌مانَد و گزارش درست ۰ نشان می‌دهد — بررسی قرمز می‌شد بی‌آنکه چیزی خراب باشد (اندازه‌گیری‌شده ۱۴۰۵/۰۶/۰۱). حالا خودش ماهِ دادهٔ شبیه‌ساز را پیدا و همان را رندر می‌کند (TEST-03)، و اگر داده بینِ دو ماه پخش شده باشد صریح همین را می‌گوید به‌جای یک عددِ غلط."
     },
     {
       "name": "گزارشِ فروشِ بینش‌ها همان عدد را می‌دهد",
@@ -242,18 +241,10 @@
       "expect": "فایلِ خراب رد شد"
     },
     {
-      "name": "قیمتِ واحد هیچ فیلدی ندارد و از خودِ کالا می‌آید",
-      "before": "nav('new'); document.getElementById('itemsWrap').innerHTML=''; addItemRow(); (()=>{const s=document.querySelector('.itemrow .ir-prod'); s.value='p1'; onPickProduct(s);})()",
-      "wait": 400,
-      "js": "()=>{const n=document.querySelectorAll('.itemrow [class*=ir-price]').length;const lbl=(document.getElementById('scr-new')||{innerText:''}).innerText.includes('قیمت واحد');const calc=(document.querySelector('.ir-linecalc')||{}).textContent||'';const jam=(document.querySelector('.ir-linev')||{}).textContent||'';return n+'|'+lbl+'|'+calc+'|'+jam;}",
-      "expect": "0|false|۱ عدد × ۸۵۰٬۰۰۰ تومان|۸۵۰٬۰۰۰"
-    },
-    {
       "name": "قیمتِ قول‌داده‌شده‌ی پیش‌فاکتور با گران‌شدنِ کالا عوض نمی‌شود",
-      "before": "(()=>{PRODUCTS.find(p=>p.id==='p1').price=990000;})(); convertQuote('q1')",
-      "wait": 1200,
-      "js": "()=>{const r=document.querySelector('.itemrow'); const lock=r.dataset.lock||'';const koll=document.getElementById('tItems').textContent;const q=(document.querySelector('.ir-linecalc')||{}).innerText||'';const zakhire=(function(){let pr=0;document.querySelectorAll('.itemrow').forEach(x=>{pr=rowUnitPrice(x)});return pr})();return lock+'|'+koll+'|'+zakhire+'|'+(q.indexOf('پیش‌فاکتور')>=0?'برچسب دارد':'برچسب ندارد');}",
-      "expect": "850000|۸۵۰٬۰۰۰|850000|برچسب دارد"
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const p=PRODUCTS.find(x=>x.id==='p1');const orig=p.price;try{p.price=990000;await convertQuote('q1');await w(1200);const r=document.querySelector('.itemrow');const shown=parseNum((r.querySelector('.ir-price')||{}).value||'');const koll=document.getElementById('tItems').textContent;const used=rowUnitPrice(r);const hint=(document.querySelector('.ir-linecalc')||{}).innerText||'';return shown+'|'+koll+'|'+used+'|'+(hint.indexOf('دستی')>=0?'برچسب دارد':'برچسب ندارد');}finally{p.price=orig;}}",
+      "expect": "850000|۸۵۰٬۰۰۰|850000|برچسب دارد",
+      "_note": "قیمتی که به مشتری قول داده شده نباید با گران‌شدنِ کالا عوض شود. از ۱۴۰۵/۰۵/۳۱ مکانیزمش کادرِ .ir-price است نه data-lock. این بررسی قبلاً PRODUCTS را برای همیشه دستکاری می‌کرد و برنمی‌گرداند (نقضِ TEST-03) — حالا در finally برش می‌گرداند."
     },
     {
       "name": "ردیفِ خرج از گزارشِ فروش برداشته شده",
@@ -530,9 +521,9 @@
       "expect": "درست"
     },
     {
-      "_note": "با تستِ جهشی پیدا شد: renderDashboard بیشترین جهشِ زنده را داشت (۳ تا) چون هیچ‌چیز عددش را با جای دیگری مقابله نمی‌کرد. داشبورد و گزارش دو مسیرِ محاسباتیِ **مستقل**اند روی همان داده؛ اگر عددشان فرق کند یکی خراب است. این بررسی هیچ عددی را حفظ نمی‌کند، فقط سازگاری را می‌سنجد — پس با عوض شدنِ داده‌ی شبیه‌ساز نمی‌شکند.",
+      "_note": "داشبورد و گزارش دو مسیرِ جدا برای یک عددند و باید یکی بدهند — به‌خصوص در کم‌کردنِ مرجوعیِ مستقل. **هر دو روی ماهِ جاری** سنجیده می‌شوند، چون داشبورد ماه‌بردار ندارد؛ گزارش هم صریح روی همان ماه رندر می‌شود، نه ماهی که خودش پیش‌فرض باز می‌کند. شبِ اولِ هر ماهِ جلالی هر دو صفر می‌شوند و مقایسه سبک می‌شود — پاس است ولی آن روز چیزِ زیادی ثابت نمی‌کند؛ بررسیِ «فروشِ ماه» که ماهِ داده را می‌گیرد آن شکاف را پر می‌کند.",
       "name": "فروشِ داشبورد و فروشِ گزارش یک عدد می‌دهند",
-      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const num=t=>{const m=String(t||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[,٬]/g,'').match(/\\d+/g);return m?+m[m.length-1]:null};const after=(txt,re)=>{const L=txt.split('\\n').map(x=>x.trim());const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i;j<Math.min(L.length,i+3);j++){if(j>i&&/[۰-۹\\d]/.test(L[j]))return num(L[j]);}return null};await nav('dashboard');await w(900);const dt=(document.getElementById('dashStats')||document.body).innerText;const d=after(dt,/فروش این ماه/);await openReport();await w(1200);const rb=document.getElementById('repBody');if(!rb)return 'گزارش رندر نشد';const r=after(rb.innerText,/^فروش/);if(d===null||r===null)return 'عدد پیدا نشد (داشبورد '+d+' | گزارش '+r+')';return d===r?'یکی':('اختلاف: داشبورد '+d+' ≠ گزارش '+r)}",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const num=t=>{const m=String(t||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[,٬]/g,'').match(/\\d+/g);return m?+m[m.length-1]:null};const after=(txt,re)=>{const L=txt.split('\\n').map(x=>x.trim());const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i;j<Math.min(L.length,i+3);j++){if(j>i&&/[۰-۹\\d]/.test(L[j]))return num(L[j]);}return null};await nav('dashboard');await w(900);const dt=(document.getElementById('dashStats')||document.body).innerText;const d=after(dt,/فروش این ماه/);await openReport();await w(1200);const m=iranJalaliKey(new Date()).slice(0,7);const sel=document.getElementById('repMonth');if(sel&&![...sel.options].some(o=>o.value===m))sel.insertAdjacentHTML('beforeend','<option value=\"'+m+'\">'+m+'</option>');if(sel)sel.value=m;renderReport(m);await w(700);const rb=document.getElementById('repBody');if(!rb)return 'گزارش رندر نشد';const r=after(rb.innerText,/^فروش/);if(d===null||r===null)return 'عدد پیدا نشد (داشبورد '+d+' | گزارش '+r+')';return d===r?'یکی':('اختلاف: داشبورد '+d+' ≠ گزارش '+r)}",
       "expect": "یکی"
     },
     {
@@ -743,6 +734,22 @@
       "name": "حذفِ گروهی فقط باطل‌شده‌ها را پاک می‌کند",
       "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const ok=window.ask;window.ask=async()=>true;try{nav('invoices');await w(900);await renderInvoices();await w(500);startSel('inv');toggleSel('inv','i1');toggleSel('inv','i3');await w(300);window.__WRITES.length=0;await bulkInvDelete();await w(1500);const r=window.__WRITES.filter(x=>x.rpc==='delete_invoice');return 'تعداد:'+r.length+'|شناسه:'+r.map(x=>x.body&&x.body.p_invoice_id).join(',');}finally{window.ask=ok;try{endSel();}catch(_){}}}",
       "expect": "تعداد:1|شناسه:i3"
+    },
+    {
+      "_note": "خواستِ مالک (۱۴۰۵/۰۵/۳۱): بعضی مشتری‌ها قیمتِ خاصِ خودشان را دارند. کادر باید با انتخابِ کالا خودش پر شود و بعدش دستی هم عوض شود. اینجا با کلیکِ واقعی روی select و تایپِ واقعی در کادر سنجیده می‌شود، نه با صدا زدنِ تابع (TEST-02). عددها دستی حساب شده‌اند: ۳×۸۵۰٬۰۰۰=۲٬۵۵۰٬۰۰۰ و ۳×۵۰۰٬۰۰۰=۱٬۵۰۰٬۰۰۰ (TEST-06).",
+      "name": "قیمتِ واحد با انتخابِ کالا می‌آید و دستی هم عوض می‌شود",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const wrap=document.getElementById('itemsWrap');wrap.innerHTML='';addItemRow();await w(200);const row=wrap.lastElementChild;const sel=row.querySelector('.ir-prod'),pe=row.querySelector('.ir-price'),qe=row.querySelector('.ir-qty');if(!pe)throw new Error('کادرِ قیمت روی ردیف نیست');sel.value='p1';sel.dispatchEvent(new Event('change',{bubbles:true}));await w(300);const auto=parseNum(pe.value);qe.value='3';qe.dispatchEvent(new Event('input',{bubbles:true}));await w(200);const t1=parseNum(row.querySelector('.ir-linev').textContent);pe.value='500000';pe.dispatchEvent(new Event('input',{bubbles:true}));await w(300);const t2=parseNum(row.querySelector('.ir-linev').textContent);const prodPrice=(PRODUCTS.find(x=>x.id==='p1')||{}).price;const hint=(row.querySelector('.ir-linecalc').textContent||'');return 'خودکار:'+auto+'|جمع۱:'+t1+'|جمع۲:'+t2+'|قیمتِ کالا:'+prodPrice+'|دستی‌گفت:'+(hint.indexOf('دستی')>=0);}",
+      "expect": "خودکار:850000|جمع۱:2550000|جمع۲:1500000|قیمتِ کالا:850000|دستی‌گفت:true"
+    },
+    {
+      "_note": "نگرانیِ صریحِ مالک: «اون قیمتی که توی بخش کالا برای هر کالا ثبت کردیم دست نمیخوره». پس ثبتِ فاکتور با قیمتِ دستی باید (۱) همان قیمتِ دستی را بفرستد، (۲) هیچ نوشتنی روی جدولِ products نکند، (۳) قیمتِ داخلِ PRODUCTS را هم دست نزند. هر سه با هم سنجیده می‌شوند چون هرکدام جدا می‌توانست سبز باشد و باز هم قیمتِ کالا خراب شود.",
+      "name": "قیمتِ دستیِ فاکتور به قیمتِ ثبت‌شده‌ی کالا دست نمی‌زند",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const wrap=document.getElementById('itemsWrap');wrap.innerHTML='';addItemRow();await w(200);const row=wrap.lastElementChild;const sel=row.querySelector('.ir-prod'),pe=row.querySelector('.ir-price');if(!pe)throw new Error('کادرِ قیمت روی ردیف نیست');sel.value='p1';sel.dispatchEvent(new Event('change',{bubbles:true}));await w(300);pe.value='500000';pe.dispatchEvent(new Event('input',{bubbles:true}));row.querySelector('.ir-qty').value='2';row.querySelector('.ir-qty').dispatchEvent(new Event('input',{bubbles:true}));await w(300);document.getElementById('nName').value='آزمایشِ قیمت';window.__WRITES.length=0;await submitInvoice();await w(1200);const inv=window.__WRITES.filter(x=>x.rpc==='create_invoice');const sent=inv.length&&inv[0].body&&inv[0].body.p_items&&inv[0].body.p_items[0]?inv[0].body.p_items[0].unit_price:'—';const prodW=window.__WRITES.filter(x=>x.table==='products').length;return 'فرستاد:'+sent+'|نوشتنِ کالا:'+prodW+'|قیمتِ کالا:'+((PRODUCTS.find(x=>x.id==='p1')||{}).price);}",
+      "expect": "فرستاد:500000|نوشتنِ کالا:0|قیمتِ کالا:850000"
     }
   ],
   "click_test": {

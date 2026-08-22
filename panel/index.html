@@ -236,7 +236,9 @@ input,select,textarea{font-size:16px}
 .ir-grid{display:flex;gap:8px}
 .ir-grid .f{flex:1}
 .ir-grid .f label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
-/* قیمتِ واحد دیگر دستی وارد نمی‌شود: از خودِ کالا می‌آید و اینجا فقط نشان داده می‌شود */
+/* تعداد باریک، قیمت پهن. با flex:1 روی هر دو، در ۳۲۰ پیکسل کادرِ قیمت جا نداشت
+   و عددِ ۱۰ رقمی از آن بیرون می‌زد؛ تعداد حداکثر ۶ رقم است و این اندازه کافی است. */
+.ir-grid .f.qty{flex:0 0 84px}
 .ir-linecalc{text-align:left;font-size:11px;color:var(--muted);margin-top:3px;min-height:14px}
 .linkbtn{background:none;border:0;padding:0;font-family:inherit;font-size:11px;font-weight:700;color:var(--gold-lt);text-decoration:underline;cursor:pointer}
 .ir-line{text-align:left;font-size:12.5px;color:var(--gold-lt);font-weight:700;margin-top:8px}
@@ -1671,6 +1673,9 @@ async function fillFromLastInvoice(){
       addItemRow(); const row=wrap.lastElementChild;
       row.querySelector('.ir-prod').value=p.id;
       row.querySelector('.ir-qty').value=String(it.quantity||1);
+      /* همان قیمتی که به این مشتری داده بودیم برمی‌گردد — نکته‌ی اصلیِ این دکمه
+         همین است. اگر با قیمتِ امروزِ کالا فرق کند، کنارِ ردیف گفته می‌شود. */
+      rowSetPrice(row, Math.round(Number(it.unit_price)||0));
       added++;
     });
     if(!added){ addItemRow(); toast('هیچ‌کدوم از جنسای فاکتورِ قبلیش دیگه تو لیست نیست 🙏'); return; }
@@ -1682,7 +1687,7 @@ function addItemRow(){
   const wrap=document.getElementById('itemsWrap'), div=document.createElement('div');
   div.className='itemrow';
   div.innerHTML=`<div class="ir-top"><select class="inp ir-prod" onchange="onPickProduct(this)">${productOptions()}</select><button class="del" title="حذفِ این قلم" aria-label="حذفِ این قلم" onclick="this.closest('.itemrow').remove();recalc()">×</button></div>
-    <div class="ir-grid"><div class="f"><label>تعداد</label><input class="inp ir-qty" maxlength="6" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div></div>
+    <div class="ir-grid"><div class="f qty"><label>تعداد</label><input class="inp ir-qty" maxlength="6" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div><div class="f"><label>قیمتِ واحد (تومان)</label><input class="inp ir-price" maxlength="13" dir="ltr" inputmode="numeric" placeholder="از کالا می‌آید" oninput="grpInput(this);recalc()"></div></div>
     <div class="ir-line">جمع: <span class="ir-linev">۰</span></div><div class="ir-linecalc"></div>`;
   wrap.appendChild(div); recalc();
 }
@@ -1983,17 +1988,24 @@ function discountAmount(total){
   if(m==='p'){ let pct=faFloat(el.value); if(isNaN(pct)||pct<0)pct=0; if(pct>100)pct=100; return Math.round(Number(total||0)*pct/100); }
   return parseNum(el.value);
 }
-/* قیمتِ واحد هیچ فیلدی ندارد — از خودِ کالا خوانده می‌شود.
-   استثنا: پیش‌فاکتور. قیمتی که به مشتری قول داده شده روی خودِ ردیف قفل می‌شود
-   (data-lock) تا با تغییرِ قیمتِ کالا عوض نشود. با عوض‌کردنِ کالا قفل باز می‌شود. */
+/* قیمتِ واحد یک کادرِ واقعی روی هر ردیف است (خواستِ مالک، ۱۴۰۵/۰۵/۳۱): با انتخابِ
+   کالا خودش پر می‌شود و بعدش دستی هم عوض می‌شود، چون بعضی مشتری‌ها قیمتِ خاصِ
+   خودشان را دارند.
+   **کادرِ فاکتور هیچ‌وقت روی قیمتِ خودِ کالا نمی‌نویسد** — قیمتِ ثبت‌شده در بخشِ
+   کالاها فقط از فرمِ همان کالا (`pPrice`) عوض می‌شود. اینجا فقط خوانده می‌شود.
+   منبعِ حقیقتِ قیمتِ هر ردیف همان چیزی است که در کادر دیده می‌شود — هیچ مقدارِ
+   پنهانی پشتش نیست (قبلاً `data-lock` بود و حالا لازم نیست). */
 function rowListPrice(row){ const sel=row&&row.querySelector('.ir-prod'); if(!sel||!sel.value)return 0;
   const p=PRODUCTS.find(x=>String(x.id)===String(sel.value)); return p?Math.max(0,Math.round(Number(p.price)||0)):0; }
 function rowUnitPrice(row){ if(!row)return 0;
-  const lock=row.dataset?row.dataset.lock:null;
-  if(lock!=null && lock!=='' && Number(lock)>0) return Math.max(0,Math.round(Number(lock)));
-  return rowListPrice(row); }
-function rowUseListPrice(row){ if(row&&row.dataset)delete row.dataset.lock; recalc(); }
-function onPickProduct(sel){ const row=sel.closest('.itemrow'); if(row&&row.dataset)delete row.dataset.lock; recalc(); }
+  const el=row.querySelector('.ir-price');
+  if(!el) return rowListPrice(row);            /* ردیفی که کادر ندارد، مثلِ قبل */
+  return Math.max(0, Math.round(parseNum(el.value)||0)); }
+function rowSetPrice(row,v){ const el=row&&row.querySelector('.ir-price'); if(!el)return;
+  el.value=(Number(v)>0)?faNum(Math.round(Number(v))):''; }
+function rowUseListPrice(row){ rowSetPrice(row,rowListPrice(row)); recalc(); }
+/* عوض‌کردنِ کالا یعنی قیمتِ قبلی دیگر معنی ندارد؛ قیمتِ کالای تازه می‌نشیند. */
+function onPickProduct(sel){ const row=sel.closest('.itemrow'); if(row)rowSetPrice(row,rowListPrice(row)); recalc(); }
 function recalc(){
   let total=0;
   document.querySelectorAll('.itemrow').forEach(row=>{
@@ -2002,14 +2014,17 @@ function recalc(){
     const lc=row.querySelector('.ir-linecalc');
     if(lc){
       if(!pid){ lc.textContent=''; }
-      else if(!(pr>0)){ lc.textContent='قیمتِ این کالا ثبت نشده'; }
+      else if(!(pr>0)){ lc.textContent=rowListPrice(row)>0?'قیمتِ این ردیف را وارد کن':'قیمتِ این کالا ثبت نشده — دستی بنویسش'; }
       else{
-        const locked=!!(row.dataset&&row.dataset.lock), today=rowListPrice(row);
+        /* «دستی» یعنی عددِ کادر با قیمتِ ثبت‌شده‌ی خودِ کالا فرق دارد. این را از
+           مقایسه‌ی همین دو عدد می‌فهمیم، نه از یک نشانه‌ی پنهان — پس هر راهی که
+           قیمت را عوض کند (تایپ، آوردنِ فاکتورِ قبلی، پیش‌فاکتور) خودش دیده می‌شود. */
+        const today=rowListPrice(row), custom=(today>0 && today!==pr);
         let t=faNum(q>0?q:0)+' عدد × '+faNum(pr)+' تومان';
-        if(locked) t+=' · قیمتِ پیش‌فاکتور';
+        if(custom) t+=' · قیمتِ دستی';
         lc.textContent=t;
-        if(locked && today>0 && today!==pr){
-          lc.innerHTML=esc(t)+' — <button type="button" class="linkbtn" onclick="rowUseListPrice(this.closest(\'.itemrow\'))">قیمتِ امروز '+faNum(today)+' بشه؟</button>';
+        if(custom){
+          lc.innerHTML=esc(t)+' — <button type="button" class="linkbtn" onclick="rowUseListPrice(this.closest(\'.itemrow\'))">قیمتِ خودِ کالا '+faNum(today)+' بشه؟</button>';
         }
       }
     }
@@ -3404,7 +3419,9 @@ function _fillFormFromQuote(q){
   document.getElementById('nPaid').value=0;
   const wrap=document.getElementById('itemsWrap'); wrap.innerHTML='';
   asArray(q.items).forEach(it=>{ addItemRow(); const rows=document.querySelectorAll('.itemrow'); const r=rows[rows.length-1]; const sel=r.querySelector('.ir-prod'); sel.value=it.product_id; r.querySelector('.ir-qty').value=it.quantity;
-    const up=Math.round(Number(it.unit_price)||0); if(up>0)r.dataset.lock=String(up); });
+    /* قیمتی که به مشتری قول داده شده می‌نشیند، نه قیمتِ امروزِ کالا. اگر فرق داشته
+       باشد، خودِ recalc کنارِ ردیف دکمه‌ی «قیمتِ خودِ کالا … بشه؟» را نشان می‌دهد. */
+    rowSetPrice(r, Math.round(Number(it.unit_price)||0)); });
   if(document.querySelectorAll('.itemrow').length===0)addItemRow();
   if(typeof checkCustomerMatch==='function')checkCustomerMatch(); recalc();
 }
