@@ -106,19 +106,22 @@ function check(name: string, got: unknown, want: unknown) {
 // ── ۱) جمعِ سفارش بدونِ تخفیف، با عددِ دستی‌حساب‌شده ────────────────────────
 // ۳ × ۸۵۰٬۰۰۰ + ۲ × ۴۲۰٬۰۰۰ = ۲٬۵۵۰٬۰۰۰ + ۸۴۰٬۰۰۰ = ۳٬۳۹۰٬۰۰۰
 console.log("\n━━━ جمعِ سفارش ━━━");
+// تعدادها عمداً ۶ و ۱۲ اند: از نسخه‌ی ۴۲ ربات تعدادِ دیگری نمی‌سازد، پس سبدی با
+// ۳ عدد حالتی است که در دنیای واقعی ممکن نیست و شبیه‌ساز نباید بسازدش (TEST-05).
+// ۶×۸۵۰٬۰۰۰ + ۱۲×۴۲۰٬۰۰۰ = ۵٬۱۰۰٬۰۰۰ + ۵٬۰۴۰٬۰۰۰ = ۱۰٬۱۴۰٬۰۰۰
 const CART = [
-  { product_id: "p1", name: "شلوار", quantity: 3, unit_price: 850000 },
-  { product_id: "p2", name: "شومیز", quantity: 2, unit_price: 420000 },
+  { product_id: "p1", name: "شلوار", quantity: 6, unit_price: 850000 },
+  { product_id: "p2", name: "شومیز", quantity: 12, unit_price: 420000 },
 ];
 reset({ step: "address", cart: CART, customer_name: "حاج رضا", customer_phone: "0912", customer_city: "قشم" });
 await send(msg("خیابان اول، پلاک ۲"));
-check("جمع بدونِ تخفیف", DB.telegram_orders[0]?.total, 3390000);
+check("جمع بدونِ تخفیف", DB.telegram_orders[0]?.total, 10140000);
 
 // ── ۲) تخفیفِ درصدی ─────────────────────────────────────────────────────────
-// ۳٬۳۹۰٬۰۰۰ × ۰٫۹ = ۳٬۰۵۱٬۰۰۰
+// ۱۰٬۱۴۰٬۰۰۰ × ۰٫۹ = ۹٬۱۲۶٬۰۰۰
 reset({ step: "address", cart: CART, customer_name: "x", customer_phone: "y", customer_city: "z", discount_pct: 10, discount_code: "OFF10" });
 await send(msg("آدرس"));
-check("تخفیفِ ۱۰٪", DB.telegram_orders[0]?.total, 3051000);
+check("تخفیفِ ۱۰٪", DB.telegram_orders[0]?.total, 9126000);
 
 // ── ۳) تخفیفِ ۱۰۰٪ نباید منفی یا عجیب بدهد ─────────────────────────────────
 reset({ step: "address", cart: CART, customer_name: "x", customer_phone: "y", customer_city: "z", discount_pct: 100, discount_code: "FREE" });
@@ -137,6 +140,51 @@ check("درصدِ ۱۵۰ → صفر، نه منفی", DB.telegram_orders[0]?.tot
 reset({ step: "address", cart: [], customer_name: "x", customer_phone: "y", customer_city: "z" });
 await send(msg("آدرس"));
 check("سبدِ خالی سفارش نمی‌سازد", DB.telegram_orders.length, 0);
+
+// ── ۴.۵) تعداد باید مضربِ ۶ باشد ────────────────────────────────────────────
+// نیم‌جین ۶، جین ۱۲، جین‌ونیم ۱۸، دو جین ۲۴، دو جین‌ونیم ۳۰ … همه مضربِ ۶ اند.
+// خواستِ مالک، به همین ترتیب: نیم‌جین، جینِ کامل، هر مضربِ ۱۲، و هر جینِ کاملی
+// که یک نیم‌جین به آن اضافه شود.
+// گفتنِ قاعده بدونِ اجرا کردنش بدتر از نگفتنش است: مشتری ۳ تا سفارش می‌دهد،
+// سفارش ثبت می‌شود، و مالک باید زنگ بزند و درستش کند.
+// مرزها عمداً هر دو طرفِ ۶ را می‌گیرند (۵ و ۷)، وگرنه یک سدِ «فقط ≥۶» هم سبز
+// می‌شد بی‌آنکه مضرب بودن را بسنجد.
+console.log("\n━━━ بسته‌بندیِ فروش ━━━");
+for (const bad of ["۳", "۱", "۵", "۷", "۱۳", "۱۷", "۱۹", "۲۵"]) {
+  reset({ step: "qty", cart: [], temp_product_id: "p1" });
+  TG.length = 0;
+  await send(msg(bad));
+  const t = TG.filter((x) => x.method === "sendMessage").map((x) => String(x.payload.text)).join("\n");
+  check(`تعدادِ ${bad} رد می‌شود`, (DB.telegram_sessions[0]?.cart || []).length, 0);
+  check(`ارورِ ${bad} راهنما را نشان می‌دهد`, /۶ عدد/.test(t) && /۱۲ عدد/.test(t), true);
+}
+// عددِ غلطِ بالای ۶ باید نزدیک‌ترین‌های درست را پیشنهاد بدهد، وگرنه مشتری باید
+// خودش حساب کند و همان‌جا رها می‌کند.
+// ⚠️ عمداً ۵۰ آزموده می‌شود نه ۲۰: همسایه‌های ۲۰ (۱۸ و ۲۴) خودشان در متنِ راهنما
+// هستند، پس آن بررسی حتی با برداشتنِ کلِ پیشنهاد هم سبز می‌مانْد — با جهشِ عمدی
+// همین اتفاق افتاد. ۴۸ و ۵۴ هیچ‌جای دیگرِ پیام نیستند.
+{
+  reset({ step: "qty", cart: [], temp_product_id: "p1" });
+  TG.length = 0;
+  await send(msg("۵۰"));
+  const t = TG.filter((x) => x.method === "sendMessage").map((x) => String(x.payload.text)).join("\n");
+  check("ارورِ ۵۰ نزدیک‌ترین‌ها (۴۸ و ۵۴) را پیشنهاد می‌دهد", /۴۸/.test(t) && /۵۴/.test(t), true);
+}
+for (const ok of ["۶", "۱۲", "۱۸", "۲۴", "۳۰", "۳۶"]) {
+  reset({ step: "qty", cart: [], temp_product_id: "p1" });
+  await send(msg(ok));
+  check(`تعدادِ ${ok} قبول می‌شود`, (DB.telegram_sessions[0]?.cart || []).length, 1);
+}
+// پیامِ پرسش هم باید همین را بگوید، وگرنه مشتری اول عددِ غلط می‌زند و بعد ارور می‌بیند.
+reset({ step: "choosing", cart: [] });
+TG.length = 0;
+await send({ callback_query: { id: "9", data: "buy_p1", from: { id: CHAT }, message: { chat: { id: CHAT } } } });
+{
+  const t = TG.filter((x) => x.method === "sendMessage").map((x) => String(x.payload.text)).join("\n");
+  check("پرسشِ تعداد خودش نیم‌جین و جین را می‌گوید", /۶ عدد/.test(t) && /۱۲ عدد/.test(t), true);
+  // مالک صریح خواست عدد بگیرد نه تعدادِ جین، پس پیام باید همین را روشن بگوید.
+  check("پرسشِ تعداد می‌گوید عدد بنویس نه جین", /نه تعدادِ جین/.test(t) && /۱۸/.test(t), true);
+}
 
 // ── ۵) نامِ بدقواره باید در پیامِ تلگرام فرار داده شود (SEC-04) ─────────────
 console.log("\n━━━ فرارِ خروجی ━━━");
@@ -264,15 +312,15 @@ check("لیستِ کالاها رویدادِ browse می‌سازد", evs(), ["
 
 // افزودن به سبد: عددِ تعداد که می‌رسد، نه لحظه‌ی فشردنِ «می‌خوامش».
 reset({ step: "qty", cart: [], temp_product_id: "p1" });
-await send(msg("۳"));
+await send(msg("۶"));
 check("افزودن به سبد رویدادِ cart_add می‌سازد", evs().filter((e) => e === "cart_add").length, 1);
-check("cart_add تعداد را نگه می‌دارد", DB.bot_events.find((e) => e.event === "cart_add")?.meta, { qty: 3, unit_price: 850000 });
+check("cart_add تعداد را نگه می‌دارد", DB.bot_events.find((e) => e.event === "cart_add")?.meta, { qty: 6, unit_price: 850000 });
 
-// ثبتِ سفارش → `order` با جمعِ دستی‌حساب‌شده: ۳×۸۵۰٬۰۰۰ + ۲×۴۲۰٬۰۰۰ = ۳٬۳۹۰٬۰۰۰
+// ثبتِ سفارش → `order` با جمعِ دستی‌حساب‌شده: ۶×۸۵۰٬۰۰۰ + ۱۲×۴۲۰٬۰۰۰ = ۱۰٬۱۴۰٬۰۰۰
 reset({ step: "address", cart: CART, customer_name: "x", customer_phone: "y", customer_city: "z" });
 await send(msg("آدرس"));
 check("سفارش رویدادِ order با جمعِ درست می‌سازد",
-  DB.bot_events.find((e) => e.event === "order")?.meta, { total: 3390000, items: 2 });
+  DB.bot_events.find((e) => e.event === "order")?.meta, { total: 10140000, items: 2 });
 
 // سفارشی که **ثبت نشده** نباید رویدادِ order بسازد، وگرنه نرخِ تبدیل باد می‌کند.
 reset({ step: "address", cart: [], customer_name: "x", customer_phone: "y", customer_city: "z" });
