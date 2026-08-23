@@ -191,9 +191,13 @@ def _declare(u, k) -> None:
     u.GetWindowTextW.restype = ctypes.c_int
     u.AttachThreadInput.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.BOOL]
     u.AttachThreadInput.restype = wintypes.BOOL
-    # GetWindowThreadProcessId is left alone on purpose: callers pass either a
-    # byref(DWORD) or None for the second argument, and a fixed argtypes list
-    # would reject one of them.
+    # GetWindowThreadProcessId keeps its argtypes free on purpose — callers pass
+    # either a byref(DWORD) or None for the second argument, and a fixed list
+    # would reject one of them. The **restype** has no such excuse: it hands
+    # back a DWORD thread id, and ctypes' default c_int makes anything above
+    # 2^31 come back negative. Same family as the truncated HGLOBAL that
+    # crashed CI, just quieter.
+    u.GetWindowThreadProcessId.restype = wintypes.DWORD
     u.SendInput.argtypes = [wintypes.UINT, ctypes.c_void_p, ctypes.c_int]
     u.SendInput.restype = wintypes.UINT
 
@@ -209,17 +213,34 @@ def _declare(u, k) -> None:
     k.GetCurrentThreadId.restype = wintypes.DWORD
 
 
+_LIBS: tuple | None = None
+
+
 def _libs():
-    global _PROTOTYPES_DONE
+    """The two libraries, loaded once, with the error code actually kept.
+
+    ``ctypes.windll.user32`` — the obvious spelling, and the one this used —
+    does **not** save the Win32 last-error. ``ctypes.get_last_error()`` reads a
+    private copy that is only filled in for libraries loaded with
+    ``use_last_error=True``, so without the flag it answers ``0`` forever.
+
+    That was not academic: :mod:`mlqvoice.hotkey` prints that number when
+    registering the hotkey fails, and the one clue that would say *why* —
+    ``1409``, somebody else already owns this combination — was being reported
+    as zero every single time.
+
+    Loading them ourselves means caching them ourselves, because ``WinDLL``
+    builds a fresh object per call and the declarations below would be lost.
+    """
+    global _LIBS
     if not IS_WINDOWS:
         raise NotWindows("این بخش فقط روی ویندوز کار می‌کند")
-    u, k = ctypes.windll.user32, ctypes.windll.kernel32
-    if not _PROTOTYPES_DONE:
-        # ctypes caches these library objects per process, so the declarations
-        # stick and every later caller gets them already correct.
+    if _LIBS is None:
+        u = ctypes.WinDLL("user32", use_last_error=True)
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
         _declare(u, k)
-        _PROTOTYPES_DONE = True
-    return u, k
+        _LIBS = (u, k)
+    return _LIBS
 
 
 def user32():

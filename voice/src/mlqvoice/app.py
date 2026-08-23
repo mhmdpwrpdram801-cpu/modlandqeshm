@@ -24,6 +24,7 @@ from .text import (
     transform_hits,
 )
 from .text import stats as usage
+from .text.lexicon import DictionaryError
 from .ui.overlay import Overlay
 from .ui.tray import Tray
 from .win32 import IS_WINDOWS
@@ -402,8 +403,6 @@ class VoiceApp:
         could not even be reached (§۵.۵). So the feature existed and nobody
         could use it.
         """
-        from PySide6.QtWidgets import QMessageBox
-
         stored = learning.load(learned_file())
         if not stored:
             self.tray.showMessage(
@@ -430,9 +429,14 @@ class VoiceApp:
 
         try:
             added = learning.apply_to_dictionary(user_dictionary_file(), stored)
-        except learning.DictionaryUnreadable as exc:
-            # Never silently: a refusal the user cannot see is the same as the
-            # write having failed for no reason (OPS-03).
+        except (learning.DictionaryUnreadable, OSError) as exc:
+            # OSError as well as the JSON one, and that gap was a real bug: a
+            # full disk or a locked file raised straight out of this Qt slot,
+            # while `_learn_from` and `_count` — the same kind of write, three
+            # screens up — both guard for it.
+            #
+            # Never silently, either: a refusal the user cannot see is the same
+            # as the write having failed for no reason (OPS-03).
             self.tray.showMessage(
                 APP_NAME, f"دیکشنریِ تو دست‌نخورده ماند: {exc}", self.tray.icon(), 8000
             )
@@ -486,7 +490,10 @@ def _open_in_editor(path) -> None:
 
 def run() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    qt = QApplication(sys.argv)
+    # Reuse whatever is already up rather than insisting on being first: Qt
+    # allows exactly one QApplication per process, and creating a second one is
+    # a hard crash. `selftest` already follows this rule.
+    qt = QApplication.instance() or QApplication(sys.argv)
     qt.setApplicationName(APP_NAME)
     qt.setQuitOnLastWindowClosed(False)  # the overlay closing must not end the app
 
@@ -506,8 +513,17 @@ def run() -> int:
     try:
         app = VoiceApp(cfg)
         app.start()
-    except (ConfigError, HotkeyError, BrowserNotFound) as exc:
+    except (ConfigError, DictionaryError, HotkeyError, BrowserNotFound) as exc:
         QMessageBox.critical(None, APP_NAME, str(exc))
+        return 2
+    except Exception as exc:
+        # Deliberately broad, and only here. A --windowed build has no console:
+        # anything that escapes this line takes the process down with no window,
+        # no message and nothing in any log the user can reach — they double
+        # click the icon and nothing happens, forever. Showing the wrong-looking
+        # error is worth a great deal more than showing none.
+        log.exception("راه‌اندازی شکست خورد")
+        QMessageBox.critical(None, APP_NAME, f"راه‌اندازی شکست خورد:\n\n{exc}")
         return 2
 
     return qt.exec()

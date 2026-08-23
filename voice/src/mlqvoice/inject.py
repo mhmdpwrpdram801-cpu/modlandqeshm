@@ -62,7 +62,13 @@ def capture_target(reject_pids: set[int] | None = None) -> int:
 
 
 def window_title(hwnd: int) -> str:
-    """Best-effort title, used only to tell the user where the text will land."""
+    """Best-effort window title.
+
+    Nothing in the interface shows this — an earlier docstring claimed it did.
+    It earns its place in the Windows tests instead, where "focus went to the
+    wrong window" is useless without naming which one (§۴ of the README: a
+    failing check should point at the next step).
+    """
     if not hwnd:
         return ""
     u = user32()
@@ -248,8 +254,13 @@ def insert(
         raise InjectError(f"حالتِ نوشتنِ ناشناخته: {mode!r}")
 
     saved = get_clipboard_text() if restore_clipboard else None
-    set_clipboard_text(text)
+    # `set_clipboard_text` is *inside* the try, and that placement is the whole
+    # point: it empties the clipboard before it writes, so a refusal halfway
+    # through used to leave the user with nothing where their copied text had
+    # been — and the restore below sat after the call that raised, where it
+    # could never run.
     try:
+        set_clipboard_text(text)
         press_ctrl_v()
         # Let the target read the clipboard before we take it back.
         time.sleep(0.12)

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from mlqvoice.text.lexicon import Entry, Lexicon, build_lexicon, spoken_key
+from mlqvoice.text.lexicon import DictionaryError, Entry, Lexicon, build_lexicon, spoken_key
 from mlqvoice.text.normalize import ZWNJ
 from mlqvoice.text.pipeline import Options, render, transform
 
@@ -118,9 +118,12 @@ class TestUserDictionary:
         assert t("کامیت", lex) == "commit"
 
     def test_broken_user_file_raises_rather_than_being_ignored(self, tmp_path):
+        # DictionaryError rather than the bare JSONDecodeError it used to be:
+        # the caller has to be able to catch this on purpose, and the message
+        # has to name the file. See tests/test_startup_survives_bad_files.py.
         f = tmp_path / "dictionary.json"
         f.write_text("{ this is not json", encoding="utf-8")
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(DictionaryError, match=r"dictionary\.json"):
             build_lexicon(user_file=f)
 
 

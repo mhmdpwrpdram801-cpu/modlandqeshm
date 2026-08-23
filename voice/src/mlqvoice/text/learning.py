@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from ..paths import write_atomic
 from .lexicon import Lexicon
 from .normalize import normalize
 from .pipeline import Options, transform
@@ -138,7 +139,7 @@ def save(path: Path, suggestions: list[Suggestion]) -> None:
         "note": "پیشنهادهایی که از ویرایش‌های خودت درآمده. جایی فرستاده نمی‌شود.",
         "suggestions": [asdict(s) for s in ranked],
     }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
 def merge(existing: list[Suggestion], fresh: list[Suggestion]) -> list[Suggestion]:
@@ -219,5 +220,5 @@ def apply_to_dictionary(target: Path, suggestions: list[Suggestion], *, min_coun
             if form not in current:
                 current.append(form)
                 added += 1
-    target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_atomic(target, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     return added
