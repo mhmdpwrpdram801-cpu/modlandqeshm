@@ -1114,6 +1114,28 @@ async function sbInsert(table,row){ const r=await sbFetch(table,{method:"POST",h
 async function sbUpdate(table,id,row){ const r=await sbFetch(table+"?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:{"Prefer":"return=representation"},body:JSON.stringify(row)}); const d=await r.json().catch(()=>([])); if(!r.ok)throw new Error(d.message||"خطا در ویرایش"); if(Array.isArray(d)&&d.length===0)throw new Error("چیزی ویرایش نشد — این ردیف پیدا نشد (شاید حذف شده)"); return Array.isArray(d)?d[0]:d; }
 async function sbUpsert(table,row){ const r=await sbFetch(table,{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(row)}); const d=await r.json().catch(()=>([])); if(!r.ok)throw new Error(d.message||"خطا در ذخیره"); return Array.isArray(d)?d[0]:d; }
 async function sbDelete(table,id){ const r=await sbFetch(table+"?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:{"Prefer":"return=representation"}}); const d=await r.json().catch(()=>([])); if(!r.ok){ throw new Error((d&&d.message)||"خطا در حذف"); } if(Array.isArray(d)&&d.length===0)throw new Error("چیزی حذف نشد — این ردیف پیدا نشد (شاید قبلاً حذف شده)"); }
+/* تازه‌کردنِ کشِ کالا و مشتری بعد از یک نوشتنِ موفق.
+   ⚠️ اینجا catchِ خالی خطرناک است و اندازه‌گیری شد: حذفِ گروهیِ ۲ کالا موفق می‌شود و
+   toastِ «۲ کالا حذف شد» هم می‌آید، ولی روی اینترنتِ ضعیف تازه‌کردنِ لیست می‌افتد و همان
+   دو کالا هم در لیستِ کالاها هم در کشوی انتخابِ کالای فاکتور می‌مانند — یعنی خبرِ موفقیت
+   درست است ولی چیزی که کاربر می‌بیند دروغ. چهار مسیرِ تک‌کالایی این محافظ را داشتند و
+   مسیرهای گروهی نداشتند. */
+/* ⚠️ هشدار عمداً با تأخیر می‌آید و این تزیین نیست: `toast` یک عنصرِ واحد است و
+   `textContent` را رونویسی می‌کند. در `submitInvoice` و `convertTgOrder` بلافاصله
+   بعد از تازه‌کردنِ کش یک پیامِ موفقیت می‌آید، پس نسخه‌ی اولِ همین اصلاح هشدار را
+   می‌داد و همان میلی‌ثانیه پاک می‌شد — محافظی که تست تأییدش می‌کرد و کاربر هیچ‌وقت
+   نمی‌دیدش. ۲۴۰۰ کمی بیشتر از عمرِ ۲۳۰۰ میلی‌ثانیه‌ایِ toast است تا هشدار آخرین
+   چیزی باشد که روی صفحه می‌مانَد. بررسیِ خودکارش متنِ واقعیِ رویِ صفحه را می‌خوانَد،
+   نه اینکه فقط بپرسد `toast` صدا زده شد یا نه. */
+function _staleWarn(what){ setTimeout(()=>toast('⚠️ لیستِ '+what+' تازه نشد — چیزی که می‌بینی کهنه‌ست، صفحه رو دوباره باز کن'), 2400); }
+async function reloadProducts(){
+  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); return true; }
+  catch(_){ _staleWarn('کالاها'); return false; }
+}
+async function reloadCustomers(){
+  try{ CUSTOMERS=await sbGetAll("customers?select=*&order=name.asc"); fillCustomerSelect(); return true; }
+  catch(_){ _staleWarn('مشتری‌ها'); return false; }
+}
 async function sbRpc(fn,args){ const r=await sbFetch("rpc/"+fn,{method:"POST",body:JSON.stringify(args)}); const d=await r.json().catch(()=>({})); if(!r.ok)throw new Error((d&&(d.message||d.hint))||"خطا"); return d; }
 
 /* login */
@@ -1397,7 +1419,7 @@ async function bulkInvCancel(){
   if(paid.length)m='⚠️ '+faNum(paid.length)+' تا از این‌ها پرداختی دارند؛ با ابطال، پرداختی‌شان هم از حسابِ مشتری حذف می‌شود.\n\n'+m;
   if(!await ask(m))return;
   await bulkProgress(active.map(v=>v.id), id=>sbRpc('cancel_invoice',{p_invoice_id:id}), '{n} فاکتور باطل شد ✅');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+  await reloadProducts();
   renderInvoices();
 }
 async function bulkInvSettle(){
@@ -1422,7 +1444,7 @@ async function bulkInvReturn(){
     if(!rets.length)throw new Error('قلمی برای مرجوعی نداشت');
     await sbRpc('return_invoice_items',{p_invoice_id:id,p_returns:rets});
   }, 'مرجوعیِ {n} فاکتور ثبت شد ✅');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+  await reloadProducts();
   renderInvoices();
 }
 async function bulkProdDelete(){
@@ -1431,7 +1453,7 @@ async function bulkProdDelete(){
   await _bulkOneShot(document.getElementById('bulkBar'),'در حال حذفِ '+faNum(ids.length)+' کالا (یکجا)…',
     ()=>Promise.all(_chunks(ids,60).map(ch=>sbFetch("products?id=in.("+_inList(ch)+")",{method:"DELETE",headers:{"Prefer":"return=minimal"}}).then(r=>{ if(!r.ok)throw new Error('خطا در حذف'); }))),
     faNum(ids.length)+' کالا حذف شد');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+  await reloadProducts();
   renderProducts(); try{ fillCustFilter(); }catch(_){}
 }
 async function bulkCustSettle(){
@@ -1644,8 +1666,8 @@ async function convertTgOrder(id){
   catch(e){ window.__busyConv=false; toast(e.message||'خطا'); try{ await renderTgOrders(); }catch(_){} return; }
   window.__busyConv=false;
   if(res&&res.replayed)toast('این سفارش قبلاً فاکتور شده بود — همون فاکتور رو نشونت می‌دم');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
-  if(res&&res.customer_created){ try{ CUSTOMERS=await sbGetAll("customers?select=*&order=name.asc"); fillCustomerSelect(); }catch(_){} }
+  await reloadProducts();
+  if(res&&res.customer_created){ await reloadCustomers(); }
   if(!(res&&res.replayed))toast('فاکتور شماره '+faNum(res.invoice_number)+' ساخته شد ✅'+((res&&res.customer_created)?' — مشتریش هم ثبت شد 👤':''));
   try{ await renderTgOrders(); }catch(_){}
   if(res&&res.id){ try{ document.getElementById('tgOrdersView').classList.add('hidden'); }catch(_){} try{ await openInvoiceById(res.id); }catch(_){} }
@@ -2105,8 +2127,8 @@ async function submitInvoice(){
     window.PENDING_QUOTE_DELETE=null; window.EDITING_QUOTE_ID=null;
     if(res&&res.replayed)toast('این فاکتور قبلاً ثبت شده بود — همون رو نشونت می‌دم (دوباره ثبت نشد)');
     const _newCust=!!(res&&res.customer_created), _custName=args.p_buyer_name;
-    try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
-    if(_newCust){ try{ CUSTOMERS=await sbGetAll("customers?select=*&order=name.asc"); fillCustomerSelect(); }catch(_){} }
+    await reloadProducts();
+    if(_newCust){ await reloadCustomers(); }
     try{ showInvoice(res,args); resetInvoiceForm(); }catch(_){}
     toast('فاکتور شماره '+faNum(res.invoice_number)+' ثبت شد ✅'+(_newCust?(' — «'+_custName+'» هم به مشتری‌ها اضافه شد 👤'):''));
   }catch(e){ msg.className='msg err'; msg.textContent=e.message; }
@@ -2363,7 +2385,7 @@ async function submitInvoiceReturn(){
     const res=await sbRpc('return_invoice_items',{p_invoice_id:id,p_returns:returns});
     document.getElementById('invReturnView').classList.add('hidden');
     toast('مرجوعی ثبت شد ✅ مبلغِ '+faNum(res.refund)+' ت به حسابِ مشتری برگشت');
-    try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+    await reloadProducts();
     try{ await openInvoiceById(id); }catch(_){}
   }catch(e){ msg.className='msg err'; msg.textContent=e.message; delete btn.dataset.busy; btn.disabled=false; btn.textContent='ثبتِ مرجوعی'; }
 }
