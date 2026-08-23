@@ -12,7 +12,7 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-from .paths import config_file
+from .paths import config_file, write_atomic
 
 # Win32 modifier bits (MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN).
 MODIFIERS = {"alt": 0x0001, "ctrl": 0x0002, "control": 0x0002, "shift": 0x0004, "win": 0x0008}
@@ -181,7 +181,7 @@ def load(path: Path | None = None) -> Config:
 
 def save(cfg: Config, path: Path | None = None) -> Path:
     path = path or config_file()
-    path.write_text(cfg.to_json(), encoding="utf-8")
+    write_atomic(path, cfg.to_json())
     # Nothing secret lives in here any more, but it is still one person's own
     # settings and %APPDATA% is already per-user; keeping the same permissions
     # on POSIX costs nothing and matches that.

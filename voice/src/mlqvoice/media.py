@@ -172,10 +172,6 @@ class MediaGuard:
         log.info("پخشِ صدا ادامه یافت")
         return True
 
-    def forget(self) -> None:
-        """Drop the memory of having paused, without touching playback."""
-        self._paused_by_us = False
-
     def _note_unavailable(self, exc: Unavailable) -> None:
         # Say it once. A warning on every hotkey press is noise nobody reads.
         if not self._unavailable_logged:

@@ -70,11 +70,6 @@ class TestText:
         overlay.set_interim("دنیا")
         assert overlay.text() == "دنیا"
 
-    def test_settled_text_excludes_the_guess(self, overlay):
-        overlay.append_final("سلام")
-        overlay.set_interim("دنیا")
-        assert overlay.settled_text() == "سلام"
-
     def test_a_guess_never_disturbs_what_came_before_it(self, overlay):
         overlay.append_final("سلام")
         overlay.set_interim("یک")

@@ -170,14 +170,6 @@ class TestResume:
         guard.resume_if_paused()
         assert taps == ["tap", "tap"]
 
-    def test_forget_drops_the_memory_without_sending_anything(self, monkeypatch, taps):
-        playing(monkeypatch, True)
-        guard = MediaGuard()
-        guard.pause_if_playing()
-        guard.forget()
-        assert not guard.resume_if_paused()
-        assert taps == ["tap"]
-
     def test_a_failed_key_is_not_retried_later(self, monkeypatch):
         # A retry would arrive after the user pressed play themselves, and would
         # pause the music instead of resuming it.
