@@ -1485,8 +1485,14 @@ async function renderDashboard(){
     let top=(S.top||[]).map(t=>({name:t.name,qty:Math.max(0,Number(t.qty||0)-(retByName[t.name]||0))})).filter(t=>t.qty>0).sort((a,b)=>b.qty-a.qty);
     const chartMap={}; (S.chart||[]).forEach(r=>{ chartMap[r.d]=Number(r.value||0); }); Object.keys(retByDay).forEach(k=>{ chartMap[k]=(chartMap[k]||0)-retByDay[k]; });
     const chartData=[]; for(let i=13;i>=0;i--){ const d=new Date(now.getTime()-i*86400000); chartData.push({label:faNum(iranJalaliKey(d).slice(8)),value:chartMap[tehranGregKey(d)]||0}); }
-    let tgNew=[]; try{ tgNew=await sbGetAll("telegram_orders?select=id&status=eq.new"); }catch(e){}
-    let html=`${tgNew.length?`<div class="card tgnew" style="padding:13px 15px;margin-bottom:12px;cursor:pointer" onclick="openTgOrders()"><b>🤖 ${faNum(tgNew.length)} سفارشِ جدید از تلگرام</b><div style="font-size:12px;color:var(--muted);margin-top:2px">بزن تا ببینی و به فاکتور تبدیل کنی</div></div>`:''}<div class="stat-grid">
+    /* اگر این خواندن بیفتد **نباید** بنر بی‌صدا غایب شود: نبودنِ بنر برای مالک
+       یعنی «سفارشِ تازه‌ای نیست»، و همان یعنی سفارشِ ازدست‌رفته. پس حالتِ سوم
+       داریم: نشد بفهمم — با یک بنرِ خنثی که خودش راهِ دیدن را می‌دهد. */
+    let tgNew=[], tgOk=true; try{ tgNew=await sbGetAll("telegram_orders?select=id&status=eq.new"); }catch(e){ tgOk=false; }
+    const tgCard = !tgOk
+      ? `<div class="card tgnew" style="padding:13px 15px;margin-bottom:12px;cursor:pointer" onclick="openTgOrders()"><b>🤖 سفارش‌های تلگرام چک نشد</b><div style="font-size:12px;color:var(--muted);margin-top:2px">اینترنت نذاشت ببینم سفارشِ تازه‌ای هست یا نه — بزن تا خودت ببینی</div></div>`
+      : (tgNew.length?`<div class="card tgnew" style="padding:13px 15px;margin-bottom:12px;cursor:pointer" onclick="openTgOrders()"><b>🤖 ${faNum(tgNew.length)} سفارشِ جدید از تلگرام</b><div style="font-size:12px;color:var(--muted);margin-top:2px">بزن تا ببینی و به فاکتور تبدیل کنی</div></div>`:'');
+    let html=`${tgCard}<div class="stat-grid">
       <div class="stat accent"><div class="lbl">فروش امروز</div><div class="val num" style="${salesToday<0?'color:var(--danger)':''}">${faNum(salesToday)} <small>تومان</small></div></div>
       <div class="stat accent"><div class="lbl">فروش این ماه</div><div class="val num" style="${salesMonth<0?'color:var(--danger)':''}">${faNum(salesMonth)} <small>تومان</small></div></div>
       <div class="stat ${receivables>0?'danger':''}"><div class="lbl">کل طلب از مشتری‌ها</div><div class="val num">${faNum(receivables)} <small>تومان</small></div></div>
@@ -2137,9 +2143,14 @@ async function payFromInvoice(){
     catch(e){ toast('نتونستم مشتریِ این فاکتور رو بگیرم 🙏'); return; }
   }
   if(!cid){ toast('این فاکتور به هیچ مشتریِ ثبت‌شده‌ای وصل نیست 🙏'); return; }
-  let later=0;
+  /* ⚠️ اگر این خواندن بیفتد **نباید** later را صفر فرض کنیم. قبلاً catch خالی بود و
+     همین یک باگِ پول می‌ساخت: با اینترنتِ کند، پرداخت‌های قبلیِ فاکتور نادیده
+     می‌ماند، عددی بزرگ‌تر از بدهیِ واقعی آماده در کادر می‌نشست، و یک لمس کافی بود
+     تا ماندهٔ مشتری منفی شود — یعنی پنل بگوید فروشنده به مشتری بدهکار است.
+     حالا وقتی نمی‌دانیم، عددی پیشنهاد نمی‌دهیم و صریح می‌گوییم چرا. */
+  let later=0, laterOk=true;
   try{ const ps=await sbGetAll("payments?select=amount&invoice_id=eq."+encodeURIComponent(inv.id));
-       later=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0); }catch(_){ }
+       later=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0); }catch(_){ laterOk=false; }
   const remain=Math.max(0, tot-paid-later);
   const invNo=inv.invoice_number||'';
   closeInvoice();
@@ -2149,7 +2160,8 @@ async function payFromInvoice(){
     const note=document.getElementById('payForInv');
     if(note) note.textContent='این پرداخت به فاکتورِ '+(invNo?('#'+faNum(invNo)):'بازشده')+' وصل می‌شه';
     if(!el)return;
-    if(remain>0){ el.value=String(remain); try{ grpInput(el); }catch(_){ } }
+    if(!laterOk){ el.value=''; toast('⚠️ پرداخت‌های قبلیِ این فاکتور خونده نشد — مبلغ رو خودت بزن'); }
+    else if(remain>0){ el.value=String(remain); try{ grpInput(el); }catch(_){ } }
     else { el.value=''; toast('این فاکتور تسویه‌ست ✅ اگه بازم پرداختی هست دستی بزن'); }
     try{ el.focus(); el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){ }
   }, 400);

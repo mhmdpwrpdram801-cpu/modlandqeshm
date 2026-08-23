@@ -750,6 +750,18 @@
       "wait": 900,
       "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const wrap=document.getElementById('itemsWrap');wrap.innerHTML='';addItemRow();await w(200);const row=wrap.lastElementChild;const sel=row.querySelector('.ir-prod'),pe=row.querySelector('.ir-price');if(!pe)throw new Error('کادرِ قیمت روی ردیف نیست');sel.value='p1';sel.dispatchEvent(new Event('change',{bubbles:true}));await w(300);pe.value='500000';pe.dispatchEvent(new Event('input',{bubbles:true}));row.querySelector('.ir-qty').value='2';row.querySelector('.ir-qty').dispatchEvent(new Event('input',{bubbles:true}));await w(300);document.getElementById('nName').value='آزمایشِ قیمت';window.__WRITES.length=0;await submitInvoice();await w(1200);const inv=window.__WRITES.filter(x=>x.rpc==='create_invoice');const sent=inv.length&&inv[0].body&&inv[0].body.p_items&&inv[0].body.p_items[0]?inv[0].body.p_items[0].unit_price:'—';const prodW=window.__WRITES.filter(x=>x.table==='products').length;return 'فرستاد:'+sent+'|نوشتنِ کالا:'+prodW+'|قیمتِ کالا:'+((PRODUCTS.find(x=>x.id==='p1')||{}).price);}",
       "expect": "فرستاد:500000|نوشتنِ کالا:0|قیمتِ کالا:850000"
+    },
+    {
+      "_note": "باگِ واقعی که با جاروی ایستا پیدا شد: payFromInvoice پرداخت‌های قبلیِ همان فاکتور را می‌خواند تا ماندهٔ واقعی را حساب کند، ولی خطای آن خواندن را با catch خالی می‌بلعید و later صفر می‌مانْد. نتیجه: مبلغی **بیشتر از بدهیِ واقعی** آماده در کادر می‌نشست و با یک لمس ثبت می‌شد — ماندهٔ مشتری منفی می‌شد، یعنی پنل می‌گفت فروشنده به مشتری بدهکار است. دقیقاً وقتی پیش می‌آید که اینترنت کند است، که حالتِ عادیِ مالک است. اینجا فقط همان یک درخواست عمداً می‌افتد (نه کلِ شبکه) تا معلوم شود کادر عددِ غلط را نمی‌پذیرد.",
+      "name": "وقتی پرداخت‌های قبلیِ فاکتور خوانده نشد، کادر عددِ غلط پیشنهاد نمی‌دهد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;try{await openInvoiceById('i1');await w(700);window.fetch=function(u,o){if(String(u).indexOf('payments?select=amount')>=0)return Promise.reject(new Error('شبیه‌سازِ قطعی'));return f.apply(this,arguments)};await payFromInvoice();await w(1400);const el=document.getElementById('payAmount');if(!el)return 'کادرِ پرداخت نیامد';const v=parseNum(el.value||'');return 'کادر:'+(v>0?v:'خالی');}finally{window.fetch=f;try{closeCustomer();closeInvoice();}catch(_){}}}",
+      "expect": "کادر:خالی"
+    },
+    {
+      "_note": "با جاروی ایستا پیدا شد: خواندنِ سفارش‌های تازه‌ی تلگرام catch خالی داشت، پس با اینترنتِ کند بنر بی‌صدا غایب می‌شد. نبودنِ بنر برای مالک یعنی «سفارشِ تازه‌ای نیست» — و همان یعنی سفارشِ ازدست‌رفته. اینجا فقط همان یک درخواست عمداً می‌افتد، نه کلِ شبکه، تا معلوم شود بقیه‌ی داشبورد سالم می‌مانَد ولی همین یک تکه صادق است.",
+      "name": "اگر سفارش‌های تلگرام خوانده نشد، داشبورد سکوت نمی‌کند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;try{window.fetch=function(u,o){if(String(u).indexOf('telegram_orders?select=id')>=0)return Promise.reject(new Error('شبیه‌سازِ قطعی'));return f.apply(this,arguments)};await nav('dashboard');await w(1400);const t=String((document.getElementById('dashStats')||document.body).innerText||'');const said=/چک نشد/.test(t);const stats=/فروش این ماه/.test(t);return 'گفت:'+(said?'بله':'نه')+'|بقیه‌ی داشبورد:'+(stats?'سالم':'خراب');}finally{window.fetch=f;}}",
+      "expect": "گفت:بله|بقیه‌ی داشبورد:سالم"
     }
   ],
   "click_test": {
