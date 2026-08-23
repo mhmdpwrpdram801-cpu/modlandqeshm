@@ -762,6 +762,12 @@
       "name": "اگر سفارش‌های تلگرام خوانده نشد، داشبورد سکوت نمی‌کند",
       "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;try{window.fetch=function(u,o){if(String(u).indexOf('telegram_orders?select=id')>=0)return Promise.reject(new Error('شبیه‌سازِ قطعی'));return f.apply(this,arguments)};await nav('dashboard');await w(1400);const t=String((document.getElementById('dashStats')||document.body).innerText||'');const said=/چک نشد/.test(t);const stats=/فروش این ماه/.test(t);return 'گفت:'+(said?'بله':'نه')+'|بقیه‌ی داشبورد:'+(stats?'سالم':'خراب');}finally{window.fetch=f;}}",
       "expect": "گفت:بله|بقیه‌ی داشبورد:سالم"
+    },
+    {
+      "_note": "مهلتِ شبکه ۲۵ ثانیه است و عمداً بلند مانده — روی فیلترشکن درخواستِ سالم هم طول می‌کشد و کوتاه کردنش درخواستِ درست را به خطا تبدیل می‌کند. ولی ۲۵ ثانیه سکوت یعنی کاربر نمی‌داند برنامه کار می‌کند یا هنگ کرده، و در آن سکوت دکمه را دوباره می‌زند. سه چیز سنجیده می‌شود: روی خطِ کند خبر داده شود · چند درخواستِ همزمان فقط یک پیام بدهند نه هفت‌تا (صفحه‌ی بینش‌ها هفت‌تا می‌فرستد) · و روی خطِ سریع هیچ پیامی نیاید، یعنی تایمر بعد از تمام شدنِ درخواست پاک شود و پیامِ دیرهنگام ندهد.",
+      "name": "روی خطِ کند یک‌بار خبر می‌دهد، و روی خطِ سریع ساکت است",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;const T=[];const ot=window.toast;window.toast=function(m){T.push(String(m));return ot.apply(this,arguments)};window.fetch=function(u,o){if(String(u).indexOf('/rest/v1/')<0)return f.apply(this,arguments);const a=arguments,t=this;return new Promise(res=>setTimeout(()=>res(f.apply(t,a)),9000))};try{ const hit=()=>T.filter(x=>x.indexOf('اینترنت کنده')>=0).length; T.length=0; const many=Promise.all([sbGet('products?select=id'),sbGet('customers?select=id'),sbGet('invoices?select=id')]); await w(8000); const during=hit(); await many; await w(300); window.fetch=f; T.length=0; await sbGet('products?select=id'); await w(8500); const afterFast=hit(); return 'حینِ کندی:'+during+'|بعدِ سریع:'+afterFast;}finally{window.fetch=f;window.toast=ot;}}",
+      "expect": "حینِ کندی:1|بعدِ سریع:0"
     }
   ],
   "click_test": {
