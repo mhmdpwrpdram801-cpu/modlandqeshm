@@ -769,5 +769,14 @@
     "before": "nav('dashboard')",
     "wait": 600,
     "settle": 450
+  },
+  "sw": {
+    "file": "sw.js",
+    "_note": "exclude یعنی «عمداً کش نمی‌شود». sw.js خودش کش نمی‌شود وگرنه به‌روزرسانی گیر می‌کند (مستند در README). icon-maskable فقط موقعِ نصبِ PWA لازم است و سیستم‌عامل خودش می‌گیردش، پس در کشِ آفلاین جایی ندارد.",
+    "exclude": [
+      "sw.js",
+      "icon-maskable.png"
+    ],
+    "budget_kb": 200
   }
 }

@@ -9,7 +9,7 @@
 خروجی: کدِ ۰ یعنی آماده‌ی تحویل، ۱ یعنی ایراد دارد.
 """
 import sys, os, re, json, argparse, subprocess, threading, functools
-import tempfile, shutil, atexit
+import tempfile, shutil, atexit, gzip
 import http.server, socketserver
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -209,6 +209,50 @@ def static_checks(html_path, cfg):
             if om and om.group(1) not in schema[tbl]: prob.append(f'مرتب‌سازیِ ناموجود: {tbl}.{om.group(1)}')
         prob = list(dict.fromkeys(prob))
         ok(f"هر پرس‌وجو با {len(schema)} جدولِ واقعی می‌خوانَد") if not prob else [bad(p) for p in prob]
+
+    # ── ۲.۵) فهرستِ کشِ سرویس‌ورکر و بودجه‌ی حجم ─────────────────────────────
+    # این حفره‌ای بود که هیچ‌جا سنجیده نمی‌شد: گردش‌کارِ انتشار فهرستِ فایل‌ها را
+    # **جداگانه** در خودش دارد، پس اگر فایلی تغییرِ نام بدهد و `CORE` به‌روز نشود،
+    # سرویس‌ورکر بی‌صدا آن را کش نمی‌کند — روی گوشیِ آفلاین غایب می‌شود و هیچ خطایی
+    # هم نمی‌دهد. برعکسش هم مهم است: دارایی‌ای که تازه اضافه شده و کسی به `CORE`
+    # اضافه‌اش نکرده، هر بار دوباره دانلود می‌شود.
+    # `exclude` برای چیزهایی است که **عمداً** کش نمی‌شوند؛ تصمیم باید نوشته شود
+    # نه اینکه از قلم افتادن با عمدی بودن یک شکل داشته باشد.
+    swcfg = cfg.get('sw') or {}
+    if swcfg:
+        head("۲.۵) سرویس‌ورکر و حجم")
+        base = os.path.dirname(os.path.abspath(html_path))
+        swp = os.path.join(base, swcfg.get('file', 'sw.js'))
+        if not os.path.exists(swp):
+            bad("فایلِ سرویس‌ورکر پیدا نشد: " + swcfg.get('file', 'sw.js'))
+        else:
+            swsrc = open(swp, encoding='utf-8').read()
+            mm = re.search(r'const\s+CORE\s*=\s*\[(.*?)\]', swsrc, re.S)
+            if not mm:
+                bad("فهرستِ CORE در سرویس‌ورکر پیدا نشد — این بررسی چیزی نسنجید (CORE-12)")
+            else:
+                core = [x for x in re.findall(r"'([^']+)'", mm.group(1))]
+                gone = [c for c in core if c != './' and
+                        not os.path.exists(os.path.join(base, c.lstrip('./')))]
+                (ok if not gone else bad)(
+                    f"هر {len(core)} ورودیِ CORE فایلش سرِ جایش است"
+                    if not gone else "در CORE هست ولی فایلش نیست: " + "، ".join(gone))
+                excl = set(swcfg.get('exclude', []))
+                incore = {c.lstrip('./') for c in core if c != './'}
+                loose = [f for f in sorted(os.listdir(base))
+                         if f not in incore and f not in excl and not f.startswith('.')]
+                (ok if not loose else bad)(
+                    "هیچ داراییِ کش‌نشده‌ی ثبت‌نشده‌ای نیست"
+                    if not loose else "کش نمی‌شود و در exclude هم ثبت نشده: " + "، ".join(loose) +
+                    " — یا به CORE اضافه‌اش کن یا تصمیم را در exclude بنویس")
+        budget = swcfg.get('budget_kb')
+        if budget:
+            raw = open(html_path, 'rb').read()
+            gz = len(gzip.compress(raw, 9)) / 1024.0
+            (ok if gz <= budget else bad)(
+                f"حجمِ فشرده‌ی صفحه {gz:.0f} کیلوبایت است، زیرِ بودجه‌ی {budget}"
+                if gz <= budget else
+                f"حجمِ فشرده {gz:.0f} کیلوبایت شد و از بودجه‌ی {budget} گذشت (UI-06)")
     return src, markup, app
 
 # ───────────────────────────── ویژگیِ زباله از HTMLِ شکسته‌ی ساخته‌شده در جاواسکریپت
