@@ -19,5 +19,6 @@
  "click_test": {
   "selector": "#tab1, #clr, #thm"
  },
- "checks": []
+ "checks": [],
+ "overlays": false
 }
