@@ -1034,6 +1034,37 @@ async function sbLogin(email,password){
   return d;
 }
 const NET_TIMEOUT=25000;
+/* ── خبر دادن از خطِ کند ────────────────────────────────────────────────────
+   مهلت ۲۵ ثانیه است و این عمداً بلند گذاشته شده: روی فیلترشکن یک درخواستِ سالم
+   هم می‌تواند ۱۵ ثانیه طول بکشد و کوتاه کردنش، درخواستِ درست را به خطا تبدیل
+   می‌کند. ولی ۲۵ ثانیه سکوت یعنی کاربر نمی‌داند برنامه کار می‌کند یا هنگ کرده —
+   و آدم در آن سکوت دکمه را دوباره می‌زند.
+   پس رفتار عوض نمی‌شود، فقط بعد از ۷ ثانیه گفته می‌شود «هنوز منتظرم».
+   چهار قاعده، هم‌خانواده‌ی reportError:
+   ۱ هرگز throw نکند و مسیرِ درخواست را عوض نکند
+   ۲ چند درخواستِ همزمان فقط **یک** پیام بدهند (صفحه‌ی بینش‌ها هفت‌تا می‌فرستد)
+   ۳ پشتِ سرِ هم تکرار نشود — سقفِ یک پیام در هر ۲۵ ثانیه
+   ۴ قبل از ورود ساکت بماند؛ آنجا کاربر منتظرِ داده نیست */
+const SLOW_AFTER=7000;
+let _slowN=0, _slowT=null, _slowLast=0;
+function _slowStart(){
+  _slowN++;
+  if(_slowT)return;
+  _slowT=setTimeout(()=>{
+    _slowT=null;
+    try{
+      if(_slowN<=0)return;
+      if(!TOKEN)return;                                   /* قبل از ورود ساکت */
+      const now=Date.now(); if(now-_slowLast<25000)return;
+      _slowLast=now;
+      toast('⏳ اینترنت کنده — هنوز منتظرِ جوابم، دوباره نزن');
+    }catch(_){ }
+  }, SLOW_AFTER);
+}
+function _slowEnd(){
+  if(_slowN>0)_slowN--;
+  if(_slowN===0&&_slowT){ clearTimeout(_slowT); _slowT=null; }
+}
 async function sbFetch(path, opts={}){
   await getToken();
   if(!TOKEN && !SESSION){ throw new Error('نشست منقضی شد، دوباره وارد شو'); }
@@ -1065,6 +1096,8 @@ async function sbFetch(path, opts={}){
     finally{ if(t)clearTimeout(t); }
   };
   const gen=AUTH_GEN;                 /* توکنی که با آن رفتیم */
+  _slowStart();
+  try{
   let r=await go();
   if(r.status===401 && SESSION){
     // اگر در این فاصله یکی دیگر توکن را تازه کرده، دوباره تازه نکن — فقط با توکنِ
@@ -1073,6 +1106,7 @@ async function sbFetch(path, opts={}){
     else { const s=await refreshSession(); if(s==='ok'){ r=await go(); } else if(s==='auth_failed'){ forceLogin(); } /* network_error: keep session, return the response as-is */ }
   }
   return r;
+  } finally { _slowEnd(); }   /* چه جواب بیاید چه خطا، شمارنده باید برگردد */
 }
 async function sbGet(path){ const r=await sbFetch(path); const d=await r.json().catch(()=>([])); if(!r.ok)throw new Error(d.message||"خطا در دریافت اطلاعات"); return d; }
 async function sbGetAll(path, pageSize){ if(/[?&]limit=/.test(path)){ return (await sbGet(path))||[]; } pageSize=pageSize||1000; let off=0, all=[]; while(true){ const sep=path.includes('?')?'&':'?'; const batch=await sbGet(path+sep+'limit='+pageSize+'&offset='+off); if(!batch||batch.length===0)break; all.push(...batch); if(batch.length<pageSize)break; off+=pageSize; } return all; }
