@@ -640,8 +640,17 @@ def runtime_checks(url, cfg, html_path, engine='chromium', repeat=1):
 
         head("۷) پنجره‌ها (شفافیت)")
         ovs = pg.evaluate("()=>[...document.querySelectorAll('.overlay,[data-overlay],dialog,.modal')].map(o=>o.id||o.className).slice(0,20)")
-        if not ovs:
-            warn("پنجره‌ای پیدا نشد — این بررسی رد شد")
+        # «از قلم افتادن» و «عمدی بودن» نباید یک شکل داشته باشند. قبلاً هر دو یک
+        # هشدار می‌گرفتند و کدِ خروجی ۰ می‌ماند — یعنی اگر روزی پنجره‌های پنل با یک
+        # تغییرِ سلکتور از دستِ بازرس در می‌رفتند، این بررسی بی‌صدا رد می‌شد و
+        # هیچ‌کس نمی‌فهمید (CORE-12: «اجرا نشد» نباید ۰ بدهد).
+        # حالا ابزاری که واقعاً پنجره ندارد باید در تنظیماتش `"overlays": false`
+        # بنویسد؛ هر جای دیگری که پنجره پیدا نشود قرمز است.
+        if not ovs and cfg.get('overlays', True) is False:
+            ok("پنجره‌ای ندارد — عمدی است و در تنظیمات ثبت شده")
+        elif not ovs:
+            bad("پنجره‌ای پیدا نشد — این بررسی اجرا نشد. اگر عمدی است "
+                "`\"overlays\": false` را به تنظیمات اضافه کن")
         else:
             seethrough = []
             for nm, js in screens:
