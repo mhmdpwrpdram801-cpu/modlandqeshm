@@ -2566,6 +2566,10 @@ async function renderCustomersByProduct(productId, box){
 }
 function openCustomerForm(id){
   const c=id?CUSTOMERS.find(x=>x.id===id):null, w=document.getElementById('custFormWrap');
+  /* اگر شناسه آمده ولی در کش نیست، فرم بی‌صدا «مشتری جدید» می‌شد: کاربر «ویرایش»
+     می‌زد، کادرهای خالی می‌دید، پرشان می‌کرد و یک مشتریِ **تکراری** ساخته می‌شد
+     به‌جای اینکه همان یکی اصلاح شود. سکوت اینجا گران است. */
+  if(id&&!c){ toast('اطلاعاتِ این مشتری در حافظه نیست — صفحه رو دوباره باز کن'); return; }
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${c?'ویرایشِ مشتری':'مشتری جدید'}</div>${c?`<div class="form-title">${esc(c.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeCustomerForm()">‹ برگشت به لیست</button></div>
     <div class="field"><label>نام مشتری / فروشگاه *</label><input id="cName" maxlength="60" class="inp" value="${c?esc(c.name):''}"></div>
@@ -2626,6 +2630,10 @@ async function openCustomer(id){
       ${profileCard}
       ${bal>0?`<button onclick="waReminderFor('${id}',${bal})" style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:0;border-radius:12px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">📲 ارسالِ یادآوریِ بدهی در واتساپ</button>`:''}
       <button onclick="shareStatement('${id}')" style="width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer">📋 صورت‌حساب (عکس برای مشتری)</button>
+      <!-- ⚠️ اول پنجره بسته می‌شود بعد فرم باز: فرم داخلِ #scr-customers است و این
+           پنجره z-index ۶۰ دارد، پس بدونِ بستن، فرم پشتش گم می‌شود و کاربر فکر
+           می‌کند دکمه کار نمی‌کند. راهش بالا بردنِ z-index نیست (مقیاسِ نام‌دار). -->
+      <button onclick="closeCustomer();openCustomerForm('${id}')" style="width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer">✏️ ویرایشِ اطلاعاتِ مشتری</button>
       <div class="card" id="payBox" style="margin-top:12px;box-shadow:none"><div style="font-weight:700;margin-bottom:10px">ثبت پرداخت</div><div id="payForInv" style="font-size:11.5px;color:var(--paid,#0a7);margin:-6px 0 8px"></div>
         <div class="ir-grid"><input id="payAmount" maxlength="13" class="inp" dir="ltr" inputmode="numeric" placeholder="مبلغ دریافتی (تومان)" style="flex:1"><button id="payBtn" class="btn" style="width:auto;padding:11px 18px" onclick="addPayment('${id}')">ثبت</button></div>
         <div id="payWords" class="words-hint"></div></div>
