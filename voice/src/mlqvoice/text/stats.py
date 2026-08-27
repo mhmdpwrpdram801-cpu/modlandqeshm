@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
+from ..paths import write_atomic
+
 #: Days of history to keep. Long enough to see a month-over-month trend, short
 #: enough that the file stays a few kilobytes on a machine used every day.
 MAX_DAYS = 120
@@ -159,7 +161,7 @@ def save(path: Path, stats: Stats) -> None:
         },
         "terms": dict(sorted(stats.terms.items(), key=lambda kv: (-kv[1], kv[0]))),
     }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
 def record(

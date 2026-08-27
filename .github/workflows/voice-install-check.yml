@@ -35,12 +35,26 @@ jobs:
         shell: pwsh
 
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # دقیقاً همان خطی که در یادداشتِ انتشار نوشته شده. قبلاً اینجا
+      # `irm … | iex` اجرا می‌شد — یعنی همان روشی که خودمان صریح می‌گوییم نزن،
+      # چون در PowerShell 5.1 متنِ فارسیِ اسکریپت را پیش از اجرا خراب می‌کند.
+      # نصب با آن هم انجام می‌شد، پس این مرحله سبز می‌ماند و ادعا می‌کرد
+      # «همان یک خطی که به مالک می‌گوییم» را سنجیده. نمی‌سنجید.
       - name: نصب با همان یک خطی که به مالک می‌گوییم
         run: |
           $ErrorActionPreference = 'Stop'
           $url = 'https://github.com/${{ github.repository }}/releases/download/voice-latest/install.ps1'
-          Write-Host "اجرای: irm $url | iex"
-          Invoke-RestMethod -Uri $url | Invoke-Expression
+          $s = "$env:TEMP\mlqvoice-install.ps1"
+          Invoke-WebRequest -Uri $url -OutFile $s -UseBasicParsing
+          # با powershell.exe (نسخه‌ی ۵.۱) نه pwsh: همان چیزی که روی ویندوزِ
+          # مالک باز می‌شود، و همان جایی که رمزگذاری اهمیت پیدا می‌کند.
+          & powershell -ExecutionPolicy Bypass -File $s
+          if ($LASTEXITCODE -ne 0) { throw "اسکریپتِ نصب کدِ $LASTEXITCODE داد" }
 
       - name: نصب واقعاً انجام شد؟
         run: |
@@ -88,6 +102,53 @@ jobs:
           }
           $n = (Get-ChildItem $dir -Recurse -File).Count
           Write-Host "هر $n فایلِ نصب‌شده بدونِ نشانه‌اند — پس SmartScreen اجرا نمی‌شود."
+
+      # هر دستوری که در راهنما نوشته‌ایم (`mlqvoice learn`، `check`، `stats`)
+      # باید در یک پنجره‌ی تازه‌ی PowerShell شناخته شود. تا دیروز نمی‌شد: نصب
+      # فقط در %LOCALAPPDATA% باز می‌کرد و میان‌بُر می‌ساخت، و همه‌ی آن دستورها
+      # روی کاغذ می‌مانْدند.
+      - name: نامِ mlqvoice در یک پنجره‌ی تازه شناخته می‌شود
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:LOCALAPPDATA 'mlqvoice'
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if (($userPath -split ';') -notcontains $dir) {
+            throw "مسیرِ نصب به PATHِ کاربر اضافه نشد: $userPath"
+          }
+
+          # همان کاری که یک پنجره‌ی تازه می‌کند: PATH را از رجیستری می‌خوانَد.
+          $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + $userPath
+          $cmd = Get-Command mlqvoice -ErrorAction SilentlyContinue
+          if (-not $cmd) { throw "نامِ mlqvoice حتی با PATHِ تازه هم شناخته نشد" }
+          Write-Host "mlqvoice پیدا شد: $($cmd.Source)"
+          "MLQ_EXE=$($cmd.Source)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      # و نه فقط «پیدا می‌شود»: چیزی هم می‌گوید. بسته --windowed است، پس بدونِ
+      # وصل شدن به کنسولِ والد، این دستور بی‌صدا اجرا می‌شود و کاربر هیچ
+      # نمی‌بیند — که از «اجرا نشد» قابلِ تشخیص نیست. اینجا یک کنسولِ واقعی
+      # ساخته می‌شود و نویسه‌ها از خودِ صفحه خوانده می‌شوند.
+      - name: و دستورها روی کنسول واقعاً چیزی می‌نویسند
+        env:
+          # وگرنه اولین `print`ِ فارسیِ خودِ ابزار روی لوله‌ی لاگ می‌افتد و
+          # کدِ ۱ برمی‌گردد — که به اشتباه «برنامه شکست خورد» خوانده می‌شود.
+          PYTHONIOENCODING: utf-8
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = Join-Path $env:RUNNER_TEMP 'installed-check.txt'
+          python voice\scripts\console_probe.py $env:MLQ_EXE $file check
+          $code = $LASTEXITCODE
+          $text = ''
+          if (Test-Path $file) { $text = (Get-Content $file -Raw -Encoding utf8) }
+          Write-Host "--- آنچه کاربر روی صفحه می‌بیند ---"
+          Write-Host $(if ($text) { $text } else { '(خالی)' })
+          if ($code -eq 2) { throw "ابزارِ آزمایشِ کنسول کار نکرد (نه برنامه)" }
+          if ($code -ne 0) { throw "دستورِ check کدِ $code داد" }
+          if (-not $text) { throw "هیچ چیزی روی کنسول نیامد — کاربر هم هیچ نمی‌بیند" }
+          if ($text -notmatch 'alt\+space') { throw "خروجی ناقص بود: $text" }
+          # و فارسی‌اش باید خوانا باشد، نه علامتِ سؤال. رشته‌ی محک بدونِ
+          # علامتِ ترکیبی و نیم‌فاصله است چون آن‌ها از خواندنِ خانه‌به‌خانه‌ی
+          # صفحه سالم برنمی‌گردند — توضیحش در voice-windows.yml.
+          if ($text -notmatch 'زبان') { throw "فارسیِ خروجی خوانا نبود: $text" }
 
       - name: و برنامه‌ی نصب‌شده واقعاً بالا می‌آید
         run: |
@@ -162,9 +223,10 @@ jobs:
           @(
             '### نصب از روی نشانیِ منتشرشده'
             ''
-            '- یک‌خطیِ `irm … | iex` روی ویندوزِ تازه اجرا شد'
+            '- همان یک‌خطیِ یادداشتِ انتشار روی ویندوزِ تازه اجرا شد (دانلود به فایل، بعد `powershell -File`)'
             '- میان‌بُرِ منوی استارت ساخته شد و به فایلِ درست اشاره می‌کند'
             '- هیچ فایلی نشانه‌ی Mark of the Web ندارد → SmartScreen اخطار نمی‌دهد'
+            '- نامِ `mlqvoice` در یک پنجره‌ی تازه شناخته می‌شود و روی کنسولِ واقعی خروجی می‌دهد'
             "- نسخه‌ی نصب‌شده در ``$env:READY`` ثانیه آماده شد"
             '- با اثرِ انگشتِ دستکاری‌شده نصب را رد کرد'
           ) -join "`n" | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

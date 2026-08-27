@@ -7,11 +7,12 @@ user's chair, from a hotkey that does not work.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-from .paths import config_file
+from .paths import config_file, write_atomic
 
 # Win32 modifier bits (MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN).
 MODIFIERS = {"alt": 0x0001, "ctrl": 0x0002, "control": 0x0002, "shift": 0x0004, "win": 0x0008}
@@ -125,7 +126,10 @@ class Config:
         # Range-checking a string raises TypeError, which escapes as a traceback
         # instead of the message that names the field. The file is hand-edited,
         # so the wrong *type* is at least as likely as the wrong value.
-        for name, high in (("port", 65535), ("auto_stop_seconds", 600)):
+        for name, high in (
+            ("port", 65535),
+            ("auto_stop_seconds", 600),
+        ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int):
                 raise ConfigError(f"{name}: باید عددِ صحیح باشد، نه {value!r}")
@@ -142,10 +146,18 @@ class Config:
         return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
+#: Settings that used to exist and were removed on purpose. They are dropped
+#: silently rather than reported as unknown, because "unknown" is the wrong
+#: word for them: the file is fine, the feature is gone. Anyone who opened the
+#: settings once has these in their file, and greeting them with a list of
+#: complaints after an update reads like something broke.
+RETIRED = frozenset({"correct", "gemini_key", "gemini_model", "correct_timeout"})
+
+
 def from_dict(data: dict) -> Config:
     """Build a config from parsed JSON, keeping note of keys we do not know."""
     known = {f.name for f in fields(Config) if not f.name.startswith("_")}
-    unknown = tuple(sorted(set(data) - known))
+    unknown = tuple(sorted(set(data) - known - RETIRED))
     return Config(**{k: v for k, v in data.items() if k in known}, _unknown=unknown)
 
 
@@ -169,5 +181,10 @@ def load(path: Path | None = None) -> Config:
 
 def save(cfg: Config, path: Path | None = None) -> Path:
     path = path or config_file()
-    path.write_text(cfg.to_json(), encoding="utf-8")
+    write_atomic(path, cfg.to_json())
+    # Nothing secret lives in here any more, but it is still one person's own
+    # settings and %APPDATA% is already per-user; keeping the same permissions
+    # on POSIX costs nothing and matches that.
+    with contextlib.suppress(OSError, NotImplementedError):
+        path.chmod(0o600)
     return path

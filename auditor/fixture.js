@@ -42,7 +42,11 @@ const DATA={products:P,customers:C,invoices:INV,
                     {id:'c2',name:"مغازه‌ی 'گل'",phone:'09359998877',city:'قشم',balance:0}],
  expenses:[{id:'e1',note:'کرایه',amount:300000,date:'۱۴۰۵/۰۵/۰۱',category:'حمل',created_at:iso(now-864e5)}],
  salaries:[{id:'s1',employee_name:'علی',amount:5000000,date:'۱۴۰۵/۰۵/۰۱',month:'۱۴۰۵/۰۵',note:'',created_at:iso(now-864e5)}],
- shipments:[{id:'sh1',customer_name:'حاج رضا',city:'درگهان',qty:3,created_at:iso(now-864e5)}],
+ shipments:[{id:'sh1',customer_name:'حاج رضا',city:'درگهان',qty:3,customer_id:'c1',created_at:iso(now-864e5)},
+            {id:'sh2',customer_name:'حاج رضا',city:'بندرعباس',qty:12,customer_id:'c1',created_at:iso(now-3*864e5)},
+            /* عمداً وصل‌نشده: نامی که هیچ مشتری‌ای ندارد. صفحه‌ی مشتری نباید
+               این را به کسی نسبت بدهد و ارسالی‌ها هم نباید پنهانش کنند. */
+            {id:'sh3',customer_name:'یه نفرِ ناشناس',city:'شیراز',qty:6,customer_id:null,created_at:iso(now-5*864e5)}],
  // دو جورِ مرجوعی، دقیقاً مثلِ دیتابیسِ واقعی:
  // r1 مستقل است (create_return) — فاکتوری ندارد، پس باید از فروش کم شود.
  // r2 روی فاکتورِ i2 است (return_invoice_items) — آن تابع خودش جمعِ فاکتور و اقلامش را کم کرده،
@@ -82,10 +86,27 @@ const DATA={products:P,customers:C,invoices:INV,
  discount_codes:[{id:'d1',code:'EID',percent:10,active:true,note:'',created_at:iso(now-864e5)}],
  settings:[{id:1,shop_name:'مدلند قشم',subtitle:'پخش پوشاک',phone:'09171234567',phone2:'',address:'درگهان',
    instagram:'modland',telegram:'modlandqeshm',return_policy:'تا ۷ روز',updated_at:iso(now)}]};
-const RPC={dashboard_stats:{sales_today:430000,sales_month:2930000,profit_today:0,profit_month:0,count_today:1,
-  receivables:1100000,exp_month:300000,debtors:[{cid:'c1',name:'حاج رضا',phone:'09171112233',amount:1100000}],
-  inactive:[{cid:'c2',name:"مغازه‌ی 'گل'",phone:'09359998877',last:iso(now-40*864e5)}],
-  top:[{name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",qty:3}],chart:[{d:'2026-07-28',value:430000},{d:'2026-07-29',value:2500000}]},
+/* `sales_month` قبلاً عددِ ثابتِ ۲٬۹۳۰٬۰۰۰ بود — یعنی استاب «فروشِ این ماه» را
+   **بی‌توجه به ماه** می‌داد، حالتی که در دیتابیسِ واقعی ممکن نیست (TEST-05).
+   تا وقتی ماهِ جلالیِ امروز همان ماهِ ردیف‌های شبیه‌ساز بود کسی نمی‌فهمید؛ شبِ اولِ
+   ماهِ بعد، داشبورد عددِ ماهِ قبل را نشان می‌داد و گزارش درست ۰ — و بررسیِ «داشبورد و
+   گزارش یکی‌اند» قرمز می‌شد بی‌آنکه چیزی در پنل خراب باشد.
+   حالا getter است و از خودِ ردیف‌ها برای ماهِ جاری حساب می‌شود. getter لازم است چون
+   `iranJalaliKey` مالِ خودِ صفحه است و موقعِ بار شدنِ این فایل هنوز وجود ندارد؛ اینجا
+   فقط سرِ صدا زدنِ RPC خوانده می‌شود که آن‌وقت صفحه بالا آمده. */
+const RPC={
+ get dashboard_stats(){
+  const K=window.iranJalaliKey;
+  const ym=K?K(new Date()).slice(0,7):null;
+  const inMonth=r=>!ym||(K(new Date(r.created_at)).slice(0,7)===ym);
+  const live=INV.filter(v=>v.status!=='cancelled');
+  return {sales_today:430000,
+   sales_month:live.filter(inMonth).reduce((s,v)=>s+Number(v.total_amount||0),0),
+   profit_today:0,profit_month:0,count_today:1,
+   receivables:1100000,exp_month:300000,debtors:[{cid:'c1',name:'حاج رضا',phone:'09171112233',amount:1100000}],
+   inactive:[{cid:'c2',name:"مغازه‌ی 'گل'",phone:'09359998877',last:iso(now-40*864e5)}],
+   top:[{name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",qty:3}],chart:[{d:'2026-07-28',value:430000},{d:'2026-07-29',value:2500000}]};
+ },
  create_invoice:{id:'i9',invoice_number:1003,customer_created:false,replayed:false,items_total:2550000,discount:50000,total_amount:2500000,paid_amount:0,status:'credit'},
  cancel_invoice:{ok:true},restore_invoice:{status:'credit'},
  return_invoice_items:{id:'r9',refund:850000,items_total:1700000,total_amount:1650000,status:'partial'},

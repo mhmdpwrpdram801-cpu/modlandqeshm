@@ -96,26 +96,43 @@ class TestNothingReturningAPointerIsTruncated:
 
 class TestTheyAreDeclaredExactlyOnce:
     def test_the_second_call_does_not_redeclare(self, monkeypatch):
-        # ctypes hands back the same library object every time, so re-declaring
-        # is merely wasteful — but the flag is also what makes it safe to call
-        # user32() on a hot path, so it is worth knowing it works.
+        # The libraries are built here rather than taken from ctypes.windll, so
+        # caching them is ours to get right: WinDLL returns a fresh object each
+        # call, and a second one would arrive with none of the declarations.
         monkeypatch.setattr(win32, "IS_WINDOWS", True)
-        monkeypatch.setattr(win32, "_PROTOTYPES_DONE", False)
+        monkeypatch.setattr(win32, "_LIBS", None)
         calls = []
-        fake = FakeLib()
-
-        class Windll:
-            user32 = fake
-            kernel32 = FakeLib()
-
-        # raising=False because ctypes has no `windll` at all off Windows —
-        # which is the whole reason this test can run on the Linux gate.
-        monkeypatch.setattr(ctypes, "windll", Windll, raising=False)
+        monkeypatch.setattr(ctypes, "WinDLL", lambda _n, **_k: FakeLib(), raising=False)
         with mock.patch.object(win32, "_declare", lambda u, k: calls.append(1)):
-            win32.user32()
-            win32.user32()
+            first = win32.user32()
+            second = win32.user32()
             win32.kernel32()
         assert calls == [1]
+        assert first is second, "هر بار یک شیء تازه — اعلان‌ها گم می‌شوند"
+
+
+class TestTheErrorCodeIsActuallyKept:
+    """``ctypes.get_last_error()`` answers 0 unless the library asked for it.
+
+    ``hotkey.py`` prints that number when RegisterHotKey fails, so without the
+    flag the one clue that would name the cause — 1409, somebody else owns this
+    combination — was reported as zero on every single failure.
+    """
+
+    def test_both_libraries_ask_for_the_last_error(self, monkeypatch):
+        monkeypatch.setattr(win32, "IS_WINDOWS", True)
+        monkeypatch.setattr(win32, "_LIBS", None)
+        asked: list[tuple[str, dict]] = []
+
+        def spy(name, **kwargs):
+            asked.append((name, kwargs))
+            return FakeLib()
+
+        monkeypatch.setattr(ctypes, "WinDLL", spy, raising=False)
+        with mock.patch.object(win32, "_declare", lambda u, k: None):
+            win32.user32()
+        assert [n for n, _ in asked] == ["user32", "kernel32"]
+        assert all(kw.get("use_last_error") is True for _n, kw in asked), asked
 
     def test_off_windows_it_refuses_rather_than_declaring(self, monkeypatch):
         import pytest

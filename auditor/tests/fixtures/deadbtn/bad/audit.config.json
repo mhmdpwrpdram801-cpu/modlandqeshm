@@ -19,5 +19,6 @@
  "click_test": {
   "selector": "#clr"
  },
- "checks": []
+ "checks": [],
+ "overlays": false
 }

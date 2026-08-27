@@ -180,9 +180,46 @@ class Lexicon:
                 self.add(form, entry)
 
 
+class DictionaryError(ValueError):
+    """The user's own dictionary cannot be read, and here is which one and why.
+
+    The bare ``JSONDecodeError`` this replaces was raised straight out of
+    :class:`~mlqvoice.app.VoiceApp`'s constructor, where nothing caught it — so
+    a ``--windowed`` build died with no window and no message. The tray menu
+    invites people to edit this file in Notepad, which makes a trailing comma
+    an ordinary Tuesday rather than an exotic accident.
+    """
+
+
 def _read_json(path: Path) -> dict:
     with path.open(encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def _load_user_file(lex: Lexicon, path: Path) -> None:
+    """Fold the user's own dictionary in, turning any breakage into one error.
+
+    Four different failures live behind this call — bad JSON, a symbol with no
+    ``text``, an ``attach`` the loader does not know, and a ``terms`` block that
+    is not a mapping — and each raises a different builtin type from a different
+    depth. Naming the file once here is what lets the caller show something
+    useful instead of a traceback nobody sees.
+    """
+    try:
+        data = _read_json(path)
+        if not isinstance(data, dict):
+            raise TypeError("فایل باید یک شیء JSON باشد")
+        if "symbols" in data:
+            lex.load_symbols(data["symbols"], source="user")
+        if "terms" in data:
+            terms = data["terms"]
+            if not isinstance(terms, dict):
+                raise TypeError("بخشِ terms باید یک شیء JSON باشد")
+            lex.load_terms(terms, source="user")
+    except json.JSONDecodeError as exc:
+        raise DictionaryError(f"{path}: JSONِ سالم نیست — {exc}") from exc
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise DictionaryError(f"{path}: خوانده نشد — {exc}") from exc
 
 
 def builtin_path(name: str) -> Path:
@@ -198,9 +235,13 @@ def build_lexicon(
     """Assemble the lexicon the pipeline runs against.
 
     The user's file is read last so their spelling of a word beats ours.  A
-    missing user file is normal and silent; a malformed one is not — it raises,
-    because silently ignoring the dictionary somebody just edited is the kind of
-    failure that looks like "the app ignored my word".
+    missing user file is normal and silent; a malformed one is not — it raises
+    :class:`DictionaryError`, because silently ignoring the dictionary somebody
+    just edited is the kind of failure that looks like "the app ignored my word".
+
+    The *builtin* files are deliberately not wrapped: if one of those is broken
+    the build is broken, and dressing that up as a user-facing message would
+    send somebody hunting through their own file for our bug.
     """
     lex = Lexicon()
     if punctuation:
@@ -214,9 +255,5 @@ def build_lexicon(
     lex.block_sounds(common)
 
     if user_file is not None and user_file.exists():
-        data = _read_json(user_file)
-        if "symbols" in data:
-            lex.load_symbols(data["symbols"], source="user")
-        if "terms" in data:
-            lex.load_terms(data["terms"], source="user")
+        _load_user_file(lex, user_file)
     return lex

@@ -3,32 +3,50 @@
   "assets": [],
   "narrow_width": 320,
   "_note_hscroll": "`.scroll` عمدی است: جدولِ پهن باید **داخلِ خودش** بلغزد، نه اینکه کلِ صفحه را افقی کند. ستونِ «متنِ خام» ذاتاً بلند است.",
-  "allow_hscroll": [".scroll"],
+  "allow_hscroll": [
+    ".scroll"
+  ],
   "_note_login": "ورود ندارد، ولی همین «آماده شدن» سنجیده می‌شود: اگر boot نرسیده باشد هر بررسیِ محتوایی صفر می‌دهد و ده‌ها باگِ جعلی می‌سازد (CORE-05).",
   "login_done": "()=>{try{return !!(window.IMP&&window.IMP.ready)}catch(e){return false}}",
-
   "_note_reset": "قبل از هر بررسی: زبانه‌ی اول، حالتِ خالی، تمِ روشن. هر بررسی وضعیتِ خودش را می‌سازد و به جامانده‌ی قبلی تکیه نمی‌کند (TEST-03).",
   "reset": "(()=>{window.IMP.setTheme('light');window.IMP.clear();window.IMP.gotoTab(0);return 0})()",
-
   "screens": [
-    ["فایل",     "(()=>window.IMP.gotoTab(0))()"],
-    ["نتیجه",    "(()=>{window.IMP.importText('date,title,amount\\n1405/05/09,کرایه,1200000\\n','csv');return window.IMP.gotoTab(1)})()"],
-    ["ردشده‌ها",  "(()=>{window.IMP.importText('date,title,amount\\n1405/05/09,قبض,12.5\\n','csv');return window.IMP.gotoTab(2)})()"],
-    ["در حالِ خواندن", "(()=>{window.IMP.setPhase('loading');return window.IMP.gotoTab(1)})()"],
-    ["خطا",      "(()=>{window.IMP.setPhase('error','فایل خوانده نشد.');return window.IMP.gotoTab(1)})()"]
+    [
+      "فایل",
+      "(()=>window.IMP.gotoTab(0))()"
+    ],
+    [
+      "نتیجه",
+      "(()=>{window.IMP.importText('date,title,amount\\n1405/05/09,کرایه,1200000\\n','csv');return window.IMP.gotoTab(1)})()"
+    ],
+    [
+      "ردشده‌ها",
+      "(()=>{window.IMP.importText('date,title,amount\\n1405/05/09,قبض,12.5\\n','csv');return window.IMP.gotoTab(2)})()"
+    ],
+    [
+      "در حالِ خواندن",
+      "(()=>{window.IMP.setPhase('loading');return window.IMP.gotoTab(1)})()"
+    ],
+    [
+      "خطا",
+      "(()=>{window.IMP.setPhase('error','فایل خوانده نشد.');return window.IMP.gotoTab(1)})()"
+    ]
   ],
-
   "themes": [
-    {"name": "تاریک", "js": "window.IMP.setTheme('dark')"},
-    {"name": "روشن",  "js": "window.IMP.setTheme('light')"}
+    {
+      "name": "تاریک",
+      "js": "window.IMP.setTheme('dark')"
+    },
+    {
+      "name": "روشن",
+      "js": "window.IMP.setTheme('light')"
+    }
   ],
-
   "_note_click": "کلیکِ واقعی، نه صدا زدنِ تابع (TEST-02). دو نکته که اولین بار اشتباه نوشتم و بازرس درست قرمز داد: (۱) زبانه‌ای که همین حالا انتخاب است با کلیک **باید** بی‌اثر باشد، پس از فهرست بیرون است — نه اینکه بررسی را ضعیف کنیم. (۲) `before` قبلاً خودِ `sample()` را صدا می‌زد، یعنی دکمه‌ی «نمونه بگذار» همان چیزی را می‌گذاشت که از قبل بود و بی‌اثر به نظر می‌رسید؛ حالا متنِ **متفاوتی** می‌گذارد تا هم «وارد کن» و هم «پاک کن» و هم «نمونه بگذار» تغییرِ دیدنی بسازند.",
   "click_test": {
     "selector": ".tabs button:not([aria-selected=\"true\"]), #goBtn, #sampleBtn, #clearBtn, #themeBtn",
     "before": "(()=>{document.getElementById('pasteIn').value='date,title,amount\\n1405/05/09,کرایه,1200000\\n';return 0})()"
   },
-
   "checks": [
     {
       "name": "پارسرِ آدم نرم است — سه شکلِ ۸۵۰٬۰۰۰",
@@ -121,6 +139,13 @@
       "name": "پسوند کافی نیست — محتوا سنجیده می‌شود (SEC-07)",
       "js": "()=>{const f=new File(['این فقط یک جمله است'],'x.csv',{type:'text/csv'});const dt=new DataTransfer();dt.items.add(f);const el=document.getElementById('fileIn');el.files=dt.files;el.dispatchEvent(new Event('change'));return new Promise(r=>setTimeout(()=>r(window.IMP.state().phase),120))}",
       "expect": "error"
+    },
+    {
+      "_note": "pasteIn عمداً بی‌سقف است — کلِ فایلِ CSV در آن چسبانده می‌شود و سقف خرابش می‌کند. بقیه باید سقف داشته باشند. تصمیم اینجا **نوشته** می‌شود تا از قلم افتادن با عمدی بودن یک شکل نداشته باشند.",
+      "name": "هر کادرِ واردکننده سقف دارد، جز کادرِ چسباندن",
+      "js": "()=>{const skip=new Set([\"pasteIn\"]);const bad=[...document.querySelectorAll('input,textarea')].filter(e=>!/^(checkbox|radio|file|hidden|range|color|submit|button)$/.test(e.type)).filter(e=>!skip.has(e.id)).filter(e=>!e.hasAttribute('maxlength')).map(e=>e.id||e.name||e.placeholder||e.tagName);return bad.length?('بی‌سقف: '+bad.join('، ')):'هر کادر سقف دارد';}",
+      "expect": "هر کادر سقف دارد"
     }
-  ]
+  ],
+  "overlays": false
 }

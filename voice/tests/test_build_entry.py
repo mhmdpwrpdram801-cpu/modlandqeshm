@@ -74,6 +74,67 @@ class TestWindowedStreams:
         assert launcher.attach_parent_console() is False
 
 
+class TestTheBorrowedConsoleCanShowPersian:
+    """Attaching is half the job; the console's code page is the other half.
+
+    A console handed over by ``AttachConsole`` keeps whatever code page Windows
+    gave it — 437 on an English install. The streams are opened as UTF-8, so
+    every Persian line lands as mojibake. That is worse than silence in one
+    specific way: the output *is* there, so it looks like an encoding bug
+    somewhere else entirely, and the first version of ``install.ps1`` lost an
+    afternoon to exactly this.
+    """
+
+    def loaded(self):
+        sys.path.insert(0, str(VOICE / "scripts"))
+        import launcher
+
+        return launcher
+
+    def test_the_code_page_is_set_when_a_console_is_borrowed(self, monkeypatch):
+        launcher = self.loaded()
+        calls: list[tuple[str, object]] = []
+
+        class FakeK32:
+            def AttachConsole(self, pid):
+                calls.append(("attach", pid))
+                return 1
+
+            def SetConsoleOutputCP(self, cp):
+                calls.append(("codepage", cp))
+                return 1
+
+        import ctypes
+
+        monkeypatch.setattr(sys, "platform", "win32")
+        fake = type("W", (), {"kernel32": FakeK32()})()
+        monkeypatch.setattr(ctypes, "windll", fake, raising=False)
+        assert launcher.attach_parent_console() is True
+        # 65001 written out rather than read from the module: comparing the
+        # constant with itself would pass just as happily if it were wrong.
+        assert calls == [("attach", -1), ("codepage", 65001)]
+
+    def test_nothing_is_touched_when_there_is_no_console_to_borrow(self, monkeypatch):
+        launcher = self.loaded()
+        calls: list[str] = []
+
+        class FakeK32:
+            def AttachConsole(self, _pid):
+                return 0
+
+            def SetConsoleOutputCP(self, _cp):
+                calls.append("codepage")
+                return 1
+
+        import ctypes
+
+        monkeypatch.setattr(sys, "platform", "win32")
+        fake = type("W", (), {"kernel32": FakeK32()})()
+        monkeypatch.setattr(ctypes, "windll", fake, raising=False)
+        assert launcher.attach_parent_console() is False
+        assert calls == []
+
+
 class TestLauncher:
     def test_exists_where_build_ps1_looks_for_it(self):
         assert LAUNCHER.exists()

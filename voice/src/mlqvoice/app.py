@@ -24,6 +24,7 @@ from .text import (
     transform_hits,
 )
 from .text import stats as usage
+from .text.lexicon import DictionaryError
 from .ui.overlay import Overlay
 from .ui.tray import Tray
 from .win32 import IS_WINDOWS
@@ -121,6 +122,7 @@ class VoiceApp:
         self.tray.show_action.triggered.connect(self._show_overlay)
         self.tray.dictionary_action.triggered.connect(self._open_dictionary)
         self.tray.learned_action.triggered.connect(self._open_learned)
+        self.tray.apply_learned_action.triggered.connect(self._apply_learned)
         self.tray.config_action.triggered.connect(self._open_config)
         self.tray.quit_action.triggered.connect(self.quit)
 
@@ -228,20 +230,27 @@ class VoiceApp:
         # has not started yet. Restarting on finals alone would cut off anyone
         # mid-sentence.
         self._restart_silence_timer()
-        cleaned, hits = transform_hits(text, self.lexicon, self.opts)
+        if final:
+            self._commit_final(text)
+            return
+        cleaned, _ = transform_hits(text, self.lexicon, self.opts)
         if not cleaned:
             return
-        if final:
-            self._heard.append(text.strip())
-            # Finals only: interim guesses are rewritten continuously, and
-            # counting them would report one sentence as twenty dictionary hits.
-            self._produced.append(cleaned)
-            self._hits.extend(hits)
-            self._guess = ""
-            self.overlay.append_final(cleaned)
-        else:
-            self._guess = cleaned
-            self.overlay.set_interim(cleaned)
+        self._guess = cleaned
+        self.overlay.set_interim(cleaned)
+
+    def _commit_final(self, heard: str) -> None:
+        """Put one finished sentence in the box."""
+        cleaned, hits = transform_hits(heard, self.lexicon, self.opts)
+        if not cleaned:
+            return
+        self._heard.append(heard.strip())
+        # Finals only: interim guesses are rewritten continuously, and
+        # counting them would report one sentence as twenty dictionary hits.
+        self._produced.append(cleaned)
+        self._hits.extend(hits)
+        self._guess = ""
+        self.overlay.append_final(cleaned)
 
     def _restart_silence_timer(self) -> None:
         if not self.recording or self.cfg.auto_stop_seconds <= 0:
@@ -384,11 +393,85 @@ class VoiceApp:
             return
         _open_in_editor(path)
 
+    def _apply_learned(self) -> None:
+        """Accept what the app learned, in one click and with no shell.
+
+        This is the local, key-free half of getting fewer mistakes: the app
+        already watches what you fix by hand before pressing «بنویس» and keeps
+        the difference. Until now the only way to *accept* those suggestions was
+        ``mlqvoice learn --apply`` — a command that, on the installed build,
+        could not even be reached (§۵.۵). So the feature existed and nobody
+        could use it.
+        """
+        stored = learning.load(learned_file())
+        if not stored:
+            self.tray.showMessage(
+                APP_NAME,
+                "هنوز چیزی یاد نگرفته. متن را قبل از «بنویس» ویرایش کن تا یاد بگیرد.",
+                self.tray.icon(),
+                5000,
+            )
+            return
+
+        pending = sum(len(forms) for forms in learning.as_dictionary(stored).values())
+        answer = QMessageBox.question(
+            None,
+            "افزودن به دیکشنری",
+            f"{_fa(pending)} شکلِ گفتاری به دیکشنریِ خودت اضافه شود؟\n"
+            "پیشنهادها پاک نمی‌شوند و هر وقت خواستی می‌توانی خودِ فایل را ویرایش کنی.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            # The safe option is the focused one, so a stray Enter changes
+            # nothing — the same rule the panel learned the hard way.
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            added = learning.apply_to_dictionary(user_dictionary_file(), stored)
+        except (learning.DictionaryUnreadable, OSError) as exc:
+            # OSError as well as the JSON one, and that gap was a real bug: a
+            # full disk or a locked file raised straight out of this Qt slot,
+            # while `_learn_from` and `_count` — the same kind of write, three
+            # screens up — both guard for it.
+            #
+            # Never silently, either: a refusal the user cannot see is the same
+            # as the write having failed for no reason (OPS-03).
+            self.tray.showMessage(
+                APP_NAME, f"دیکشنریِ تو دست‌نخورده ماند: {exc}", self.tray.icon(), 8000
+            )
+            return
+
+        # Rebuilt here rather than at the next start: a dictionary entry that
+        # only works tomorrow is indistinguishable from one that did not save.
+        self.lexicon = build_lexicon(
+            glossary=self.cfg.glossary,
+            punctuation=self.cfg.punctuation,
+            user_file=user_dictionary_file(),
+        )
+        log.info("applied %d learned forms; lexicon now %d entries", added, len(self.lexicon))
+        self.tray.showMessage(
+            APP_NAME,
+            f"{_fa(added)} شکل اضافه شد و همین حالا فعال است."
+            if added
+            else "چیزی تازه نبود — همه‌شان از قبل در دیکشنری بودند.",
+            self.tray.icon(),
+            5000,
+        )
+
     def _open_config(self) -> None:
         path = config_file()
         if not path.exists():
             save(self.cfg, path)
         _open_in_editor(path)
+
+
+def _fa(number: int) -> str:
+    """A count the way it is read here. A Latin digit in a Persian sentence is
+    a small thing that makes the sentence look like it came from somewhere else."""
+    from .text.normalize import to_persian_digits
+
+    return to_persian_digits(str(number))
 
 
 def _explain(error: str) -> str:
@@ -407,7 +490,10 @@ def _open_in_editor(path) -> None:
 
 def run() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    qt = QApplication(sys.argv)
+    # Reuse whatever is already up rather than insisting on being first: Qt
+    # allows exactly one QApplication per process, and creating a second one is
+    # a hard crash. `selftest` already follows this rule.
+    qt = QApplication.instance() or QApplication(sys.argv)
     qt.setApplicationName(APP_NAME)
     qt.setQuitOnLastWindowClosed(False)  # the overlay closing must not end the app
 
@@ -427,8 +513,17 @@ def run() -> int:
     try:
         app = VoiceApp(cfg)
         app.start()
-    except (ConfigError, HotkeyError, BrowserNotFound) as exc:
+    except (ConfigError, DictionaryError, HotkeyError, BrowserNotFound) as exc:
         QMessageBox.critical(None, APP_NAME, str(exc))
+        return 2
+    except Exception as exc:
+        # Deliberately broad, and only here. A --windowed build has no console:
+        # anything that escapes this line takes the process down with no window,
+        # no message and nothing in any log the user can reach — they double
+        # click the icon and nothing happens, forever. Showing the wrong-looking
+        # error is worth a great deal more than showing none.
+        log.exception("راه‌اندازی شکست خورد")
+        QMessageBox.critical(None, APP_NAME, f"راه‌اندازی شکست خورد:\n\n{exc}")
         return 2
 
     return qt.exec()

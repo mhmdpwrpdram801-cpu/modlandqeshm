@@ -2,7 +2,7 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: https://jdvbvuikbkebwxfsepft.supabase.co; media-src 'self' blob: https://jdvbvuikbkebwxfsepft.supabase.co; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' blob: https://jdvbvuikbkebwxfsepft.supabase.co; base-uri 'none'; object-src 'none'; form-action 'none'">
 <title>مدلند قشم — مدیریت فروش</title>
@@ -113,8 +113,12 @@ body:has(#bulkBar:not(.hidden)) #updBar{display:none}
 .theme-opt.on{background:var(--gold);color:#fff;border-color:var(--gold)}
 .force-light{ --bg:#f1efe9; --card:#ffffff; --panel:#faf6ec; --gold:#c0901c; --gold-lt:#9a6f08; --gold-dp:#7e5a06; --ink:#221d15; --muted:#8b8472; --line:rgba(192,144,28,.28); --line-soft:rgba(34,29,21,.09); --paid:#2e8b57; --partial:#b5860b; --credit:#c0392b; --danger:#c0392b; --accent:#9a6f08; --profit:#1f7a44; --blue:#2563a8; --inv-hd-a:#f4ecd6; --inv-hd-b:#f8f2e4; --inv-gr-a:#f6efdc; --inv-gr-b:#fbf6ea; --rep-bg:#ffffff; --rep-ink:#221d15; --rep-line:#eeeeee; --rep-mut:#555555; --rep-dim:#999999; color:var(--ink); }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{background:var(--bg);font-family:'Vazirmatn','Tahoma',sans-serif;color:var(--ink);font-size:15px}
+html,body{background:var(--bg);font-family:'Vazirmatn','Tahoma',sans-serif;color:var(--ink);font-size:15px;touch-action:manipulation}
 input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
+/* ۱۶ پیکسل آستانه‌ی خودِ iOS است: روی کادرِ کوچک‌تر، سافاری موقعِ فوکوس صفحه را
+   زوم می‌کند و دیگر برنمی‌گردد. این مهم‌ترین تکه‌ی «مثلِ برنامه‌ی واقعی شدن» است و
+   با متای viewport هم درست نمی‌شود. **زیرِ ۱۶ نبرش.** */
+input,select,textarea{font-size:16px}
 .hidden{display:none!important}
 
 /* LOGIN */
@@ -175,6 +179,13 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
   /* ردیفِ بیرون از دید رسم نمی‌شود. contain-intrinsic-size لازم است وگرنه نوارِ اسکرول می‌پرد. */
   content-visibility:auto;contain-intrinsic-size:auto 64px}
 .list-item:active{background:var(--panel)}
+/* بدونِ این، `justify-content:space-between` بلوکِ متن را به‌اندازه‌ی محتوایش
+   می‌کند و بینِ دو سرِ ردیف شناور می‌گذارد — یعنی هر ردیف بسته به طولِ نامش از
+   جای دیگری شروع می‌شود و ستون از بالا به پایین صاف درنمی‌آید. مالک همین را
+   دید. ۱۲ ردیف از ۱۴ ردیفِ پنل این ایراد را داشتند و فقط فهرستِ کالاها
+   `style="flex:1"` داشت، برای همین آن یکی سالم بود.
+   `min-width:0` لازم است وگرنه نامِ بلند به‌جای کوتاه شدن ردیف را پهن می‌کند. */
+.list-item > div:not(.selbox):not(.li-end){flex:1;min-width:0}
 .li-main{font-weight:700;font-size:14.5px}
 .li-sub{font-size:12px;color:var(--muted);margin-top:3px}
 .li-end{text-align:left;flex-shrink:0}
@@ -232,7 +243,9 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 .ir-grid{display:flex;gap:8px}
 .ir-grid .f{flex:1}
 .ir-grid .f label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
-/* قیمتِ واحد دیگر دستی وارد نمی‌شود: از خودِ کالا می‌آید و اینجا فقط نشان داده می‌شود */
+/* تعداد باریک، قیمت پهن. با flex:1 روی هر دو، در ۳۲۰ پیکسل کادرِ قیمت جا نداشت
+   و عددِ ۱۰ رقمی از آن بیرون می‌زد؛ تعداد حداکثر ۶ رقم است و این اندازه کافی است. */
+.ir-grid .f.qty{flex:0 0 84px}
 .ir-linecalc{text-align:left;font-size:11px;color:var(--muted);margin-top:3px;min-height:14px}
 .linkbtn{background:none;border:0;padding:0;font-family:inherit;font-size:11px;font-weight:700;color:var(--gold-lt);text-decoration:underline;cursor:pointer}
 .ir-line{text-align:left;font-size:12.5px;color:var(--gold-lt);font-weight:700;margin-top:8px}
@@ -258,7 +271,6 @@ input,select,button,textarea{font-family:inherit;font-size:15px;color:var(--ink)
 body.ovlock{overflow:hidden}
 .medbox{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
 .medhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
-.medvid{width:100%;max-height:230px;border-radius:9px;background:#000;display:block}
 .medempty{font-size:12px;color:var(--muted);text-align:center;padding:18px 8px;border:1px dashed var(--line);border-radius:9px}
 .medgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .medthumb{position:relative;aspect-ratio:1/1;border-radius:9px;overflow:hidden;border:1px solid var(--line)}
@@ -399,7 +411,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
   </div>
   <div class="lcard">
     <h2>ورود به سیستم</h2>
-    <div class="field"><label>ایمیل</label><input id="lEmail" class="inp" dir="ltr" type="email" placeholder="you@example.com" autocomplete="username"></div>
+    <div class="field"><label>ایمیل</label><input id="lEmail" maxlength="254" class="inp" dir="ltr" type="email" placeholder="you@example.com" autocomplete="username"></div>
     <div class="field"><label>رمز عبور</label><input id="lPass" class="inp" dir="ltr" type="password" placeholder="••••••••" autocomplete="current-password"></div>
     <button id="lBtn" class="btn">ورود</button>
     <div id="lMsg" class="msg"></div>
@@ -444,13 +456,13 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <div id="quoteBanner" class="quote-banner hidden">📋 این فاکتور از یک <b>پیش‌فاکتور</b> بارگذاری شده — با ثبتِ فاکتور، آن پیش‌فاکتور خودکار بسته می‌شود.<br><button class="btn sm sec" style="margin-top:8px" onclick="clearPendingQuote()">لغو اتصالِ پیش‌فاکتور</button></div>
     <div class="card">
       <div class="field"><label>نام خریدار</label>
-        <input id="nName" class="inp" list="custNames" autocomplete="off" placeholder="مثلاً خانم رضایی" oninput="checkCustomerMatch()">
+        <input id="nName" maxlength="60" class="inp" list="custNames" autocomplete="off" placeholder="مثلاً خانم رضایی" oninput="checkCustomerMatch()">
         <datalist id="custNames"></datalist>
         <div id="custMatchHint" class="words-hint"></div>
       </div>
       <div class="ir-grid">
-        <div class="f field" style="flex:1"><label>شماره تماس</label><input id="nPhone" class="inp" dir="ltr" inputmode="numeric" placeholder="0912..." oninput="phoneInput(this);checkCustomerMatch()"></div>
-        <div class="f field" style="flex:1"><label>شهر</label><input id="nCity" class="inp" placeholder="بندرعباس"></div>
+        <div class="f field" style="flex:1"><label>شماره تماس</label><input id="nPhone" maxlength="18" class="inp" dir="ltr" inputmode="numeric" placeholder="0912..." oninput="phoneInput(this);checkCustomerMatch()"></div>
+        <div class="f field" style="flex:1"><label>شهر</label><input id="nCity" maxlength="40" class="inp" placeholder="بندرعباس"></div>
       </div>
     </div>
     <div class="section-head"><div style="font-weight:700">اقلام فاکتور</div><button class="btn sm sec" style="width:auto;padding:6px 12px" onclick="fillFromLastInvoice()">🔁 مثلِ فاکتورِ قبلیش</button></div>
@@ -458,13 +470,13 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <button class="addrow" onclick="addItemRow()">+ افزودن ردیف کالا</button>
     <div class="totbox">
       <div class="totrow"><span>جمع کل اقلام</span><b id="tItems" class="num">۰</b></div>
-      <div class="totrow"><span>تخفیف</span><span style="display:flex;gap:6px;align-items:center"><select id="nDiscMode" class="inp" style="width:82px;padding:7px 6px" onchange="onDiscMode()"><option value="t">تومان</option><option value="p">درصد ٪</option></select><input id="nDiscount" class="inp" style="width:104px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="discInput(this);recalc()"></span></div>
+      <div class="totrow"><span>تخفیف</span><span style="display:flex;gap:6px;align-items:center"><select id="nDiscMode" class="inp" style="width:82px;padding:7px 6px" onchange="onDiscMode()"><option value="t">تومان</option><option value="p">درصد ٪</option></select><input id="nDiscount" maxlength="13" class="inp" style="width:104px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="discInput(this);recalc()"></span></div>
       <div class="totrow" id="tDiscRow" style="display:none"><span style="font-size:11.5px;color:var(--muted)">یعنی این‌قدر تخفیف</span><b id="tDiscVal" class="num" style="font-size:12.5px;color:var(--muted)">۰</b></div>
-      <div class="totrow"><span>پرداخت‌شده (تومان)</span><input id="nPaid" class="inp" style="width:130px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="grpInput(this);recalc()"></div>
+      <div class="totrow"><span>پرداخت‌شده (تومان)</span><input id="nPaid" maxlength="13" class="inp" style="width:130px;padding:7px 10px" dir="ltr" inputmode="numeric" value="0" oninput="grpInput(this);recalc()"></div>
       <div class="totrow grand"><span class="gl">مبلغ نهایی</span><span class="gv num" id="tFinal">۰</span></div>
       <div id="tFinalWords" class="words-hint" style="text-align:left"></div>
     </div>
-    <div class="field"><label>توضیحات (اختیاری)</label><input id="nNote" class="inp" placeholder="مثلاً تسویه تا آخر ماه"></div>
+    <div class="field"><label>توضیحات (اختیاری)</label><input id="nNote" maxlength="200" class="inp" placeholder="مثلاً تسویه تا آخر ماه"></div>
     <button id="submitInv" class="btn" onclick="submitInvoice()">ثبت فاکتور</button>
     <div class="rowline" style="margin-top:8px;gap:8px">
       <button class="btn sec" style="flex:1" onclick="saveQuote()">💾 ذخیره به‌عنوان پیش‌فاکتور</button>
@@ -477,7 +489,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
   <div id="scr-invoices" class="screen hidden">
     <div class="section-head"><div class="screen-title">فاکتورها</div><button id="selbtn-inv" class="btn sm sec" onclick="toggleSelMode('inv')">☑️ انتخاب</button></div>
     <div class="screen-sub">آخرین فاکتورها. برای دیدن، روی هرکدام بزن.</div>
-    <div class="field" style="margin-bottom:10px"><input id="invSearch" class="inp" placeholder="🔎 جستجو: شماره فاکتور یا نام مشتری" oninput="searchInvoicesDebounced()"></div>
+    <div class="field" style="margin-bottom:10px"><input id="invSearch" maxlength="60" class="inp" placeholder="🔎 جستجو: شماره فاکتور یا نام مشتری" oninput="searchInvoicesDebounced()"></div>
     <div id="invList"><div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div></div>
   </div>
 
@@ -538,6 +550,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
     <button id="invRetBtn" class="sheet-b" onclick="invMore(false);openInvoiceReturn()">↩️ ثبتِ مرجوعی<span class="sub">جنس برگشته؛ از فاکتور کم می‌شود</span></button>
     <div class="sheet-sep"></div>
     <button id="voidBtn" class="sheet-b danger" onclick="invMore(false);voidCurrentInvoice()">🚫 ابطالِ فاکتور<span class="sub">کلِ فاکتور باطل می‌شود — برگشت‌ناپذیر</span></button>
+    <button id="invDelBtn" class="sheet-b danger" style="display:none" onclick="invMore(false);deleteCurrentInvoice()">🗑 حذفِ کاملِ فاکتور<span class="sub">فقط برای فاکتورِ باطل‌شده — با قلم‌ها و پرداخت‌هایش پاک می‌شود</span></button>
     <button class="sheet-b cancel" onclick="invMore(false)">بی‌خیال</button>
   </div>
 </div>
@@ -571,7 +584,7 @@ table.inv-tbl{margin-top:16px;width:100%;border-collapse:separate;border-spacing
 <div id="searchView" class="overlay hidden">
   <div class="ov-bar"><button class="btn sm sec" onclick="closeSearch()">بستن</button></div>
   <div class="ov-body"><div class="ov-sheet">
-    <input id="gsInput" class="inp" placeholder="🔎 جستجو در کالا، مشتری، فاکتور…" oninput="gsGo()" style="margin-bottom:14px">
+    <input id="gsInput" maxlength="60" class="inp" placeholder="🔎 جستجو در کالا، مشتری، فاکتور…" oninput="gsGo()" style="margin-bottom:14px">
     <div id="searchBody"></div>
   </div></div>
 </div>
@@ -793,6 +806,15 @@ function phoneFmt(v){
   if(i<d.length)out.push(d.slice(i));
   return out.join(' ');
 }
+/* شماره را برای **نمایش در متن** آماده می‌کند و در یک جزیره‌ی چپ‌به‌راست می‌بندد.
+   چرا لازم است: تا وقتی شماره یک رشته‌ی پیوسته‌ی رقم بود، الگوریتمِ دوسویه دست‌نخورده
+   نگهش می‌داشت. با فاصله‌های گروه‌بندی، هر گروه یک «عددِ اروپایی» جدا می‌شود و در
+   بندِ راست‌به‌چپ **ترتیبشان برعکس دیده می‌شود** — اندازه‌گیری شد: «0900 000 0000»
+   روی صفحه «0000 000 0900» خوانده می‌شد. یعنی مالک شماره را وارونه می‌خواند و به
+   آدمِ اشتباه زنگ می‌زد. این باگ با همان گروه‌بندی وارد شد، نه قبلش.
+   **هر جا شماره را در متن نشان می‌دهی از این رد کن، نه از esc(phoneFmt(...)).**
+   تنها استثنا `value=` ورودی‌هاست که تگ نمی‌پذیرد — آن‌ها خودشان dir="ltr" دارند. */
+function phoneTag(v){ const s=phoneFmt(v); return s?'<bdi dir="ltr">'+esc(s)+'</bdi>':''; }
 /* موقعِ تایپ، مکان‌نمای متن نباید بپرد — مثلِ grpInput، تعدادِ رقمِ پیش از
    مکان‌نما را می‌شمارد و بعد از قالب‌بندی دوباره همان‌جا می‌نشاندش. */
 function phoneInput(el){
@@ -1018,6 +1040,37 @@ async function sbLogin(email,password){
   return d;
 }
 const NET_TIMEOUT=25000;
+/* ── خبر دادن از خطِ کند ────────────────────────────────────────────────────
+   مهلت ۲۵ ثانیه است و این عمداً بلند گذاشته شده: روی فیلترشکن یک درخواستِ سالم
+   هم می‌تواند ۱۵ ثانیه طول بکشد و کوتاه کردنش، درخواستِ درست را به خطا تبدیل
+   می‌کند. ولی ۲۵ ثانیه سکوت یعنی کاربر نمی‌داند برنامه کار می‌کند یا هنگ کرده —
+   و آدم در آن سکوت دکمه را دوباره می‌زند.
+   پس رفتار عوض نمی‌شود، فقط بعد از ۷ ثانیه گفته می‌شود «هنوز منتظرم».
+   چهار قاعده، هم‌خانواده‌ی reportError:
+   ۱ هرگز throw نکند و مسیرِ درخواست را عوض نکند
+   ۲ چند درخواستِ همزمان فقط **یک** پیام بدهند (صفحه‌ی بینش‌ها هفت‌تا می‌فرستد)
+   ۳ پشتِ سرِ هم تکرار نشود — سقفِ یک پیام در هر ۲۵ ثانیه
+   ۴ قبل از ورود ساکت بماند؛ آنجا کاربر منتظرِ داده نیست */
+const SLOW_AFTER=7000;
+let _slowN=0, _slowT=null, _slowLast=0;
+function _slowStart(){
+  _slowN++;
+  if(_slowT)return;
+  _slowT=setTimeout(()=>{
+    _slowT=null;
+    try{
+      if(_slowN<=0)return;
+      if(!TOKEN)return;                                   /* قبل از ورود ساکت */
+      const now=Date.now(); if(now-_slowLast<25000)return;
+      _slowLast=now;
+      toast('⏳ اینترنت کنده — هنوز منتظرِ جوابم، دوباره نزن');
+    }catch(_){ }
+  }, SLOW_AFTER);
+}
+function _slowEnd(){
+  if(_slowN>0)_slowN--;
+  if(_slowN===0&&_slowT){ clearTimeout(_slowT); _slowT=null; }
+}
 async function sbFetch(path, opts={}){
   await getToken();
   if(!TOKEN && !SESSION){ throw new Error('نشست منقضی شد، دوباره وارد شو'); }
@@ -1049,6 +1102,8 @@ async function sbFetch(path, opts={}){
     finally{ if(t)clearTimeout(t); }
   };
   const gen=AUTH_GEN;                 /* توکنی که با آن رفتیم */
+  _slowStart();
+  try{
   let r=await go();
   if(r.status===401 && SESSION){
     // اگر در این فاصله یکی دیگر توکن را تازه کرده، دوباره تازه نکن — فقط با توکنِ
@@ -1057,6 +1112,7 @@ async function sbFetch(path, opts={}){
     else { const s=await refreshSession(); if(s==='ok'){ r=await go(); } else if(s==='auth_failed'){ forceLogin(); } /* network_error: keep session, return the response as-is */ }
   }
   return r;
+  } finally { _slowEnd(); }   /* چه جواب بیاید چه خطا، شمارنده باید برگردد */
 }
 async function sbGet(path){ const r=await sbFetch(path); const d=await r.json().catch(()=>([])); if(!r.ok)throw new Error(d.message||"خطا در دریافت اطلاعات"); return d; }
 async function sbGetAll(path, pageSize){ if(/[?&]limit=/.test(path)){ return (await sbGet(path))||[]; } pageSize=pageSize||1000; let off=0, all=[]; while(true){ const sep=path.includes('?')?'&':'?'; const batch=await sbGet(path+sep+'limit='+pageSize+'&offset='+off); if(!batch||batch.length===0)break; all.push(...batch); if(batch.length<pageSize)break; off+=pageSize; } return all; }
@@ -1064,6 +1120,28 @@ async function sbInsert(table,row){ const r=await sbFetch(table,{method:"POST",h
 async function sbUpdate(table,id,row){ const r=await sbFetch(table+"?id=eq."+encodeURIComponent(id),{method:"PATCH",headers:{"Prefer":"return=representation"},body:JSON.stringify(row)}); const d=await r.json().catch(()=>([])); if(!r.ok)throw new Error(d.message||"خطا در ویرایش"); if(Array.isArray(d)&&d.length===0)throw new Error("چیزی ویرایش نشد — این ردیف پیدا نشد (شاید حذف شده)"); return Array.isArray(d)?d[0]:d; }
 async function sbUpsert(table,row){ const r=await sbFetch(table,{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(row)}); const d=await r.json().catch(()=>([])); if(!r.ok)throw new Error(d.message||"خطا در ذخیره"); return Array.isArray(d)?d[0]:d; }
 async function sbDelete(table,id){ const r=await sbFetch(table+"?id=eq."+encodeURIComponent(id),{method:"DELETE",headers:{"Prefer":"return=representation"}}); const d=await r.json().catch(()=>([])); if(!r.ok){ throw new Error((d&&d.message)||"خطا در حذف"); } if(Array.isArray(d)&&d.length===0)throw new Error("چیزی حذف نشد — این ردیف پیدا نشد (شاید قبلاً حذف شده)"); }
+/* تازه‌کردنِ کشِ کالا و مشتری بعد از یک نوشتنِ موفق.
+   ⚠️ اینجا catchِ خالی خطرناک است و اندازه‌گیری شد: حذفِ گروهیِ ۲ کالا موفق می‌شود و
+   toastِ «۲ کالا حذف شد» هم می‌آید، ولی روی اینترنتِ ضعیف تازه‌کردنِ لیست می‌افتد و همان
+   دو کالا هم در لیستِ کالاها هم در کشوی انتخابِ کالای فاکتور می‌مانند — یعنی خبرِ موفقیت
+   درست است ولی چیزی که کاربر می‌بیند دروغ. چهار مسیرِ تک‌کالایی این محافظ را داشتند و
+   مسیرهای گروهی نداشتند. */
+/* ⚠️ هشدار عمداً با تأخیر می‌آید و این تزیین نیست: `toast` یک عنصرِ واحد است و
+   `textContent` را رونویسی می‌کند. در `submitInvoice` و `convertTgOrder` بلافاصله
+   بعد از تازه‌کردنِ کش یک پیامِ موفقیت می‌آید، پس نسخه‌ی اولِ همین اصلاح هشدار را
+   می‌داد و همان میلی‌ثانیه پاک می‌شد — محافظی که تست تأییدش می‌کرد و کاربر هیچ‌وقت
+   نمی‌دیدش. ۲۴۰۰ کمی بیشتر از عمرِ ۲۳۰۰ میلی‌ثانیه‌ایِ toast است تا هشدار آخرین
+   چیزی باشد که روی صفحه می‌مانَد. بررسیِ خودکارش متنِ واقعیِ رویِ صفحه را می‌خوانَد،
+   نه اینکه فقط بپرسد `toast` صدا زده شد یا نه. */
+function _staleWarn(what){ setTimeout(()=>toast('⚠️ لیستِ '+what+' تازه نشد — چیزی که می‌بینی کهنه‌ست، صفحه رو دوباره باز کن'), 2400); }
+async function reloadProducts(){
+  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); return true; }
+  catch(_){ _staleWarn('کالاها'); return false; }
+}
+async function reloadCustomers(){
+  try{ CUSTOMERS=await sbGetAll("customers?select=*&order=name.asc"); fillCustomerSelect(); return true; }
+  catch(_){ _staleWarn('مشتری‌ها'); return false; }
+}
 async function sbRpc(fn,args){ const r=await sbFetch("rpc/"+fn,{method:"POST",body:JSON.stringify(args)}); const d=await r.json().catch(()=>({})); if(!r.ok)throw new Error((d&&(d.message||d.hint))||"خطا"); return d; }
 
 /* login */
@@ -1227,6 +1305,14 @@ function _ovChanged(){
     }
   }catch(_){}
 }
+/* iOS در تبِ عادیِ سافاری `user-scalable=no` را نادیده می‌گیرد (از iOS 10)، ولی
+   رویدادهای gesture مالِ خودِ سافاری‌اند و جلوی پینچ را می‌گیرند. در حالتِ نصب‌شده
+   روی صفحه‌ی خانه (display:standalone) خودِ متا هم رعایت می‌شود.
+   روی کرومیوم این رویدادها اصلاً وجود ندارند، پس بی‌اثر است نه مضر.
+   ⚠️ این یعنی زومِ دستی روی عکسِ کالا هم دیگر کار نمی‌کند — خواستِ صریحِ مالک بود. */
+['gesturestart','gesturechange','gestureend'].forEach(function(t){
+  document.addEventListener(t, function(e){ e.preventDefault(); }, {passive:false});
+});
 window.addEventListener('popstate', function(){
   // عقب‌رفتنِ خودمان بود، نه کاربر. اگر در همان فاصله پنجره‌ی تازه‌ای باز شده بود،
   // شمارشِ ورودی‌ها عقب مانده — همین‌جا دوباره هماهنگش کن تا انباشته نشود.
@@ -1282,7 +1368,7 @@ function updateBulkBar(){
   const bar=document.getElementById('bulkBar'); if(!bar)return;
   if(!SEL.mode||SEL.ids.size===0){ bar.classList.add('hidden'); bar.innerHTML=''; return; }
   const n=SEL.ids.size; let btns='';
-  if(SEL.mode==='inv')btns='<button class="btn sm" onclick="bulkInvSettle()">✅ تسویه شد</button><button class="btn sm sec" onclick="bulkInvReturn()">↩︎ مرجوعی</button><button class="btn sm red" onclick="bulkInvCancel()">🚫 ابطال</button>';
+  if(SEL.mode==='inv')btns='<button class="btn sm" onclick="bulkInvSettle()">✅ تسویه شد</button><button class="btn sm sec" onclick="bulkInvReturn()">↩︎ مرجوعی</button><button class="btn sm red" onclick="bulkInvCancel()">🚫 ابطال</button><button class="btn sm red" onclick="bulkInvDelete()">🗑 حذفِ باطل‌شده‌ها</button>';
   else if(SEL.mode==='prod')btns='<button class="btn sm red" onclick="bulkProdDelete()">🗑 حذف</button>';
   else if(SEL.mode==='cust')btns='<button class="btn sm" onclick="bulkCustSettle()">✅ تسویه شد</button><button class="btn sm red" onclick="bulkCustDelete()">🗑 حذف</button>';
   bar.innerHTML='<div class="bulk-count">'+faNum(n)+' انتخاب</div><div class="bulk-actions">'+btns+'</div><button class="bulk-x" onclick="endSel()">لغو</button>';
@@ -1309,6 +1395,26 @@ async function bulkProgress(ids,worker,doneMsg){
   else toast(faNum(ok)+' تا شد، '+faNum(fails.length)+' تا نشد: '+fails[0]);
   return {ok,fails};
 }
+/* حذفِ گروهی — عمداً فقط باطل‌شده‌ها. اگر فاکتورِ زنده هم در انتخاب باشد
+   نادیده گرفته می‌شود و تعدادش صریح گفته می‌شود، وگرنه کاربر فکر می‌کند همه رفتند. */
+async function bulkInvDelete(){
+  const ids=[...SEL.ids]; if(!ids.length)return;
+  let invs; try{ invs=await sbGet("invoices?select=id,invoice_number,status&id=in.("+_inList(ids)+")"); }catch(e){ toast(e.message); return; }
+  const dead=invs.filter(v=>v.status==='cancelled');
+  const alive=invs.length-dead.length;
+  if(!dead.length){ toast('هیچ‌کدام از انتخاب‌شده‌ها باطل نیستند — فقط فاکتورِ باطل‌شده پاک می‌شود'); return; }
+  let pays=[], payOk=true;
+  try{ pays=await sbGetAll("payments?select=amount,invoice_id&invoice_id=in.("+_inList(dead.map(v=>v.id))+")"); }catch(e){ payOk=false; }
+  const paySum=(pays||[]).reduce((s,p)=>s+Number(p.amount||0),0);
+  let m='⚠️ '+faNum(dead.length)+' فاکتورِ باطل‌شده برای همیشه پاک شود؟\n\n';
+  m+='قلم‌هایشان هم پاک می‌شوند و برگشت‌پذیر نیست.';
+  if(alive)m+='\n\n'+faNum(alive)+' فاکتورِ غیرِباطل در انتخابت هست که دست نمی‌خورد.';
+  if(!payOk)m+='\n\n⚠️ نتونستم پرداخت‌هایشان را چک کنم (خطای شبکه). اگر پرداختی رویشان باشد، آن هم پاک می‌شود.';
+  else if(pays.length)m+='\n\n⚠️ '+faNum(pays.length)+' پرداخت به مبلغِ '+faNum(paySum)+' تومان روی این‌ها ثبت شده و پاک می‌شود.';
+  if(!await ask(m))return;
+  await bulkProgress(dead.map(v=>v.id), id=>sbRpc('delete_invoice',{p_invoice_id:id}), '{n} فاکتور پاک شد ✅');
+  endSel(); renderInvoices();
+}
 async function bulkInvCancel(){
   const ids=[...SEL.ids]; if(!ids.length)return;
   let invs; try{ invs=await sbGet("invoices?select=id,paid_amount,status&id=in.("+_inList(ids)+")"); }catch(e){ toast(e.message); return; }
@@ -1319,7 +1425,7 @@ async function bulkInvCancel(){
   if(paid.length)m='⚠️ '+faNum(paid.length)+' تا از این‌ها پرداختی دارند؛ با ابطال، پرداختی‌شان هم از حسابِ مشتری حذف می‌شود.\n\n'+m;
   if(!await ask(m))return;
   await bulkProgress(active.map(v=>v.id), id=>sbRpc('cancel_invoice',{p_invoice_id:id}), '{n} فاکتور باطل شد ✅');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+  await reloadProducts();
   renderInvoices();
 }
 async function bulkInvSettle(){
@@ -1344,7 +1450,7 @@ async function bulkInvReturn(){
     if(!rets.length)throw new Error('قلمی برای مرجوعی نداشت');
     await sbRpc('return_invoice_items',{p_invoice_id:id,p_returns:rets});
   }, 'مرجوعیِ {n} فاکتور ثبت شد ✅');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+  await reloadProducts();
   renderInvoices();
 }
 async function bulkProdDelete(){
@@ -1353,7 +1459,7 @@ async function bulkProdDelete(){
   await _bulkOneShot(document.getElementById('bulkBar'),'در حال حذفِ '+faNum(ids.length)+' کالا (یکجا)…',
     ()=>Promise.all(_chunks(ids,60).map(ch=>sbFetch("products?id=in.("+_inList(ch)+")",{method:"DELETE",headers:{"Prefer":"return=minimal"}}).then(r=>{ if(!r.ok)throw new Error('خطا در حذف'); }))),
     faNum(ids.length)+' کالا حذف شد');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+  await reloadProducts();
   renderProducts(); try{ fillCustFilter(); }catch(_){}
 }
 async function bulkCustSettle(){
@@ -1441,8 +1547,14 @@ async function renderDashboard(){
     let top=(S.top||[]).map(t=>({name:t.name,qty:Math.max(0,Number(t.qty||0)-(retByName[t.name]||0))})).filter(t=>t.qty>0).sort((a,b)=>b.qty-a.qty);
     const chartMap={}; (S.chart||[]).forEach(r=>{ chartMap[r.d]=Number(r.value||0); }); Object.keys(retByDay).forEach(k=>{ chartMap[k]=(chartMap[k]||0)-retByDay[k]; });
     const chartData=[]; for(let i=13;i>=0;i--){ const d=new Date(now.getTime()-i*86400000); chartData.push({label:faNum(iranJalaliKey(d).slice(8)),value:chartMap[tehranGregKey(d)]||0}); }
-    let tgNew=[]; try{ tgNew=await sbGetAll("telegram_orders?select=id&status=eq.new"); }catch(e){}
-    let html=`${tgNew.length?`<div class="card tgnew" style="padding:13px 15px;margin-bottom:12px;cursor:pointer" onclick="openTgOrders()"><b>🤖 ${faNum(tgNew.length)} سفارشِ جدید از تلگرام</b><div style="font-size:12px;color:var(--muted);margin-top:2px">بزن تا ببینی و به فاکتور تبدیل کنی</div></div>`:''}<div class="stat-grid">
+    /* اگر این خواندن بیفتد **نباید** بنر بی‌صدا غایب شود: نبودنِ بنر برای مالک
+       یعنی «سفارشِ تازه‌ای نیست»، و همان یعنی سفارشِ ازدست‌رفته. پس حالتِ سوم
+       داریم: نشد بفهمم — با یک بنرِ خنثی که خودش راهِ دیدن را می‌دهد. */
+    let tgNew=[], tgOk=true; try{ tgNew=await sbGetAll("telegram_orders?select=id&status=eq.new"); }catch(e){ tgOk=false; }
+    const tgCard = !tgOk
+      ? `<div class="card tgnew" style="padding:13px 15px;margin-bottom:12px;cursor:pointer" onclick="openTgOrders()"><b>🤖 سفارش‌های تلگرام چک نشد</b><div style="font-size:12px;color:var(--muted);margin-top:2px">اینترنت نذاشت ببینم سفارشِ تازه‌ای هست یا نه — بزن تا خودت ببینی</div></div>`
+      : (tgNew.length?`<div class="card tgnew" style="padding:13px 15px;margin-bottom:12px;cursor:pointer" onclick="openTgOrders()"><b>🤖 ${faNum(tgNew.length)} سفارشِ جدید از تلگرام</b><div style="font-size:12px;color:var(--muted);margin-top:2px">بزن تا ببینی و به فاکتور تبدیل کنی</div></div>`:'');
+    let html=`${tgCard}<div class="stat-grid">
       <div class="stat accent"><div class="lbl">فروش امروز</div><div class="val num" style="${salesToday<0?'color:var(--danger)':''}">${faNum(salesToday)} <small>تومان</small></div></div>
       <div class="stat accent"><div class="lbl">فروش این ماه</div><div class="val num" style="${salesMonth<0?'color:var(--danger)':''}">${faNum(salesMonth)} <small>تومان</small></div></div>
       <div class="stat ${receivables>0?'danger':''}"><div class="lbl">کل طلب از مشتری‌ها</div><div class="val num">${faNum(receivables)} <small>تومان</small></div></div>
@@ -1457,7 +1569,7 @@ async function renderDashboard(){
     else html+=debtors.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(193,57,43,.06);border-color:rgba(193,57,43,.25);cursor:pointer" onclick="openCustomer('${r.cid}')"><span style="flex:1">${esc(r.name||'؟')}<br><b style="color:#b5340a">${faNum(r.amount)} ت</b></span><button onclick="event.stopPropagation();waReminderFor('${r.cid}',${r.amount})" style="background:#25d366;color:#fff;border:0;border-radius:9px;padding:8px 12px;font-family:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer">📲 یادآوری</button></div>`; }).join('')+(debtors.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(debtors.length-15)} بدهکارِ دیگر…</div>`:'');
     html+=`<div class="block-title">🔔 مشتری‌های غیرفعال (${faNum(inactive.length)}) <span style="font-weight:400;color:var(--muted);font-size:11.5px">بیش از ۳۰ روز خرید نکرده‌اند</span></div>`;
     if(inactive.length===0) html+=`<div class="empty" style="padding:16px">همه‌ی مشتری‌ها فعال‌اند 👌</div>`;
-    else html+=inactive.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(181,134,11,.07);border-color:rgba(181,134,11,.3);cursor:pointer" onclick="openCustomer('${r.cid}')"><span>${esc(r.name||'؟')}${r.phone?' — '+esc(phoneFmt(r.phone)):''}</span><span>${r.days==null?'<b>هنوز خرید نکرده</b>':'آخرین خرید: <b>'+faNum(r.days)+' روز پیش</b>'}</span></div>`; }).join('')+(inactive.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(inactive.length-15)} مشتریِ دیگر…</div>`:'');
+    else html+=inactive.slice(0,15).map(r=>{ return `<div class="lowstock" style="background:rgba(181,134,11,.07);border-color:rgba(181,134,11,.3);cursor:pointer" onclick="openCustomer('${r.cid}')"><span>${esc(r.name||'؟')}${r.phone?' — '+phoneTag(r.phone):''}</span><span>${r.days==null?'<b>هنوز خرید نکرده</b>':'آخرین خرید: <b>'+faNum(r.days)+' روز پیش</b>'}</span></div>`; }).join('')+(inactive.length>15?`<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:6px">و ${faNum(inactive.length-15)} مشتریِ دیگر…</div>`:'');
     html+=`<div class="block-title">🔥 پرفروش‌ترین کالاها <span style="font-weight:400;color:var(--muted);font-size:11.5px">در ۶۰ روزِ اخیر</span></div>`;
     if(top.length===0) html+=`<div class="empty" style="padding:16px">هنوز فروشی ثبت نشده</div>`;
     else html+=top.map((t,i)=>`<div class="mini"><span><span class="rank">${faNum(i+1)}</span>${esc(t.name)}</span><b class="num">${faNum(t.qty)} عدد</b></div>`).join('');
@@ -1476,8 +1588,9 @@ async function renderShipments(){
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">📦 ارسالی‌ها</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">خودت دستی ثبت می‌کنی: چی برای کی به کدوم شهر فرستادی.</div>
     <div class="card" style="padding:14px;margin-bottom:16px">
-      <div class="ir-grid"><div class="f field" style="flex:1.4"><label>نام مشتری</label><input id="shipName" class="inp" placeholder="مثلاً حاج قاسم"></div><div class="f field" style="flex:.8"><label>تعداد جنس</label><input id="shipQty" class="inp" dir="ltr" inputmode="numeric" placeholder="۰"></div></div>
-      <div class="field"><label>شهر مقصد</label><input id="shipCity" class="inp" placeholder="مثلاً بندرعباس"></div>
+      <div class="ir-grid"><div class="f field" style="flex:1.4"><label>نام مشتری</label><input id="shipName" maxlength="60" class="inp" list="custNames" oninput="checkShipMatch()" placeholder="مثلاً حاج قاسم"></div><div class="f field" style="flex:.8"><label>تعداد جنس</label><input id="shipQty" maxlength="6" class="inp" dir="ltr" inputmode="numeric" placeholder="۰"></div></div>
+      <div id="shipMatchHint" style="font-size:11.5px;margin:-6px 0 8px;min-height:15px"></div>
+      <div class="field"><label>شهر مقصد</label><input id="shipCity" maxlength="40" class="inp" placeholder="مثلاً بندرعباس"></div>
       <button onclick="addShipment()" style="width:100%;background:var(--gold);color:#fff;border:0;border-radius:11px;padding:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">➕ ثبتِ ارسالی</button>
     </div>`;
   if(rows.length===0){ html+='<div class="empty" style="padding:18px">هنوز ارسالی‌ای ثبت نکردی</div></div>'; body.innerHTML=html; return; }
@@ -1491,14 +1604,30 @@ async function renderShipments(){
   });
   html+='</div>'; body.innerHTML=html;
 }
+/* راهنمای زنده‌ی زیرِ کادرِ نام — آینه‌ی همان کاری که checkCustomerMatch برای فاکتور
+   می‌کند. نکته‌اش این است که «وصل نشد» را **همان لحظه** بگوید: اگر ساکت بماند،
+   مالک ماه‌ها بعد سرِ صفحه‌ی مشتری می‌فهمد سابقه‌اش خالی است و دیگر یادش نیست
+   کدام ارسالی مالِ که بوده. */
+function checkShipMatch(){
+  const el=document.getElementById('shipName'), hint=document.getElementById('shipMatchHint');
+  if(!el||!hint)return;
+  const raw=el.value, m=customerNameMatches(raw);
+  if(m.length===1){ hint.style.color='var(--paid)'; hint.textContent='✓ به سابقه‌ی «'+m[0].name+'» وصل می‌شود'; }
+  else if(m.length>1){ hint.style.color='var(--credit)'; hint.textContent='⚠️ چند مشتری با این نام داری — به هیچ‌کدام وصل نمی‌شود. نامِ متمایزتری بذار.'; }
+  else if(normalizeDigits(raw||'').trim()){ hint.style.color='var(--muted)'; hint.textContent='این نام در مشتری‌ها نیست — ثبت می‌شود ولی به سابقه‌ی کسی وصل نمی‌شود'; }
+  else hint.textContent='';
+}
 async function addShipment(){
   const name=document.getElementById('shipName').value.trim();
   const qty=parseNum(document.getElementById('shipQty').value);
   const city=document.getElementById('shipCity').value.trim();
   if(!name){ toast('نام مشتری را بنویس'); return; }
   if(!(qty>0)){ toast('تعداد جنس را درست بزن'); return; }
+  /* نامِ **یکتا** وصل می‌کند؛ چند هم‌نام یعنی نمی‌دانیم کدام، و حدس‌زدن یعنی
+     ارسالی به گردنِ آدمِ اشتباه. همان قاعده‌ی findCustomerByName. */
+  const cust=findCustomerByName(name);
   if(window.__busyShip)return; window.__busyShip=true;
-  try{ await sbInsert('shipments',{customer_name:name,qty:qty,city:city||null}); }
+  try{ await sbInsert('shipments',{customer_name:name,qty:qty,city:city||null,customer_id:cust?cust.id:null}); }
   catch(e){ window.__busyShip=false; toast('ثبت نشد: '+e.message); return; }
   window.__busyShip=false; toast('ارسالی ثبت شد ✅'); await renderShipments();
 }
@@ -1560,8 +1689,8 @@ async function convertTgOrder(id){
   catch(e){ window.__busyConv=false; toast(e.message||'خطا'); try{ await renderTgOrders(); }catch(_){} return; }
   window.__busyConv=false;
   if(res&&res.replayed)toast('این سفارش قبلاً فاکتور شده بود — همون فاکتور رو نشونت می‌دم');
-  try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
-  if(res&&res.customer_created){ try{ CUSTOMERS=await sbGetAll("customers?select=*&order=name.asc"); fillCustomerSelect(); }catch(_){} }
+  await reloadProducts();
+  if(res&&res.customer_created){ await reloadCustomers(); }
   if(!(res&&res.replayed))toast('فاکتور شماره '+faNum(res.invoice_number)+' ساخته شد ✅'+((res&&res.customer_created)?' — مشتریش هم ثبت شد 👤':''));
   try{ await renderTgOrders(); }catch(_){}
   if(res&&res.id){ try{ document.getElementById('tgOrdersView').classList.add('hidden'); }catch(_){} try{ await openInvoiceById(res.id); }catch(_){} }
@@ -1629,6 +1758,9 @@ async function fillFromLastInvoice(){
       addItemRow(); const row=wrap.lastElementChild;
       row.querySelector('.ir-prod').value=p.id;
       row.querySelector('.ir-qty').value=String(it.quantity||1);
+      /* همان قیمتی که به این مشتری داده بودیم برمی‌گردد — نکته‌ی اصلیِ این دکمه
+         همین است. اگر با قیمتِ امروزِ کالا فرق کند، کنارِ ردیف گفته می‌شود. */
+      rowSetPrice(row, Math.round(Number(it.unit_price)||0));
       added++;
     });
     if(!added){ addItemRow(); toast('هیچ‌کدوم از جنسای فاکتورِ قبلیش دیگه تو لیست نیست 🙏'); return; }
@@ -1640,7 +1772,7 @@ function addItemRow(){
   const wrap=document.getElementById('itemsWrap'), div=document.createElement('div');
   div.className='itemrow';
   div.innerHTML=`<div class="ir-top"><select class="inp ir-prod" onchange="onPickProduct(this)">${productOptions()}</select><button class="del" title="حذفِ این قلم" aria-label="حذفِ این قلم" onclick="this.closest('.itemrow').remove();recalc()">×</button></div>
-    <div class="ir-grid"><div class="f"><label>تعداد</label><input class="inp ir-qty" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div></div>
+    <div class="ir-grid"><div class="f qty"><label>تعداد</label><input class="inp ir-qty" maxlength="6" dir="ltr" inputmode="numeric" value="1" oninput="recalc()"></div><div class="f"><label>قیمتِ واحد (تومان)</label><input class="inp ir-price" maxlength="13" dir="ltr" inputmode="numeric" placeholder="از کالا می‌آید" oninput="grpInput(this);recalc()"></div></div>
     <div class="ir-line">جمع: <span class="ir-linev">۰</span></div><div class="ir-linecalc"></div>`;
   wrap.appendChild(div); recalc();
 }
@@ -1873,56 +2005,18 @@ async function medRemove(kind, idx){
     renderMedia(); await medPersist(); toast('پاک شد ✅');
   }catch(e){ toast(e.message||'پاک نشد'); }
 }
-function medVidFail(el){ try{ const d=document.createElement('div'); d.className='medempty';
-  d.innerHTML='✅ فیلم روی تلگرام ذخیره شده<br>حجمش زیاده و اینجا پخش نمی‌شه — تو ربات ببینش'; el.replaceWith(d); }catch(_){} }
-// نشانیِ ویدیو دیگر لخت نیست: یک ژتونِ کوتاه‌عمر می‌خواهد که فقط کاربرِ واردشده
-// می‌تواند بگیرد. `<video src>` هدرِ Authorization نمی‌فرستد، پس امضا در خودِ
-// نشانی می‌نشیند. ژتون برای همین کالا و همین نوع است و یک ساعت اعتبار دارد.
-async function medTok(kind){
-  const M=window.__MED||{}; if(!M.pid) return;
-  const key=kind==='carton'?'tok_carton':'tok_jin', busy='_tokbusy_'+kind, err='_tokerr_'+kind;
-  if(M[key]||M[busy]) return;
-  M[busy]=true;
-  const pid=M.pid;
-  try{
-    await getToken();
-    const r=await fetch(SUPABASE_URL+'/functions/v1/telegram-bot?mediatoken='+encodeURIComponent(pid)+'&which='+kind,
-      TOKEN?{headers:{Authorization:'Bearer '+TOKEN}}:{});
-    const d=await r.json().catch(()=>({}));
-    const C=window.__MED||{};
-    if(String(C.pid||'')!==String(pid)) return;   // کاربر رفته سراغِ کالای دیگر
-    if(d&&d.tok){ C[key]=d.tok; } else { C[err]=true; }
-    C[busy]=false; renderMedia();
-  }catch(e){
-    const C=window.__MED||{};
-    if(String(C.pid||'')===String(pid)){ C[err]=true; C[busy]=false; renderMedia(); }
-    try{ reportError('medTok', e&&e.message); }catch(_){}
-  }
-}
-function medRetryTok(kind){
-  const M=window.__MED||{}; if(!M)return;
-  M['_tokerr_'+kind]=false; M['_tokbusy_'+kind]=false;
-  renderMedia();
-}
 function renderMedia(){
   const M=window.__MED||{}; if(!document.getElementById('medJin'))return;
+  /* پنل عمداً فیلم پخش نمی‌کند (خواستِ مالک، ۱۴۰۵/۰۶/۰۱). تلگرام تا ۵۰ مگ آپلود
+     می‌گیرد ولی فقط تا ۲۰ مبی‌بایت دانلود می‌دهد، پس بعضی فیلم‌ها باز می‌شدند و
+     بعضی نه — و همان ناهمسانی بی‌فایده بود. اینجا فقط می‌گوییم فیلم هست یا نه؛
+     پخشش کارِ ربات است. ژتونِ ویدیو (`?mediatoken=`) هم با همین حذف شد: یک
+     رفت‌وبرگشتِ شبکه‌ی کمتر روی خطِ کند. */
   const vbox=(kind,label,url,fid)=>{
     const has=!!(url||fid);
-    const tok=kind==='carton'?M.tok_carton:M.tok_jin, terr=M['_tokerr_'+kind];
-    const needTok=!url&&!!fid&&!!M.pid;
-    if(needTok&&!tok&&!terr) medTok(kind);
-    const src = url ? esc(url) : (needTok&&tok
-      ? (SUPABASE_URL+'/functions/v1/telegram-bot?media='+encodeURIComponent(M.pid)+'&which='+kind+'&t='+encodeURIComponent(tok))
-      : '');
-    if(needTok&&!tok){
-      return `<div class="medhead"><b>${label}</b><button class="btn sm red" onclick="medRemove('${kind}')">🗑 پاک کن</button></div>`+
-        (terr?`<div class="medempty">فیلم بارگذاری نشد — <a href="#" onclick="medRetryTok('${kind}');return false">دوباره امتحان کن</a></div>`
-             :`<div class="medempty">⏳ دارم فیلم رو باز می‌کنم…</div>`)+
-        `<button class="btn sm sec" style="width:100%;margin-top:8px" onclick="medPick('${kind}')">🔁 عوض کن</button>`;
-    }
+    const state = fid ? '✅ فیلم روی تلگرام ذخیره شده' : '✅ فیلم ثبت شد — دارد به تلگرام می‌رود';
     return `<div class="medhead"><b>${label}</b>${has?`<button class="btn sm red" onclick="medRemove('${kind}')">🗑 پاک کن</button>`:''}</div>`+
-      (has ? (src?`<video src="${src}" controls playsinline preload="metadata" class="medvid" onerror="medVidFail(this)"></video>`
-                 :`<div class="medempty">✅ فیلم روی تلگرام ذخیره شده</div>`)
+      (has ? `<div class="medempty">${state}<br>پخشش تو رباته</div>`
            : `<div class="medempty">هنوز فیلمی نذاشتی</div>`)+
       `<button class="btn sm sec" style="width:100%;margin-top:8px" onclick="medPick('${kind}')">${has?'🔁 عوض کن':'⬆️ انتخابِ فیلم'}</button>`;
   };
@@ -1941,17 +2035,24 @@ function discountAmount(total){
   if(m==='p'){ let pct=faFloat(el.value); if(isNaN(pct)||pct<0)pct=0; if(pct>100)pct=100; return Math.round(Number(total||0)*pct/100); }
   return parseNum(el.value);
 }
-/* قیمتِ واحد هیچ فیلدی ندارد — از خودِ کالا خوانده می‌شود.
-   استثنا: پیش‌فاکتور. قیمتی که به مشتری قول داده شده روی خودِ ردیف قفل می‌شود
-   (data-lock) تا با تغییرِ قیمتِ کالا عوض نشود. با عوض‌کردنِ کالا قفل باز می‌شود. */
+/* قیمتِ واحد یک کادرِ واقعی روی هر ردیف است (خواستِ مالک، ۱۴۰۵/۰۵/۳۱): با انتخابِ
+   کالا خودش پر می‌شود و بعدش دستی هم عوض می‌شود، چون بعضی مشتری‌ها قیمتِ خاصِ
+   خودشان را دارند.
+   **کادرِ فاکتور هیچ‌وقت روی قیمتِ خودِ کالا نمی‌نویسد** — قیمتِ ثبت‌شده در بخشِ
+   کالاها فقط از فرمِ همان کالا (`pPrice`) عوض می‌شود. اینجا فقط خوانده می‌شود.
+   منبعِ حقیقتِ قیمتِ هر ردیف همان چیزی است که در کادر دیده می‌شود — هیچ مقدارِ
+   پنهانی پشتش نیست (قبلاً `data-lock` بود و حالا لازم نیست). */
 function rowListPrice(row){ const sel=row&&row.querySelector('.ir-prod'); if(!sel||!sel.value)return 0;
   const p=PRODUCTS.find(x=>String(x.id)===String(sel.value)); return p?Math.max(0,Math.round(Number(p.price)||0)):0; }
 function rowUnitPrice(row){ if(!row)return 0;
-  const lock=row.dataset?row.dataset.lock:null;
-  if(lock!=null && lock!=='' && Number(lock)>0) return Math.max(0,Math.round(Number(lock)));
-  return rowListPrice(row); }
-function rowUseListPrice(row){ if(row&&row.dataset)delete row.dataset.lock; recalc(); }
-function onPickProduct(sel){ const row=sel.closest('.itemrow'); if(row&&row.dataset)delete row.dataset.lock; recalc(); }
+  const el=row.querySelector('.ir-price');
+  if(!el) return rowListPrice(row);            /* ردیفی که کادر ندارد، مثلِ قبل */
+  return Math.max(0, Math.round(parseNum(el.value)||0)); }
+function rowSetPrice(row,v){ const el=row&&row.querySelector('.ir-price'); if(!el)return;
+  el.value=(Number(v)>0)?faNum(Math.round(Number(v))):''; }
+function rowUseListPrice(row){ rowSetPrice(row,rowListPrice(row)); recalc(); }
+/* عوض‌کردنِ کالا یعنی قیمتِ قبلی دیگر معنی ندارد؛ قیمتِ کالای تازه می‌نشیند. */
+function onPickProduct(sel){ const row=sel.closest('.itemrow'); if(row)rowSetPrice(row,rowListPrice(row)); recalc(); }
 function recalc(){
   let total=0;
   document.querySelectorAll('.itemrow').forEach(row=>{
@@ -1960,14 +2061,17 @@ function recalc(){
     const lc=row.querySelector('.ir-linecalc');
     if(lc){
       if(!pid){ lc.textContent=''; }
-      else if(!(pr>0)){ lc.textContent='قیمتِ این کالا ثبت نشده'; }
+      else if(!(pr>0)){ lc.textContent=rowListPrice(row)>0?'قیمتِ این ردیف را وارد کن':'قیمتِ این کالا ثبت نشده — دستی بنویسش'; }
       else{
-        const locked=!!(row.dataset&&row.dataset.lock), today=rowListPrice(row);
+        /* «دستی» یعنی عددِ کادر با قیمتِ ثبت‌شده‌ی خودِ کالا فرق دارد. این را از
+           مقایسه‌ی همین دو عدد می‌فهمیم، نه از یک نشانه‌ی پنهان — پس هر راهی که
+           قیمت را عوض کند (تایپ، آوردنِ فاکتورِ قبلی، پیش‌فاکتور) خودش دیده می‌شود. */
+        const today=rowListPrice(row), custom=(today>0 && today!==pr);
         let t=faNum(q>0?q:0)+' عدد × '+faNum(pr)+' تومان';
-        if(locked) t+=' · قیمتِ پیش‌فاکتور';
+        if(custom) t+=' · قیمتِ دستی';
         lc.textContent=t;
-        if(locked && today>0 && today!==pr){
-          lc.innerHTML=esc(t)+' — <button type="button" class="linkbtn" onclick="rowUseListPrice(this.closest(\'.itemrow\'))">قیمتِ امروز '+faNum(today)+' بشه؟</button>';
+        if(custom){
+          lc.innerHTML=esc(t)+' — <button type="button" class="linkbtn" onclick="rowUseListPrice(this.closest(\'.itemrow\'))">قیمتِ خودِ کالا '+faNum(today)+' بشه؟</button>';
         }
       }
     }
@@ -2008,8 +2112,8 @@ async function submitInvoice(){
     window.PENDING_QUOTE_DELETE=null; window.EDITING_QUOTE_ID=null;
     if(res&&res.replayed)toast('این فاکتور قبلاً ثبت شده بود — همون رو نشونت می‌دم (دوباره ثبت نشد)');
     const _newCust=!!(res&&res.customer_created), _custName=args.p_buyer_name;
-    try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
-    if(_newCust){ try{ CUSTOMERS=await sbGetAll("customers?select=*&order=name.asc"); fillCustomerSelect(); }catch(_){} }
+    await reloadProducts();
+    if(_newCust){ await reloadCustomers(); }
     try{ showInvoice(res,args); resetInvoiceForm(); }catch(_){}
     toast('فاکتور شماره '+faNum(res.invoice_number)+' ثبت شد ✅'+(_newCust?(' — «'+_custName+'» هم به مشتری‌ها اضافه شد 👤'):''));
   }catch(e){ msg.className='msg err'; msg.textContent=e.message; }
@@ -2049,13 +2153,13 @@ function buildInvoiceHTML(d, opts){
   return `<div class="invoice"><div class="ring"></div><div class="inv-pad">
     <div class="inv-head"><div class="inv-brand"><div class="inv-logo"><img src="img4.png" alt="" style="width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block"></div><div><h2>${esc(shop)}</h2><div class="s1">${esc(sub)}</div><div class="s2">واردکننده مستقیم پوشاک بنگلادش</div></div></div>
     <div class="inv-meta"><div class="t">${isQuote?'پیش‌فاکتور':'فاکتور فروش'}</div>${isQuote?'':`<div class="r">شماره: <b>${faNum(d.invoice_number)}</b></div>`}<div class="r">تاریخ: <b>${esc(d.date||'')}</b></div><div class="inv-badge" style="${isQuote?'color:var(--gold-dp);background:rgba(192,144,28,.13)':'color:'+stC+';background:'+stB}">${isQuote?'هنوز فاکتور نشده':STATUS_FA[st]}</div></div></div>
-    <div class="inv-buyer"><div class="bf"><div class="k">نام خریدار</div><div class="v">${esc(d.buyer_name||'—')}</div></div>${d.buyer_phone?`<div class="bf"><div class="k">تماس</div><div class="v" dir="ltr">${esc(phoneFmt(d.buyer_phone))}</div></div>`:''}${d.buyer_city?`<div class="bf"><div class="k">شهر</div><div class="v">${esc(d.buyer_city)}</div></div>`:''}</div>
+    <div class="inv-buyer"><div class="bf"><div class="k">نام خریدار</div><div class="v">${esc(d.buyer_name||'—')}</div></div>${d.buyer_phone?`<div class="bf"><div class="k">تماس</div><div class="v" dir="ltr">${phoneTag(d.buyer_phone)}</div></div>`:''}${d.buyer_city?`<div class="bf"><div class="k">شهر</div><div class="v">${esc(d.buyer_city)}</div></div>`:''}</div>
     <table class="inv-tbl"><thead><tr><th>#</th><th class="d">شرح کالا</th><th>تعداد</th><th>قیمت واحد</th><th>قیمت کل</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="inv-tot"><div class="box"><div class="tr"><span>جمع کل اقلام</span><b>${faNum(d.items_total)}</b></div>${d.discount?`<div class="tr"><span>تخفیف</span><b style="color:var(--credit)">− ${faNum(d.discount)}</b></div>`:''}<div class="grand"><span class="gl">مبلغ نهایی</span><span class="gv">${faNum(d.total_amount)} <span style="font-size:11px;color:var(--muted)">تومان</span></span></div><div style="font-size:11px;color:var(--gold-lt);font-weight:700;text-align:right;margin-top:4px;padding:2px 2px 0">به حروف: ${numToFaWords(d.total_amount)} تومان</div>${payLines}</div></div>
     ${(!isQuote&&st==='cancelled')?'<div class="inv-cancel">⛔ این فاکتور باطل شده است<br><button class="btn sm" style="margin-top:8px;background:var(--paid);color:#fff" onclick="restoreCurrentInvoice()">↺ برگرداندنِ فاکتور</button></div>':''}
     ${isQuote?`<div class="inv-note">📋 این <b>پیش‌فاکتور</b> است، نه سندِ فروش — هنوز پرداختی روی آن ثبت نشده و قیمت‌ها مالِ تاریخِ بالاست.<br>اگر تأیید می‌کنی یا می‌خواهی چیزی کم و زیاد شود، از راه‌های تماسِ پایین خبر بده.</div>`:''}
     ${(isQuote&&d.note)?`<div class="inv-note" style="border-style:solid;background:var(--panel)">📝 ${esc(d.note)}</div>`:''}
-    <div class="inv-foot"><div><div class="inv-qrs"><div class="inv-qr"><img src="${QR_TG}" alt="بارکدِ تلگرامِ فروشگاه" width="78" height="78"><div class="c">تلگرام</div></div><div class="inv-qr"><img src="${QR_IG}" alt="بارکدِ اینستاگرامِ فروشگاه" width="78" height="78"><div class="c">اینستاگرام</div></div></div><div class="inv-addr">${esc(addr)}${phone?`<br><span style="white-space:nowrap">تماس: <b dir="ltr">${esc(phoneFmt(phone))}</b></span>${phone2?` · <span style="white-space:nowrap"><b dir="ltr">${esc(phoneFmt(phone2))}</b></span>`:''}`:(phone2?`<br>تماس: <b dir="ltr">${esc(phoneFmt(phone2))}</b>`:'')}<br><span style="white-space:nowrap">اینستاگرام: <b dir="ltr">${esc(ig)}@</b></span> · <span style="white-space:nowrap">تلگرام: <b dir="ltr">${esc(tg)}@</b></span></div></div>
+    <div class="inv-foot"><div><div class="inv-qrs"><div class="inv-qr"><img src="${QR_TG}" alt="بارکدِ تلگرامِ فروشگاه" width="78" height="78"><div class="c">تلگرام</div></div><div class="inv-qr"><img src="${QR_IG}" alt="بارکدِ اینستاگرامِ فروشگاه" width="78" height="78"><div class="c">اینستاگرام</div></div></div><div class="inv-addr">${esc(addr)}${phone?`<br><span style="white-space:nowrap">تماس: <b dir="ltr">${phoneTag(phone)}</b></span>${phone2?` · <span style="white-space:nowrap"><b dir="ltr">${phoneTag(phone2)}</b></span>`:''}`:(phone2?`<br>تماس: <b dir="ltr">${phoneTag(phone2)}</b>`:'')}<br><span style="white-space:nowrap">اینستاگرام: <b dir="ltr">${esc(ig)}@</b></span> · <span style="white-space:nowrap">تلگرام: <b dir="ltr">${esc(tg)}@</b></span></div></div>
     <div class="inv-policy"><div class="pl">شرایط مرجوعی</div><div class="pb">${esc(policy)}</div></div></div>
   </div></div>`;
 }
@@ -2063,6 +2167,7 @@ function showInvoice(res,args){
   const data={ id:res.id, invoice_number:res.invoice_number, date:args.p_date, buyer_name:args.p_buyer_name, buyer_phone:args.p_buyer_phone, buyer_city:args.p_buyer_city, items_total:res.items_total, discount:res.discount, total_amount:res.total_amount, paid_amount:res.paid_amount, status:res.status, items:args.p_items.map(it=>{ const p=PRODUCTS.find(x=>x.id===it.product_id)||{}; return {name:p.name||'کالا',quantity:it.quantity,unit_price:it.unit_price}; }) };
   CURRENT_INV={id:res.id,status:res.status,buyer_name:args.p_buyer_name,paid_amount:res.paid_amount,total_amount:res.total_amount,discount:res.discount,items:args.p_items.map(it=>{ const p=PRODUCTS.find(x=>x.id===it.product_id)||{}; return {product_id:it.product_id,name:p.name||'کالا',quantity:it.quantity,unit_price:it.unit_price}; })};
   document.getElementById('voidBtn').style.display=''; document.getElementById('invRetBtn').style.display='';
+  { const d=document.getElementById('invDelBtn'); if(d)d.style.display='none'; }   /* فاکتورِ تازه هیچ‌وقت باطل نیست */
   { const _pb=document.getElementById('payInvBtn'); if(_pb)_pb.style.display=''; }
   document.getElementById('invoiceRender').innerHTML=buildInvoiceHTML(data);
   document.getElementById('invoiceView').classList.remove('hidden'); window.scrollTo(0,0);
@@ -2079,9 +2184,14 @@ async function payFromInvoice(){
     catch(e){ toast('نتونستم مشتریِ این فاکتور رو بگیرم 🙏'); return; }
   }
   if(!cid){ toast('این فاکتور به هیچ مشتریِ ثبت‌شده‌ای وصل نیست 🙏'); return; }
-  let later=0;
+  /* ⚠️ اگر این خواندن بیفتد **نباید** later را صفر فرض کنیم. قبلاً catch خالی بود و
+     همین یک باگِ پول می‌ساخت: با اینترنتِ کند، پرداخت‌های قبلیِ فاکتور نادیده
+     می‌ماند، عددی بزرگ‌تر از بدهیِ واقعی آماده در کادر می‌نشست، و یک لمس کافی بود
+     تا ماندهٔ مشتری منفی شود — یعنی پنل بگوید فروشنده به مشتری بدهکار است.
+     حالا وقتی نمی‌دانیم، عددی پیشنهاد نمی‌دهیم و صریح می‌گوییم چرا. */
+  let later=0, laterOk=true;
   try{ const ps=await sbGetAll("payments?select=amount&invoice_id=eq."+encodeURIComponent(inv.id));
-       later=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0); }catch(_){ }
+       later=(ps||[]).reduce((s,p)=>s+Number(p.amount||0),0); }catch(_){ laterOk=false; }
   const remain=Math.max(0, tot-paid-later);
   const invNo=inv.invoice_number||'';
   closeInvoice();
@@ -2091,7 +2201,8 @@ async function payFromInvoice(){
     const note=document.getElementById('payForInv');
     if(note) note.textContent='این پرداخت به فاکتورِ '+(invNo?('#'+faNum(invNo)):'بازشده')+' وصل می‌شه';
     if(!el)return;
-    if(remain>0){ el.value=String(remain); try{ grpInput(el); }catch(_){ } }
+    if(!laterOk){ el.value=''; toast('⚠️ پرداخت‌های قبلیِ این فاکتور خونده نشد — مبلغ رو خودت بزن'); }
+    else if(remain>0){ el.value=String(remain); try{ grpInput(el); }catch(_){ } }
     else { el.value=''; toast('این فاکتور تسویه‌ست ✅ اگه بازم پرداختی هست دستی بزن'); }
     try{ el.focus(); el.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){ }
   }, 400);
@@ -2150,6 +2261,32 @@ async function shareInvoiceImage(target){
     },'image/png');
   }catch(e){ toast('خطا در ساخت عکس'); }
 }
+/* حذفِ کاملِ فاکتورِ باطل‌شده. برگشت‌ناپذیر است، پس مثلِ «ابطال» ته کشوی «⋯ بیشتر»
+   می‌نشیند و نه در نوارِ بالا — نوارِ بالا عمداً فقط سه دکمه دارد.
+   دو محافظ: دیتابیس خودش فاکتورِ غیرِ‌باطل را رد می‌کند، و اینجا هم قبل از پرسیدن
+   می‌شماریم که دقیقاً چه چیزی قرار است پاک شود تا کاربر کورکورانه تأیید نکند. */
+async function deleteCurrentInvoice(){
+  const inv=CURRENT_INV;
+  if(!inv||!inv.id){ toast('فاکتوری باز نیست'); return; }
+  if(inv.status!=='cancelled'){ toast('فقط فاکتورِ باطل‌شده پاک می‌شود — اول باطلش کن 🙏'); return; }
+  let pays=[], payOk=true;
+  try{ pays=await sbGetAll("payments?select=amount&invoice_id=eq."+encodeURIComponent(inv.id)); }catch(e){ payOk=false; }
+  const paySum=(pays||[]).reduce((s,p)=>s+Number(p.amount||0),0);
+  const no=inv.invoice_number?('#'+faNum(inv.invoice_number)):'';
+  let m='⚠️ فاکتورِ '+no+' برای همیشه پاک شود؟\n\n';
+  m+='قلم‌های فاکتور هم با آن پاک می‌شوند و دیگر در هیچ گزارشی نمی‌آید. برگشت‌پذیر نیست.';
+  if(!payOk) m+='\n\n⚠️ نتونستم پرداخت‌های این فاکتور رو چک کنم (خطای شبکه). اگه پرداختی روش باشه، اونم پاک می‌شه.';
+  else if(pays.length) m+='\n\n⚠️ '+faNum(pays.length)+' پرداخت به مبلغِ '+faNum(paySum)+' تومان هم روی این فاکتور ثبت شده و پاک می‌شود — یعنی سابقه‌ی دریافتِ آن پول از بین می‌رود.';
+  if(!await ask(m))return;
+  if(window.__busyDelInv)return; window.__busyDelInv=true;
+  try{
+    await sbRpc('delete_invoice',{p_invoice_id:inv.id});
+    toast('فاکتور '+no+' پاک شد');
+    CURRENT_INV=null; closeInvoice();
+    try{ await renderInvoices(); }catch(_){ }
+  }catch(e){ toast(e.message); }
+  finally{ window.__busyDelInv=false; }
+}
 async function voidCurrentInvoice(){
   if(!CURRENT_INV||!CURRENT_INV.id)return;
   if(CURRENT_INV.status==='cancelled'){ toast('این فاکتور قبلاً باطل شده'); return; }
@@ -2202,7 +2339,7 @@ async function openInvoiceReturn(){
   html+=items.map(it=>`<div class="card" style="padding:12px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(it.name||'کالا')}</b><span style="font-size:12px;color:var(--muted)">${faNum(it.quantity)} عدد × ${faNum(it.unit_price)} ت</span></div>
     <div class="f"><label>تعدادِ مرجوعی (حداکثر ${faNum(it.quantity)})</label>
-      <input class="inp invret-qty" data-iid="${esc(it.iid||'')}" data-pid="${esc(it.product_id)}" data-max="${it.quantity}" data-price="${it.unit_price}" dir="ltr" inputmode="numeric" value="0" oninput="invReturnRecalc()"></div>
+      <input class="inp invret-qty" maxlength="6" data-iid="${esc(it.iid||'')}" data-pid="${esc(it.product_id)}" data-max="${it.quantity}" data-price="${it.unit_price}" dir="ltr" inputmode="numeric" value="0" oninput="invReturnRecalc()"></div>
   </div>`).join('');
   html+=`<div class="card warnbox" style="padding:14px;display:flex;justify-content:space-between;align-items:center"><b>مبلغی که به مشتری برمی‌گردد</b><div style="text-align:left"><b class="num" id="invRetTotal" style="font-size:18px;color:var(--gold)">۰ تومان</b><div class="sw" id="invRetWords"></div></div></div>
     <div id="invRetMsg" class="msg"></div>
@@ -2233,7 +2370,7 @@ async function submitInvoiceReturn(){
     const res=await sbRpc('return_invoice_items',{p_invoice_id:id,p_returns:returns});
     document.getElementById('invReturnView').classList.add('hidden');
     toast('مرجوعی ثبت شد ✅ مبلغِ '+faNum(res.refund)+' ت به حسابِ مشتری برگشت');
-    try{ PRODUCTS=await sbGetAll("products?select=*&order=name.asc"); }catch(_){}
+    await reloadProducts();
     try{ await openInvoiceById(id); }catch(_){}
   }catch(e){ msg.className='msg err'; msg.textContent=e.message; delete btn.dataset.busy; btn.disabled=false; btn.textContent='ثبتِ مرجوعی'; }
 }
@@ -2313,6 +2450,8 @@ async function openInvoiceById(id){
     const data={ id:inv.id, invoice_number:inv.invoice_number, date:inv.date, buyer_name:inv.buyer_name, buyer_phone:inv.buyer_phone, buyer_city:inv.buyer_city, items_total:inv.items_total, discount:inv.discount, total_amount:inv.total_amount, paid_amount:inv.paid_amount, status:inv.status, items:items.map(it=>({name:it.product_name,quantity:it.quantity,unit_price:it.unit_price})) };
     CURRENT_INV={id:inv.id,status:inv.status,buyer_name:inv.buyer_name,customer_id:inv.customer_id,paid_amount:inv.paid_amount,total_amount:inv.total_amount,discount:inv.discount,items:items.map(it=>({iid:it.id,product_id:it.product_id,name:it.product_name,quantity:it.quantity,unit_price:it.unit_price}))};
     document.getElementById('voidBtn').style.display=inv.status==='cancelled'?'none':''; document.getElementById('invRetBtn').style.display=inv.status==='cancelled'?'none':'';
+    { const d=document.getElementById('invDelBtn');
+      if(d)d.style.display=inv.status==='cancelled'?'':'none'; }
     { const _pb=document.getElementById('payInvBtn'); if(_pb)_pb.style.display=inv.status==='cancelled'?'none':''; }
     document.getElementById('invoiceRender').innerHTML=buildInvoiceHTML(data);
     const _pi=document.getElementById('invPayInfo'); if(_pi)_pi.innerHTML='';
@@ -2337,7 +2476,7 @@ function renderProducts(){
   if(DATA_LOADING && PRODUCTS.length===0){ box.innerHTML='<div class="loadwrap"><span class="spin"></span> در حال بارگذاری…</div>'; return; }
   if(PRODUCTS.length===0){ box.innerHTML='<div class="empty">هنوز کالایی ثبت نشده. با «کالای جدید» اضافه کن.</div>'; return; }
   const sorted=[...PRODUCTS].sort((a,b)=>{return String(a.name||'').localeCompare(String(b.name||''),'fa');});
-  box.innerHTML='<input id="prodSearch" class="inp" placeholder="🔎 جستجوی کالا" oninput="filterList(\'prodSearch\',\'prodList\')" style="margin-bottom:10px">'+sorted.map(p=>{
+  box.innerHTML='<input id="prodSearch" maxlength="60" class="inp" placeholder="🔎 جستجوی کالا" oninput="filterList(\'prodSearch\',\'prodList\')" style="margin-bottom:10px">'+sorted.map(p=>{
     return `<div class="list-item${SEL.mode==='prod'&&SEL.ids.has(p.id)?' selected':''}" data-id="${p.id}" data-s="${esc(p.name)}" onclick="rowTap('prod','${p.id}',event)">${selCbx('prod',p.id)}<div style="flex:1"><div class="li-main">${esc(p.name)}</div><div class="li-sub">قیمت: ${faNum(p.price)} تومان${(p.video_jin_url||p.video_jin_fid||p.video_carton_url||p.video_carton_fid)?' · 🎬':''}${(Array.isArray(p.photos)&&p.photos.length)?' · 👗':''}${(p.size_info&&String(p.size_info).trim())?' · 📏':''}</div></div></div>`;
   }).join('');
 }
@@ -2349,9 +2488,9 @@ function openProductForm(id){
   const p=id?PRODUCTS.find(x=>x.id===id):null, w=document.getElementById('prodFormWrap');
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${p?'ویرایشِ کالا':'کالای جدید'}</div>${p?`<div class="form-title">${esc(p.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeProductForm()">‹ برگشت به لیست</button></div>
-    <div class="field"><label>نام کالا *</label><input id="pName" class="inp" value="${p?esc(p.name):''}"></div>
-    <div class="ir-grid"><div class="f field" style="flex:1"><label>قیمت فروش (تومان)</label><input id="pPrice" class="inp" dir="ltr" inputmode="numeric" value="${p?Math.round(p.price||0):0}" oninput="grpInput(this);updatePPriceWords()"><div id="pPriceWords" class="words-hint"></div></div></div>
-    <div class="field"><label>اندازه و قواره (برای رباتِ تلگرام)</label><textarea id="pSize" class="inp" rows="3" style="resize:vertical;min-height:70px" placeholder="مثلاً: قد ۷۵ سانت · فری‌سایز تا ۴۶ · جنس نخ‌پنبه">${p?esc(p.size_info||''):''}</textarea><div style="font-size:10.5px;color:var(--muted);margin-top:4px">مشتری تو تلگرام با دکمه‌ی «📏 اندازه قد و قواره کالا» همین متن را می‌بیند</div></div>
+    <div class="field"><label>نام کالا *</label><input id="pName" maxlength="100" class="inp" value="${p?esc(p.name):''}"></div>
+    <div class="ir-grid"><div class="f field" style="flex:1"><label>قیمت فروش (تومان)</label><input id="pPrice" maxlength="13" class="inp" dir="ltr" inputmode="numeric" value="${p?Math.round(p.price||0):0}" oninput="grpInput(this);updatePPriceWords()"><div id="pPriceWords" class="words-hint"></div></div></div>
+    <div class="field"><label>اندازه و قواره (برای رباتِ تلگرام)</label><textarea id="pSize" maxlength="500" class="inp" rows="3" style="resize:vertical;min-height:70px" placeholder="مثلاً: قد ۷۵ سانت · فری‌سایز تا ۴۶ · جنس نخ‌پنبه">${p?esc(p.size_info||''):''}</textarea><div style="font-size:10.5px;color:var(--muted);margin-top:4px">مشتری تو تلگرام با دکمه‌ی «📏 اندازه قد و قواره کالا» همین متن را می‌بیند</div></div>
     <div class="section-head" style="margin-top:2px"><div style="font-weight:700">🎥 فیلم و عکسِ کالا</div></div>
     <div style="font-size:11px;color:var(--muted);margin:-2px 2px 9px">فیلمِ بزرگ‌تر از ۵۰ مگ خودکار کوچیک می‌شه و صداش هم می‌مونه — بعدش می‌ره رو تلگرام و فضای پنل آزاد می‌مونه</div>
     <div id="medJin" class="medbox"></div>
@@ -2416,14 +2555,14 @@ async function renderCustomers(){
   fillCustomerSelect();                       /* این به‌روزرسانیِ سراسری هرحال مفید است */
   if(seqStale('custList',_q))return;          /* ولی نوشتن در جعبه فقط مالِ تازه‌ترین */
   if(CUSTOMERS.length===0){ box.innerHTML='<div class="empty">هنوز مشتری‌ای ثبت نشده.</div>'; return; }
-  box.innerHTML=(balOk?'':'<div class="card" style="padding:11px 13px;margin-bottom:10px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06);font-size:12.5px"><b style="color:var(--danger)">⚠️ ماندهٔ حساب‌ها بارگذاری نشد</b><div style="color:var(--muted);margin-top:3px">تا وقتی درست نخونم، «تسویه» یا «طلب» نشون نمی‌دم که اشتباهی نکنی. اینترنت رو چک کن و دوباره باز کن.</div></div>')+'<input id="custSearch" class="inp" placeholder="🔎 جستجوی مشتری (نام، شماره، شهر)" oninput="filterList(\'custSearch\',\'custList\')" style="margin-bottom:10px">'+CUSTOMERS.map(c=>{
+  box.innerHTML=(balOk?'':'<div class="card" style="padding:11px 13px;margin-bottom:10px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06);font-size:12.5px"><b style="color:var(--danger)">⚠️ ماندهٔ حساب‌ها بارگذاری نشد</b><div style="color:var(--muted);margin-top:3px">تا وقتی درست نخونم، «تسویه» یا «طلب» نشون نمی‌دم که اشتباهی نکنی. اینترنت رو چک کن و دوباره باز کن.</div></div>')+'<input id="custSearch" maxlength="60" class="inp" placeholder="🔎 جستجوی مشتری (نام، شماره، شهر)" oninput="filterList(\'custSearch\',\'custList\')" style="margin-bottom:10px">'+CUSTOMERS.map(c=>{
     const b=balMap[c.id]||0;
     let badge='';
     if(!balOk)badge=`<span class="pill cancelled">مانده: نامشخص</span>`;
     else if(b>0)badge=`<span class="pill credit">طلب: ${faNum(b)}</span>`;
     else if(b<0)badge=`<span class="pill paid">بستانکار: ${faNum(-b)}</span>`;
     else badge=`<span class="pill paid">تسویه</span>`;
-    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+phoneFmt(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone)):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}</div></div>`;
+    return `<div class="list-item${SEL.mode==='cust'&&SEL.ids.has(c.id)?' selected':''}" data-id="${c.id}" data-s="${esc(c.name+' '+(c.phone||'')+' '+phoneFmt(c.phone||'')+' '+(c.city||''))}" onclick="rowTap('cust','${c.id}',event)">${selCbx('cust',c.id)}<div><div class="li-main">${esc(c.name)}</div><div class="li-sub">${c.phone?phoneTag(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end" style="text-align:left">${badge}</div></div>`;
   }).join('');
 }
 async function renderCustomersByProduct(productId, box){
@@ -2438,17 +2577,21 @@ async function renderCustomersByProduct(productId, box){
     const ranked=Object.keys(agg).map(cid=>({cid,qty:agg[cid].qty,total:agg[cid].total})).sort((a,b)=>b.qty-a.qty);
     let html=`<div class="card" style="background:var(--panel);border-color:var(--line)"><div style="font-weight:700">🔎 خریدارانِ «${esc(prod?prod.name:'')}»</div><div style="font-size:12px;color:var(--muted);margin-top:3px">به ترتیبِ بیشترین تعدادِ خرید — روی هرکدام بزن</div></div>`;
     if(ranked.length===0){ html+='<div class="empty">هنوز هیچ مشتریِ ثبت‌شده‌ای این کالا را نخریده.<br><span style="font-size:12px">(فقط فاکتورهایی که به یک مشتری وصل شده‌اند شمرده می‌شوند)</span></div>'; box.innerHTML=html; return; }
-    html+=ranked.map((r,i)=>{ const c=CUSTOMERS.find(x=>x.id===r.cid)||{}; return `<div class="list-item" onclick="openCustomer('${r.cid}')"><div><div class="li-main"><span class="rank">${faNum(i+1)}</span>${esc(c.name||'؟')}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone)):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end"><div class="num" style="font-weight:700;color:var(--gold-lt);font-size:15px">${faNum(r.qty)} عدد</div><div class="li-sub num">${faNum(r.total)} تومان</div></div></div>`; }).join('');
+    html+=ranked.map((r,i)=>{ const c=CUSTOMERS.find(x=>x.id===r.cid)||{}; return `<div class="list-item" onclick="openCustomer('${r.cid}')"><div><div class="li-main"><span class="rank">${faNum(i+1)}</span>${esc(c.name||'؟')}</div><div class="li-sub">${c.phone?phoneTag(c.phone):''}${c.city?' · '+esc(c.city):''}</div></div><div class="li-end"><div class="num" style="font-weight:700;color:var(--gold-lt);font-size:15px">${faNum(r.qty)} عدد</div><div class="li-sub num">${faNum(r.total)} تومان</div></div></div>`; }).join('');
     box.innerHTML=html;
   }catch(e){ if(seqStale('custList',_q))return; box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'; }
 }
 function openCustomerForm(id){
   const c=id?CUSTOMERS.find(x=>x.id===id):null, w=document.getElementById('custFormWrap');
+  /* اگر شناسه آمده ولی در کش نیست، فرم بی‌صدا «مشتری جدید» می‌شد: کاربر «ویرایش»
+     می‌زد، کادرهای خالی می‌دید، پرشان می‌کرد و یک مشتریِ **تکراری** ساخته می‌شد
+     به‌جای اینکه همان یکی اصلاح شود. سکوت اینجا گران است. */
+  if(id&&!c){ toast('اطلاعاتِ این مشتری در حافظه نیست — صفحه رو دوباره باز کن'); return; }
   w.classList.remove('hidden');
   w.innerHTML=`<div class="card"><div class="form-head"><div><div class="form-kick">${c?'ویرایشِ مشتری':'مشتری جدید'}</div>${c?`<div class="form-title">${esc(c.name)}</div>`:''}</div><button class="btn sm sec" onclick="closeCustomerForm()">‹ برگشت به لیست</button></div>
-    <div class="field"><label>نام مشتری / فروشگاه *</label><input id="cName" class="inp" value="${c?esc(c.name):''}"></div>
-    <div class="ir-grid"><div class="f field" style="flex:1"><label>شماره تماس</label><input id="cPhone" class="inp" dir="ltr" inputmode="numeric" oninput="phoneInput(this)" value="${c?esc(phoneFmt(c.phone||'')):''}"></div><div class="f field" style="flex:1"><label>شهر</label><input id="cCity" class="inp" value="${c?esc(c.city||''):''}"></div></div>
-    <div class="field"><label>آدرس</label><input id="cAddr" class="inp" value="${c?esc(c.address||''):''}"></div>
+    <div class="field"><label>نام مشتری / فروشگاه *</label><input id="cName" maxlength="60" class="inp" value="${c?esc(c.name):''}"></div>
+    <div class="ir-grid"><div class="f field" style="flex:1"><label>شماره تماس</label><input id="cPhone" maxlength="18" class="inp" dir="ltr" inputmode="numeric" oninput="phoneInput(this)" value="${c?esc(phoneFmt(c.phone||'')):''}"></div><div class="f field" style="flex:1"><label>شهر</label><input id="cCity" maxlength="40" class="inp" value="${c?esc(c.city||''):''}"></div></div>
+    <div class="field"><label>آدرس</label><input id="cAddr" maxlength="200" class="inp" value="${c?esc(c.address||''):''}"></div>
     <div class="rowline" style="margin-top:6px"><button class="btn" style="flex:1" onclick="saveCustomer('${c?c.id:''}')">${c?'ذخیره تغییرات':'افزودن مشتری'}</button><button class="btn sec sm" onclick="closeCustomerForm()">انصراف</button></div>
     <div id="cMsg" class="msg"></div></div>`;
   w.scrollIntoView({behavior:'smooth',block:'start'});
@@ -2479,12 +2622,15 @@ async function openCustomer(id){
   try{
     // هر پنج‌تا مستقل‌ان — با هم می‌فرستیم، نه پشتِ سرِ هم (رو VPN پنج برابر فرق می‌کنه)
     const _eid=encodeURIComponent(id);
-    const [_c,_invs,_pays,_bal,_its]=await Promise.all([
+    const [_c,_invs,_pays,_bal,_its,_ships]=await Promise.all([
       sbGet("customers?select=*&id=eq."+_eid),
       sbGetAll("invoices?select=*&customer_id=eq."+_eid+"&order=invoice_number.desc"),
       sbGetAll("payments?select=*&customer_id=eq."+_eid+"&order=created_at.desc"),
       sbGet("customer_balances?select=balance&id=eq."+_eid).then(r=>({ok:true,v:Number((r[0]||{}).balance||0)})).catch(()=>({ok:false,v:0})),
-      sbGetAll("invoice_items?select=product_name,quantity,line_total,invoices!inner(customer_id,status)&invoices.customer_id=eq."+_eid+"&invoices.status=neq.cancelled&order=created_at.asc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]}))
+      sbGetAll("invoice_items?select=product_name,quantity,line_total,invoices!inner(customer_id,status)&invoices.customer_id=eq."+_eid+"&invoices.status=neq.cancelled&order=created_at.asc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]})),
+      /* فقط ارسالی‌هایی که به **همین** مشتری وصل‌اند. با نام فیلتر نمی‌کنیم:
+         هم‌نام‌ها ارسالیِ یکی را به دیگری نسبت می‌دادند. */
+      sbGetAll("shipments?select=id,qty,city,created_at&customer_id=eq."+_eid+"&order=created_at.desc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]}))
     ]);
     if(seqStale('custRender',_q))return;   /* در این فاصله مشتریِ دیگری باز شده */
     const c=_c[0]||{}; const invs=_invs; const pays=_pays;
@@ -2499,13 +2645,17 @@ async function openCustomer(id){
     const balLabel=!balOk?'ماندهٔ حساب — نامشخص':(bal>0?'طلبِ ما از این مشتری':bal<0?'بستانکار (ما بدهکاریم)':'تسویه شده');
     let html=`<div class="ov-sheet">
       <div style="font-size:18px;font-weight:700">${esc(c.name||'')}</div>
-      <div style="font-size:12.5px;color:var(--muted);margin-top:3px">${c.phone?esc(phoneFmt(c.phone))+' · ':''}${esc(c.city||'')}</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:3px">${c.phone?phoneTag(c.phone)+' · ':''}${esc(c.city||'')}</div>
       <div class="stat ${balOk&&bal>0?'danger':''}" style="margin-top:14px;text-align:center"><div class="lbl">${balLabel}</div><div class="val num" style="color:${balColor}">${balOk?(faNum(Math.abs(bal))+' <small>تومان</small>'):'؟'}</div>${balOk?'':'<div class="sw" style="color:var(--danger)">بارگذاری نشد — اینترنت رو چک کن</div>'}</div>
       ${profileCard}
       ${bal>0?`<button onclick="waReminderFor('${id}',${bal})" style="width:100%;margin-top:10px;background:#25d366;color:#fff;border:0;border-radius:12px;padding:13px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">📲 ارسالِ یادآوریِ بدهی در واتساپ</button>`:''}
       <button onclick="shareStatement('${id}')" style="width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer">📋 صورت‌حساب (عکس برای مشتری)</button>
+      <!-- ⚠️ اول پنجره بسته می‌شود بعد فرم باز: فرم داخلِ #scr-customers است و این
+           پنجره z-index ۶۰ دارد، پس بدونِ بستن، فرم پشتش گم می‌شود و کاربر فکر
+           می‌کند دکمه کار نمی‌کند. راهش بالا بردنِ z-index نیست (مقیاسِ نام‌دار). -->
+      <button onclick="closeCustomer();openCustomerForm('${id}')" style="width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-family:inherit;font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer">✏️ ویرایشِ اطلاعاتِ مشتری</button>
       <div class="card" id="payBox" style="margin-top:12px;box-shadow:none"><div style="font-weight:700;margin-bottom:10px">ثبت پرداخت</div><div id="payForInv" style="font-size:11.5px;color:var(--paid,#0a7);margin:-6px 0 8px"></div>
-        <div class="ir-grid"><input id="payAmount" class="inp" dir="ltr" inputmode="numeric" placeholder="مبلغ دریافتی (تومان)" style="flex:1"><button id="payBtn" class="btn" style="width:auto;padding:11px 18px" onclick="addPayment('${id}')">ثبت</button></div>
+        <div class="ir-grid"><input id="payAmount" maxlength="13" class="inp" dir="ltr" inputmode="numeric" placeholder="مبلغ دریافتی (تومان)" style="flex:1"><button id="payBtn" class="btn" style="width:auto;padding:11px 18px" onclick="addPayment('${id}')">ثبت</button></div>
         <div id="payWords" class="words-hint"></div></div>
       <div class="block-title" style="margin-top:16px">🛒 پرخریدترین کالاهای این مشتری</div>
       ${topItems.length===0?'<div class="empty" style="padding:14px">هنوز خریدی ثبت نشده</div>':topItems.slice(0,6).map((t,i)=>`<div class="mini"><span><span class="rank">${faNum(i+1)}</span>${esc(t.name)}</span><b class="num">${faNum(t.qty)} عدد · ${faNum(t.total)} ت</b></div>`).join('')}
@@ -2513,6 +2663,14 @@ async function openCustomer(id){
     html+= invs.length===0?'<div class="empty" style="padding:14px">فاکتوری ندارد</div>': invs.map(v=>`<div class="list-item" onclick="document.getElementById('custView').classList.add('hidden');openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)}</div><div class="li-sub">${esc(v.date||'')}</div></div><div class="li-end"><div class="num" style="font-weight:700">${faNum(v.total_amount)}</div><div class="pill ${safeStatus(v.status)}" style="margin-top:4px">${STATUS_FA[safeStatus(v.status)]}</div></div></div>`).join('');
     html+=`<div class="block-title" style="margin-top:16px">پرداخت‌ها (${faNum(pays.length)})</div>`;
     html+= pays.length===0?'<div class="empty" style="padding:14px">پرداختی ثبت نشده</div>': pays.map(p=>`<div class="mini"><span>${esc(p.date||'')} ${p.method?'· '+esc(p.method):''}</span><b class="num" style="color:var(--paid)">${faNum(p.amount)} تومان</b></div>`).join('');
+    /* ⚠️ اگر این خواندن افتاد، «ارسالی‌ای ثبت نشده» دروغ است — همان «خبرِ خوشِ
+       دروغ» که این مخزن جای دیگر هم گرفتارش شده. سه حالتِ جدا: خطا، خالی، پر. */
+    const _shv=_ships.v||[]; const _shq=_shv.reduce((s,x)=>s+Number(x.qty||0),0);
+    html+=`<div class="block-title" style="margin-top:16px">📦 ارسالی‌ها${_ships.ok?' ('+faNum(_shv.length)+(_shv.length?' · '+faNum(_shq)+' عدد':'')+')':''}</div>`;
+    html+= !_ships.ok
+      ? '<div class="empty" style="padding:14px;color:var(--danger)">سابقه‌ی ارسال خوانده نشد — اینترنت رو چک کن و دوباره باز کن</div>'
+      : (_shv.length===0?'<div class="empty" style="padding:14px">ارسالی‌ای برایش ثبت نشده</div>'
+         : _shv.map(s=>`<div class="mini"><span>${esc(jDate(s.created_at))}${s.city?' · '+esc(s.city):''}</span><b class="num">${faNum(s.qty)} عدد</b></div>`).join(''));
     html+=`<button onclick="deleteCustomer('${id}')" style="width:100%;margin-top:22px;background:none;border:1px solid rgba(193,57,43,.4);border-radius:12px;padding:12px;font-family:inherit;font-size:13px;font-weight:700;color:#c0392b;cursor:pointer">🗑 حذفِ این مشتری</button>`;
     html+=`</div>`;
     box.innerHTML=html;
@@ -2541,7 +2699,15 @@ async function addPayment(customerId){
   const btn=document.getElementById('payBtn'); if(btn){ if(btn.disabled)return; btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
   try{ const _fi=PAY_FOR_INV;
     await sbInsert('payments',Object.assign({customer_id:customerId,amount,date:todayJalali(),method:'نقدی',client_request_id:PAY_REQ_ID}, _fi?{invoice_id:_fi}:{}));
-    PAY_FOR_INV=null; toast('پرداخت ثبت شد ✅'); openCustomer(customerId); }
+    PAY_FOR_INV=null; toast('پرداخت ثبت شد ✅');
+    // اگر از روی یک فاکتور آمده بودیم، به همان فاکتور برگرد تا نتیجه‌ی کاری که
+    // کرده را ببیند. قبلاً همین‌جا روی صفحه‌ی مشتری می‌ماند با همان کادرِ خالیِ
+    // پرداخت — به‌نظر می‌رسید دوباره دارد می‌پرسد، در حالی که پرداخت ثبت شده بود.
+    // ⚠️ اول custView بسته می‌شود: هر دو `.overlay` با z-index ۶۰ اند و custView
+    // در سند بعد از invoiceView می‌آید، پس اگر باز بماند فاکتور پشتش گم می‌شود.
+    // بالا بردنِ z-index جوابِ درست نیست — مقیاسِ نام‌دار را می‌شکند.
+    if(_fi){ closeCustomer(); try{ await openInvoiceById(_fi); }catch(_){ } }
+    else { await openCustomer(customerId); } }
   catch(e){
     if(String(e.message||'').includes('duplicate')){ toast('این پرداخت قبلاً ثبت شده'); openCustomer(customerId); return; }
     toast(e.message); if(btn){ btn.disabled=false; btn.textContent='ثبت'; }
@@ -2556,13 +2722,13 @@ function renderSettings(){
   box.innerHTML=`<div class="card">
     <div class="card-h">🏪 اطلاعاتِ فروشگاه</div>
     <div class="card-sub">این‌ها روی فاکتور و پیش‌فاکتورِ مشتری چاپ می‌شوند.</div>
-    <div class="field"><label>نام فروشگاه</label><input id="sShop" class="inp" value="${esc(S.shop_name||'مدلند قشم')}"></div>
-    <div class="field"><label>زیرعنوان</label><input id="sSub" class="inp" value="${esc(S.subtitle||'پخش عمده پوشاک')}"></div>
-    <div class="field"><label>آدرس</label><input id="sAddr" class="inp" value="${esc(S.address||'')}"></div>
-    <div class="field"><label>شماره تماس</label><input id="sPhone" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone||''))}"></div>
-    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone2||''))}"></div>
-    <div class="ir-grid"><div class="f field" style="flex:1"><label>اینستاگرام</label><input id="sIg" class="inp" dir="ltr" value="${esc(S.instagram||'')}"></div><div class="f field" style="flex:1"><label>تلگرام</label><input id="sTg" class="inp" dir="ltr" value="${esc(S.telegram||'')}"></div></div>
-    <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" class="inp" value="${esc(S.return_policy||'')}"></div>
+    <div class="field"><label>نام فروشگاه</label><input id="sShop" maxlength="60" class="inp" value="${esc(S.shop_name||'مدلند قشم')}"></div>
+    <div class="field"><label>زیرعنوان</label><input id="sSub" maxlength="80" class="inp" value="${esc(S.subtitle||'پخش عمده پوشاک')}"></div>
+    <div class="field"><label>آدرس</label><input id="sAddr" maxlength="200" class="inp" value="${esc(S.address||'')}"></div>
+    <div class="field"><label>شماره تماس</label><input id="sPhone" maxlength="18" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone||''))}"></div>
+    <div class="field"><label>شماره تماس دوم <span style="color:var(--muted);font-weight:400">(اختیاری)</span></label><input id="sPhone2" maxlength="18" class="inp" dir="ltr" type="tel" inputmode="tel" oninput="phoneInput(this)" value="${esc(phoneFmt(S.phone2||''))}"></div>
+    <div class="ir-grid"><div class="f field" style="flex:1"><label>اینستاگرام</label><input id="sIg" maxlength="40" class="inp" dir="ltr" value="${esc(S.instagram||'')}"></div><div class="f field" style="flex:1"><label>تلگرام</label><input id="sTg" maxlength="40" class="inp" dir="ltr" value="${esc(S.telegram||'')}"></div></div>
+    <div class="field"><label>متن شرایط مرجوعی</label><input id="sPolicy" maxlength="200" class="inp" value="${esc(S.return_policy||'')}"></div>
     <button class="btn" onclick="saveSettings()">ذخیره تنظیمات</button>
     <div id="sMsg" class="msg"></div>
   </div>
@@ -2604,10 +2770,10 @@ async function renderSalaries(){
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">👥 حقوقِ کارکنان</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">پرداختیِ حقوقِ کارکنان رو ثبت کن تا سابقه‌اش بمونه.</div>
     <div class="card" style="padding:14px;margin-bottom:14px">
-      <div class="field"><label>نامِ کارمند</label><input id="salName" class="inp" placeholder="مثلاً علی محمدی"></div>
-      <div class="field"><label>مبلغ (تومان)</label><input id="salAmount" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۵۰۰۰۰۰۰" oninput="grpInput(this);(function(t){var w=document.getElementById('salWords');var v=parseNum(t.value);w.textContent=v>0?numToFaWords(v)+' تومان':'';})(this)"><div id="salWords" class="words-hint"></div></div>
-      <div class="field"><label>بابتِ ماهِ</label><input id="salMonth" class="inp" value="${esc(curMonth)}"></div>
-      <div class="field"><label>توضیح (اختیاری)</label><input id="salNote" class="inp" placeholder=""></div>
+      <div class="field"><label>نامِ کارمند</label><input id="salName" maxlength="60" class="inp" placeholder="مثلاً علی محمدی"></div>
+      <div class="field"><label>مبلغ (تومان)</label><input id="salAmount" maxlength="13" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۵۰۰۰۰۰۰" oninput="grpInput(this);(function(t){var w=document.getElementById('salWords');var v=parseNum(t.value);w.textContent=v>0?numToFaWords(v)+' تومان':'';})(this)"><div id="salWords" class="words-hint"></div></div>
+      <div class="field"><label>بابتِ ماهِ</label><input id="salMonth" maxlength="10" class="inp" value="${esc(curMonth)}"></div>
+      <div class="field"><label>توضیح (اختیاری)</label><input id="salNote" maxlength="200" class="inp" placeholder=""></div>
       <div id="salMsg" class="msg"></div>
       <button class="btn" onclick="addSalary()">➕ ثبتِ حقوق</button>
     </div>
@@ -2977,7 +3143,7 @@ function insCarts(){
       return `<div class="card" style="padding:13px;margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div style="min-width:0"><div style="font-weight:700">${esc(r.name)}</div>
-          ${r.phone?`<div style="font-size:12px;color:var(--muted);margin-top:2px" dir="ltr">${esc(phoneFmt(r.phone))}</div>`:''}
+          ${r.phone?`<div style="font-size:12px;color:var(--muted);margin-top:2px" dir="ltr">${phoneTag(r.phone)}</div>`:''}
           <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${faNum(Number(src.cart_items||0))} قلم · آخرین تکون: ${esc(jDate(src.updated_at))}</div></div>
         <b class="num" style="color:var(--accent);white-space:nowrap">${faNum(r.tot)} ت</b>
       </div>
@@ -3134,7 +3300,7 @@ async function gsRun(){ const q=(document.getElementById('gsInput').value||'').t
   let h='';
   const _cap=(n)=>n>=15?' <span style="font-weight:400;color:var(--muted);font-size:11px">(۱۵ تای اول)</span>':'';
   if(prods.length){ h+='<div class="block-title">کالاها ('+faNum(prods.length)+')'+_cap(prods.length)+'</div>'+prods.map(p=>`<div class="list-item" onclick="closeSearch();openProductForm('${p.id}')"><div><div class="li-main">${esc(p.name)}</div></div><div class="li-end num">${faNum(p.price||0)}</div></div>`).join(''); }
-  if(custs.length){ h+='<div class="block-title" style="margin-top:14px">مشتری‌ها ('+faNum(custs.length)+')'+_cap(custs.length)+'</div>'+custs.map(c=>`<div class="list-item" onclick="closeSearch();openCustomer('${c.id}')"><div><div class="li-main">${esc(c.name||'')}</div><div class="li-sub">${c.phone?esc(phoneFmt(c.phone))+' · ':''}${esc(c.city||'')}</div></div><div class="li-end" style="color:var(--muted)">›</div></div>`).join(''); }
+  if(custs.length){ h+='<div class="block-title" style="margin-top:14px">مشتری‌ها ('+faNum(custs.length)+')'+_cap(custs.length)+'</div>'+custs.map(c=>`<div class="list-item" onclick="closeSearch();openCustomer('${c.id}')"><div><div class="li-main">${esc(c.name||'')}</div><div class="li-sub">${c.phone?phoneTag(c.phone)+' · ':''}${esc(c.city||'')}</div></div><div class="li-end" style="color:var(--muted)">›</div></div>`).join(''); }
   const _stFa={paid:'پرداخت‌شده',partial:'پرداخت جزئی',credit:'نسیه',cancelled:'باطل شده'};
   if(invs.length){ h+='<div class="block-title" style="margin-top:14px">فاکتورها ('+faNum(invs.length)+')'+_cap(invs.length)+'</div>'+invs.map(v=>`<div class="list-item" onclick="closeSearch();openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)} · ${esc(v.buyer_name||'')}</div><div class="li-sub">${esc(v.date||'')} · ${_stFa[safeStatus(v.status)]}</div></div><div class="li-end num">${faNum(v.total_amount||0)}</div></div>`).join(''); }
   body.innerHTML=h||'<div class="empty" style="padding:18px">چیزی پیدا نشد</div>';
@@ -3201,8 +3367,8 @@ async function renderDiscounts(){
     <div style="font-size:18px;font-weight:800;margin-bottom:4px">🎟 کدهای تخفیف</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">این کدها رو مشتری موقعِ سفارش تو رباتِ تلگرام وارد می‌کنه و تخفیف می‌گیره.</div>
     <div class="card" style="padding:14px;margin-bottom:14px">
-      <div class="field"><label>کدِ تخفیف (مثلاً EID یا نوروز)</label><input id="dcCode" class="inp" placeholder="یه کدِ ساده"></div>
-      <div class="field"><label>درصدِ تخفیف</label><input id="dcPct" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۰"></div>
+      <div class="field"><label>کدِ تخفیف (مثلاً EID یا نوروز)</label><input id="dcCode" maxlength="30" class="inp" placeholder="یه کدِ ساده"></div>
+      <div class="field"><label>درصدِ تخفیف</label><input id="dcPct" maxlength="6" class="inp" dir="ltr" inputmode="numeric" placeholder="مثلاً ۱۰"></div>
       <div id="dcMsg" class="msg"></div>
       <button class="btn" onclick="addDiscount()">➕ ساختِ کد</button>
     </div>
@@ -3309,7 +3475,7 @@ async function shareStatement(id){
       ${logoHTML(50)}
       <div><div style="font-size:19px;font-weight:700">${esc(S.shop_name||'مدلند قشم')}</div><div style="font-size:12.5px;color:#9a6f08;font-weight:700">صورت‌حسابِ مشتری — ${esc(todayJalali())}</div></div>
     </div>
-    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(c.name||'')}${c.phone?` <span style="font-size:12px;color:#888;font-weight:400">${esc(phoneFmt(c.phone))}</span>`:''}</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:8px">${esc(c.name||'')}${c.phone?` <span style="font-size:12px;color:#888;font-weight:400">${phoneTag(c.phone)}</span>`:''}</div>
     <div style="font-weight:700;font-size:13px;color:#9a6f08;margin:8px 0 2px">فاکتورها</div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#888;font-size:11px"><td style="padding:4px 8px">شماره</td><td style="padding:4px 8px">تاریخ</td><td style="padding:4px 8px;text-align:left">مبلغ</td><td style="padding:4px 8px;text-align:left">پرداختی</td></tr></thead><tbody>${invRows||'<tr><td colspan="4" style="padding:6px 8px;color:var(--rep-dim)">—</td></tr>'}</tbody></table>
     ${pays.length?`<div style="font-weight:700;font-size:13px;color:#9a6f08;margin:12px 0 2px">پرداخت‌ها</div><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="color:#888;font-size:11px"><td style="padding:4px 8px">تاریخ</td><td style="padding:4px 8px;text-align:left">مبلغ</td></tr></thead><tbody>${payRows}</tbody></table>`:''}
@@ -3371,7 +3537,9 @@ function _fillFormFromQuote(q){
   document.getElementById('nPaid').value=0;
   const wrap=document.getElementById('itemsWrap'); wrap.innerHTML='';
   asArray(q.items).forEach(it=>{ addItemRow(); const rows=document.querySelectorAll('.itemrow'); const r=rows[rows.length-1]; const sel=r.querySelector('.ir-prod'); sel.value=it.product_id; r.querySelector('.ir-qty').value=it.quantity;
-    const up=Math.round(Number(it.unit_price)||0); if(up>0)r.dataset.lock=String(up); });
+    /* قیمتی که به مشتری قول داده شده می‌نشیند، نه قیمتِ امروزِ کالا. اگر فرق داشته
+       باشد، خودِ recalc کنارِ ردیف دکمه‌ی «قیمتِ خودِ کالا … بشه؟» را نشان می‌دهد. */
+    rowSetPrice(r, Math.round(Number(it.unit_price)||0)); });
   if(document.querySelectorAll('.itemrow').length===0)addItemRow();
   if(typeof checkCustomerMatch==='function')checkCustomerMatch(); recalc();
 }

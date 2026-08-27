@@ -19,5 +19,6 @@
  "click_test": {
   "selector": "#b1"
  },
- "checks": []
+ "checks": [],
+ "overlays": false
 }

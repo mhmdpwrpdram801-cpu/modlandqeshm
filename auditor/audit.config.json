@@ -40,7 +40,10 @@
     "aed_rate",
     "insReorder",
     "insCash",
-    "insBulk"
+    "insBulk",
+    "medTok",
+    "medVidFail",
+    "medvid"
   ],
   "screens": [
     [
@@ -222,10 +225,9 @@
     },
     {
       "name": "فروشِ ماه: ۲٬۹۳۰٬۰۰۰ فاکتور منهای ۸۵۰٬۰۰۰ مرجوعیِ مستقل",
-      "before": "openReport()",
-      "wait": 1500,
-      "js": "()=>{const d=[...document.querySelectorAll('#repCard div')].find(x=>/^فروش/.test((x.innerText||'').trim()));return d?d.querySelector('b').textContent:'پیدا نشد'}",
-      "expect": "۲٬۰۸۰٬۰۰۰ ت"
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));await openReport();await w(1200);const mon=r=>iranJalaliKey(new Date(r.created_at)).slice(0,7);const live=(REPORT_DATA.invs||[]).filter(v=>v.status!=='cancelled');const months=new Set([...live.map(mon),...(REPORT_DATA.rets||[]).map(mon)]);if(months.size!==1)return 'دادهٔ شبیه‌ساز بینِ '+[...months].join(' و ')+' پخش شده — این بررسی یک ماه لازم دارد';const m=[...months][0];const sel=document.getElementById('repMonth');if(sel)sel.value=m;renderReport(m);await w(700);const d=[...document.querySelectorAll('#repCard div')].find(x=>/^فروش/.test((x.innerText||'').trim()));return d?d.querySelector('b').textContent:'پیدا نشد';}",
+      "expect": "۲٬۰۸۰٬۰۰۰ ت",
+      "_note": "مرجوعیِ مستقل باید از فروش کم شود؛ مرجوعیِ روی فاکتور نه (آن قبلاً کم شده). ⚠️ این بررسی قبلاً به «ماهی که گزارش خودش باز می‌کند» تکیه می‌کرد، یعنی ماهِ جاری. شبِ اولِ هر ماهِ جلالی، دادهٔ شبیه‌ساز در ماهِ قبل می‌مانَد و گزارش درست ۰ نشان می‌دهد — بررسی قرمز می‌شد بی‌آنکه چیزی خراب باشد (اندازه‌گیری‌شده ۱۴۰۵/۰۶/۰۱). حالا خودش ماهِ دادهٔ شبیه‌ساز را پیدا و همان را رندر می‌کند (TEST-03)، و اگر داده بینِ دو ماه پخش شده باشد صریح همین را می‌گوید به‌جای یک عددِ غلط."
     },
     {
       "name": "گزارشِ فروشِ بینش‌ها همان عدد را می‌دهد",
@@ -246,18 +248,10 @@
       "expect": "فایلِ خراب رد شد"
     },
     {
-      "name": "قیمتِ واحد هیچ فیلدی ندارد و از خودِ کالا می‌آید",
-      "before": "nav('new'); document.getElementById('itemsWrap').innerHTML=''; addItemRow(); (()=>{const s=document.querySelector('.itemrow .ir-prod'); s.value='p1'; onPickProduct(s);})()",
-      "wait": 400,
-      "js": "()=>{const n=document.querySelectorAll('.itemrow [class*=ir-price]').length;const lbl=(document.getElementById('scr-new')||{innerText:''}).innerText.includes('قیمت واحد');const calc=(document.querySelector('.ir-linecalc')||{}).textContent||'';const jam=(document.querySelector('.ir-linev')||{}).textContent||'';return n+'|'+lbl+'|'+calc+'|'+jam;}",
-      "expect": "0|false|۱ عدد × ۸۵۰٬۰۰۰ تومان|۸۵۰٬۰۰۰"
-    },
-    {
       "name": "قیمتِ قول‌داده‌شده‌ی پیش‌فاکتور با گران‌شدنِ کالا عوض نمی‌شود",
-      "before": "(()=>{PRODUCTS.find(p=>p.id==='p1').price=990000;})(); convertQuote('q1')",
-      "wait": 1200,
-      "js": "()=>{const r=document.querySelector('.itemrow'); const lock=r.dataset.lock||'';const koll=document.getElementById('tItems').textContent;const q=(document.querySelector('.ir-linecalc')||{}).innerText||'';const zakhire=(function(){let pr=0;document.querySelectorAll('.itemrow').forEach(x=>{pr=rowUnitPrice(x)});return pr})();return lock+'|'+koll+'|'+zakhire+'|'+(q.indexOf('پیش‌فاکتور')>=0?'برچسب دارد':'برچسب ندارد');}",
-      "expect": "850000|۸۵۰٬۰۰۰|850000|برچسب دارد"
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const p=PRODUCTS.find(x=>x.id==='p1');const orig=p.price;try{p.price=990000;await convertQuote('q1');await w(1200);const r=document.querySelector('.itemrow');const shown=parseNum((r.querySelector('.ir-price')||{}).value||'');const koll=document.getElementById('tItems').textContent;const used=rowUnitPrice(r);const hint=(document.querySelector('.ir-linecalc')||{}).innerText||'';return shown+'|'+koll+'|'+used+'|'+(hint.indexOf('دستی')>=0?'برچسب دارد':'برچسب ندارد');}finally{p.price=orig;}}",
+      "expect": "850000|۸۵۰٬۰۰۰|850000|برچسب دارد",
+      "_note": "قیمتی که به مشتری قول داده شده نباید با گران‌شدنِ کالا عوض شود. از ۱۴۰۵/۰۵/۳۱ مکانیزمش کادرِ .ir-price است نه data-lock. این بررسی قبلاً PRODUCTS را برای همیشه دستکاری می‌کرد و برنمی‌گرداند (نقضِ TEST-03) — حالا در finally برش می‌گرداند."
     },
     {
       "name": "ردیفِ خرج از گزارشِ فروش برداشته شده",
@@ -534,9 +528,9 @@
       "expect": "درست"
     },
     {
-      "_note": "با تستِ جهشی پیدا شد: renderDashboard بیشترین جهشِ زنده را داشت (۳ تا) چون هیچ‌چیز عددش را با جای دیگری مقابله نمی‌کرد. داشبورد و گزارش دو مسیرِ محاسباتیِ **مستقل**اند روی همان داده؛ اگر عددشان فرق کند یکی خراب است. این بررسی هیچ عددی را حفظ نمی‌کند، فقط سازگاری را می‌سنجد — پس با عوض شدنِ داده‌ی شبیه‌ساز نمی‌شکند.",
+      "_note": "داشبورد و گزارش دو مسیرِ جدا برای یک عددند و باید یکی بدهند — به‌خصوص در کم‌کردنِ مرجوعیِ مستقل. **هر دو روی ماهِ جاری** سنجیده می‌شوند، چون داشبورد ماه‌بردار ندارد؛ گزارش هم صریح روی همان ماه رندر می‌شود، نه ماهی که خودش پیش‌فرض باز می‌کند. شبِ اولِ هر ماهِ جلالی هر دو صفر می‌شوند و مقایسه سبک می‌شود — پاس است ولی آن روز چیزِ زیادی ثابت نمی‌کند؛ بررسیِ «فروشِ ماه» که ماهِ داده را می‌گیرد آن شکاف را پر می‌کند.",
       "name": "فروشِ داشبورد و فروشِ گزارش یک عدد می‌دهند",
-      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const num=t=>{const m=String(t||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[,٬]/g,'').match(/\\d+/g);return m?+m[m.length-1]:null};const after=(txt,re)=>{const L=txt.split('\\n').map(x=>x.trim());const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i;j<Math.min(L.length,i+3);j++){if(j>i&&/[۰-۹\\d]/.test(L[j]))return num(L[j]);}return null};await nav('dashboard');await w(900);const dt=(document.getElementById('dashStats')||document.body).innerText;const d=after(dt,/فروش این ماه/);await openReport();await w(1200);const rb=document.getElementById('repBody');if(!rb)return 'گزارش رندر نشد';const r=after(rb.innerText,/^فروش/);if(d===null||r===null)return 'عدد پیدا نشد (داشبورد '+d+' | گزارش '+r+')';return d===r?'یکی':('اختلاف: داشبورد '+d+' ≠ گزارش '+r)}",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const num=t=>{const m=String(t||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[,٬]/g,'').match(/\\d+/g);return m?+m[m.length-1]:null};const after=(txt,re)=>{const L=txt.split('\\n').map(x=>x.trim());const i=L.findIndex(l=>re.test(l));if(i<0)return null;for(let j=i;j<Math.min(L.length,i+3);j++){if(j>i&&/[۰-۹\\d]/.test(L[j]))return num(L[j]);}return null};await nav('dashboard');await w(900);const dt=(document.getElementById('dashStats')||document.body).innerText;const d=after(dt,/فروش این ماه/);await openReport();await w(1200);const m=iranJalaliKey(new Date()).slice(0,7);const sel=document.getElementById('repMonth');if(sel&&![...sel.options].some(o=>o.value===m))sel.insertAdjacentHTML('beforeend','<option value=\"'+m+'\">'+m+'</option>');if(sel)sel.value=m;renderReport(m);await w(700);const rb=document.getElementById('repBody');if(!rb)return 'گزارش رندر نشد';const r=after(rb.innerText,/^فروش/);if(d===null||r===null)return 'عدد پیدا نشد (داشبورد '+d+' | گزارش '+r+')';return d===r?'یکی':('اختلاف: داشبورد '+d+' ≠ گزارش '+r)}",
       "expect": "یکی"
     },
     {
@@ -705,6 +699,132 @@
       "expect": "true→false"
     },
     {
+      "name": "گروه‌های شماره در متنِ راست‌به‌چپ وارونه دیده نمی‌شوند",
+      "before": "nav('customers')",
+      "wait": 900,
+      "js": "()=>{const order=(el)=>{if(!el)return null;const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);const parts=[];let t;while(t=w.nextNode()){const s=t.nodeValue;let i=0;s.split(/(\\s+)/).forEach(tok=>{if(/^\\d+$/.test(tok)){const r=document.createRange();r.setStart(t,i);r.setEnd(t,i+tok.length);const b=r.getBoundingClientRect();if(b.width)parts.push({tok,x:b.left});}i+=tok.length;});}if(parts.length<2)return null;const logical=parts.map(p=>p.tok).join(' ');const visual=parts.slice().sort((a,b)=>a.x-b.x).map(p=>p.tok).join(' ');return logical===visual?'درست':('وارونه: '+logical+' → '+visual);};const out=[];const li=order(document.querySelector('#custList .list-item .li-sub'));out.push('لیست:'+(li||'نیامد'));const h=document.createElement('div');h.style.position='fixed';h.style.right='-9999px';h.innerHTML=buildInvoiceHTML({invoice_number:1,date:'۱۴۰۵/۰۵/۰۹',buyer_name:'ت',buyer_phone:'09192223494',items_total:1,discount:0,total_amount:1,paid_amount:0,status:'credit',items:[{name:'ک',quantity:1,unit_price:1}]});document.body.appendChild(h);const inv=order(h.querySelector('.inv-buyer'));h.remove();out.push('سند:'+(inv||'نیامد'));return out.join(' | ');}",
+      "expect": "لیست:درست | سند:درست"
+    },
+    {
+      "name": "هر کادر سقفِ نویسه‌ی خودش را دارد، جز رمز عبور",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "()=>{const kinds=['text','tel','email','search','number',''];const els=Array.from(document.querySelectorAll('input,textarea')).filter(e=>{const t=(e.type||'').toLowerCase();return e.tagName==='TEXTAREA'||kinds.indexOf(t)>=0;});const noLimit=els.filter(e=>!(e.maxLength>0)).map(e=>e.id||e.className||e.type);const pass=document.getElementById('lPass');const money=['pPrice','nPaid','nDiscount','payAmount','salAmount'];const tight=money.filter(id=>{const e=document.getElementById(id);return e&&e.maxLength<13;});const n=document.getElementById('nName');const keep=(()=>{const old=n.value;n.value='x'.repeat(300);const L=n.value.length;n.value=old;return L===300;})();const bad=noLimit.filter(x=>x!=='lPass');return (bad.length?('بی‌سقف: '+bad.join(',')):'همه سقف دارند')+'|'+((pass&&!(pass.maxLength>0))?'رمز آزاد':'رمز محدود شد')+'|'+(tight.length?('پولِ تنگ: '+tight.join(',')):'پول جا دارد')+'|'+(keep?'بارگذاری بریده نمی‌شود':'بارگذاری بریده شد');}",
+      "expect": "همه سقف دارند|رمز آزاد|پول جا دارد|بارگذاری بریده نمی‌شود"
+    },
+    {
+      "name": "پنل زوم نمی‌شود و آیفون موقعِ فوکوس خودش زوم نمی‌کند",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "()=>{const m=document.querySelector('meta[name=viewport]');const vc=(m&&m.content)||'';const meta=(/maximum-scale=1(\\.0)?\\b/.test(vc)&&/user-scalable=no\\b/.test(vc))?'متا بسته':'متا باز';const fit=/viewport-fit=cover/.test(vc)?'viewport-fit اضافه شده':'بدونِ viewport-fit';const ta=getComputedStyle(document.body).touchAction;const dbl=(ta==='manipulation'||ta==='pan-x pan-y')?'دو-ضربه بسته':'دو-ضربه باز: '+ta;const e=new Event('gesturestart',{cancelable:true,bubbles:true});document.dispatchEvent(e);const pinch=e.defaultPrevented?'پینچِ سافاری بسته':'پینچِ سافاری باز';const small=Array.from(document.querySelectorAll('input,select,textarea')).filter(x=>parseFloat(getComputedStyle(x).fontSize)<16).map(x=>x.id||x.className);const font=small.length?('کادرِ زیرِ ۱۶: '+small.slice(0,4).join(',')):'همه ۱۶ یا بیشتر';return [meta,fit,dbl,pinch,font].join('|');}",
+      "expect": "متا بسته|بدونِ viewport-fit|دو-ضربه بسته|پینچِ سافاری بسته|همه ۱۶ یا بیشتر"
+    },
+    {
+      "name": "بعد از ثبتِ پرداخت، به همان فاکتور برمی‌گردد و پشتِ صفحه‌ی مشتری گم نمی‌شود",
+      "js": "()=>{const w=(ms)=>new Promise(r=>setTimeout(r,ms));return openInvoiceById('i1').then(()=>w(700)).then(()=>payFromInvoice()).then(()=>w(900)).then(()=>{const pa=document.getElementById('payAmount');if(!pa)throw new Error('کادرِ پرداخت نیامد');pa.value='100000';pa.dispatchEvent(new Event('input',{bubbles:true}));const b=document.getElementById('payBtn');if(!b)throw new Error('دکمه‌ی ثبت نیست');b.click();return w(1500);}).then(()=>{const op=Array.from(document.querySelectorAll('.overlay')).filter(x=>!x.classList.contains('hidden'));const top=op.length?op[op.length-1].id:'هیچ';const cust=document.getElementById('custView').classList.contains('hidden')?'بسته':'باز';const inv=document.getElementById('invoiceView').classList.contains('hidden')?'بسته':'باز';return 'رویی:'+top+'|فاکتور:'+inv+'|مشتری:'+cust;});}",
+      "expect": "رویی:invoiceView|فاکتور:باز|مشتری:بسته"
+    },
+    {
+      "_note": "حذفِ کاملِ فاکتور برگشت‌ناپذیر است، پس مثلِ «ابطال» فقط ته کشوی «⋯ بیشتر» می‌نشیند و فقط روی فاکتورِ باطل‌شده دیده می‌شود. نوارِ بالا عمداً سه دکمه دارد و دکمه‌ی چهارم به آن اضافه نمی‌شود. اندازه با getBoundingClientRect گرفته می‌شود نه با style.display، چون چیزی که مهم است دیده‌شدنِ واقعی است.",
+      "name": "دکمه‌ی حذفِ فاکتور فقط روی باطل‌شده و فقط ته کشو دیده می‌شود",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const vis=()=>{const d=document.getElementById('invDelBtn');if(!d)return false;const r=d.getBoundingClientRect();return r.width>0&&r.height>0;};try{await openInvoiceById('i1');await w(700);invMore(true);await w(500);const live=vis();invMore(false);await w(300);closeInvoice();await w(400);await openInvoiceById('i3');await w(700);invMore(true);await w(500);const dead=vis();const d=document.getElementById('invDelBtn');const bar=document.querySelector('#invoiceView .ov-bar');return 'زنده:'+(live?'دیده':'پنهان')+'|باطل:'+(dead?'دیده':'پنهان')+'|کشو:'+document.getElementById('invMenu').contains(d)+'|نوار:'+bar.querySelectorAll('button').length+'|درنوار:'+bar.contains(d);}finally{try{invMore(false);closeInvoice();}catch(_){}}}",
+      "expect": "زنده:پنهان|باطل:دیده|کشو:true|نوار:3|درنوار:false"
+    },
+    {
+      "_note": "سه شکستِ ممکن، هر سه بی‌صدا و برگشت‌ناپذیر: (۱) نبودنِ await روی ask یعنی حذف بدونِ تأیید — Promise همیشه truthy است؛ (۲) نبودنِ محافظِ status یعنی فاکتورِ زنده هم پاک می‌شود و فروش بی‌صدا از گزارش می‌افتد؛ (۳) کلیکِ واقعی روی دکمه‌ی کشو باید همان فاکتورِ باز را بفرستد، نه چیزِ دیگر. تابع صدا زده نمی‌شود، دکمه کلیک می‌شود (TEST-02).",
+      "name": "حذفِ فاکتور بدونِ تأیید یا روی فاکتورِ زنده انجام نمی‌شود",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const ok=window.ask;const rpcs=()=>window.__WRITES.filter(x=>x.rpc==='delete_invoice');try{window.ask=async()=>false;await openInvoiceById('i3');await w(700);window.__WRITES.length=0;await deleteCurrentInvoice();await w(700);const noConf=rpcs().length;window.ask=async()=>true;closeInvoice();await w(400);await openInvoiceById('i1');await w(700);window.__WRITES.length=0;await deleteCurrentInvoice();await w(700);const onLive=rpcs().length;closeInvoice();await w(400);await openInvoiceById('i3');await w(700);invMore(true);await w(500);window.__WRITES.length=0;document.getElementById('invDelBtn').click();await w(1200);const r=rpcs();return 'بی‌تأیید:'+noConf+'|زنده:'+onLive+'|باطل:'+r.length+'|شناسه:'+(r[0]&&r[0].body?r[0].body.p_invoice_id:'—');}finally{window.ask=ok;try{invMore(false);closeInvoice();}catch(_){}}}",
+      "expect": "بی‌تأیید:0|زنده:0|باطل:1|شناسه:i3"
+    },
+    {
+      "_note": "بدترین حالتِ حذفِ گروهی: کاربر چندتا را انتخاب می‌کند که بعضی باطل‌اند و بعضی نه. اگر فیلترِ status نباشد، فاکتورِ زنده هم با یک تأیید پاک می‌شود — و چون گروهی است، چندتا با هم. اینجا i1 (زنده) و i3 (باطل) با هم انتخاب می‌شوند و فقط باید i3 برود.",
+      "name": "حذفِ گروهی فقط باطل‌شده‌ها را پاک می‌کند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const ok=window.ask;window.ask=async()=>true;try{nav('invoices');await w(900);await renderInvoices();await w(500);startSel('inv');toggleSel('inv','i1');toggleSel('inv','i3');await w(300);window.__WRITES.length=0;await bulkInvDelete();await w(1500);const r=window.__WRITES.filter(x=>x.rpc==='delete_invoice');return 'تعداد:'+r.length+'|شناسه:'+r.map(x=>x.body&&x.body.p_invoice_id).join(',');}finally{window.ask=ok;try{endSel();}catch(_){}}}",
+      "expect": "تعداد:1|شناسه:i3"
+    },
+    {
+      "_note": "خواستِ مالک (۱۴۰۵/۰۵/۳۱): بعضی مشتری‌ها قیمتِ خاصِ خودشان را دارند. کادر باید با انتخابِ کالا خودش پر شود و بعدش دستی هم عوض شود. اینجا با کلیکِ واقعی روی select و تایپِ واقعی در کادر سنجیده می‌شود، نه با صدا زدنِ تابع (TEST-02). عددها دستی حساب شده‌اند: ۳×۸۵۰٬۰۰۰=۲٬۵۵۰٬۰۰۰ و ۳×۵۰۰٬۰۰۰=۱٬۵۰۰٬۰۰۰ (TEST-06).",
+      "name": "قیمتِ واحد با انتخابِ کالا می‌آید و دستی هم عوض می‌شود",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const wrap=document.getElementById('itemsWrap');wrap.innerHTML='';addItemRow();await w(200);const row=wrap.lastElementChild;const sel=row.querySelector('.ir-prod'),pe=row.querySelector('.ir-price'),qe=row.querySelector('.ir-qty');if(!pe)throw new Error('کادرِ قیمت روی ردیف نیست');sel.value='p1';sel.dispatchEvent(new Event('change',{bubbles:true}));await w(300);const auto=parseNum(pe.value);qe.value='3';qe.dispatchEvent(new Event('input',{bubbles:true}));await w(200);const t1=parseNum(row.querySelector('.ir-linev').textContent);pe.value='500000';pe.dispatchEvent(new Event('input',{bubbles:true}));await w(300);const t2=parseNum(row.querySelector('.ir-linev').textContent);const prodPrice=(PRODUCTS.find(x=>x.id==='p1')||{}).price;const hint=(row.querySelector('.ir-linecalc').textContent||'');return 'خودکار:'+auto+'|جمع۱:'+t1+'|جمع۲:'+t2+'|قیمتِ کالا:'+prodPrice+'|دستی‌گفت:'+(hint.indexOf('دستی')>=0);}",
+      "expect": "خودکار:850000|جمع۱:2550000|جمع۲:1500000|قیمتِ کالا:850000|دستی‌گفت:true"
+    },
+    {
+      "_note": "نگرانیِ صریحِ مالک: «اون قیمتی که توی بخش کالا برای هر کالا ثبت کردیم دست نمیخوره». پس ثبتِ فاکتور با قیمتِ دستی باید (۱) همان قیمتِ دستی را بفرستد، (۲) هیچ نوشتنی روی جدولِ products نکند، (۳) قیمتِ داخلِ PRODUCTS را هم دست نزند. هر سه با هم سنجیده می‌شوند چون هرکدام جدا می‌توانست سبز باشد و باز هم قیمتِ کالا خراب شود.",
+      "name": "قیمتِ دستیِ فاکتور به قیمتِ ثبت‌شده‌ی کالا دست نمی‌زند",
+      "before": "nav('new')",
+      "wait": 900,
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const wrap=document.getElementById('itemsWrap');wrap.innerHTML='';addItemRow();await w(200);const row=wrap.lastElementChild;const sel=row.querySelector('.ir-prod'),pe=row.querySelector('.ir-price');if(!pe)throw new Error('کادرِ قیمت روی ردیف نیست');sel.value='p1';sel.dispatchEvent(new Event('change',{bubbles:true}));await w(300);pe.value='500000';pe.dispatchEvent(new Event('input',{bubbles:true}));row.querySelector('.ir-qty').value='2';row.querySelector('.ir-qty').dispatchEvent(new Event('input',{bubbles:true}));await w(300);document.getElementById('nName').value='آزمایشِ قیمت';window.__WRITES.length=0;await submitInvoice();await w(1200);const inv=window.__WRITES.filter(x=>x.rpc==='create_invoice');const sent=inv.length&&inv[0].body&&inv[0].body.p_items&&inv[0].body.p_items[0]?inv[0].body.p_items[0].unit_price:'—';const prodW=window.__WRITES.filter(x=>x.table==='products').length;return 'فرستاد:'+sent+'|نوشتنِ کالا:'+prodW+'|قیمتِ کالا:'+((PRODUCTS.find(x=>x.id==='p1')||{}).price);}",
+      "expect": "فرستاد:500000|نوشتنِ کالا:0|قیمتِ کالا:850000"
+    },
+    {
+      "_note": "باگِ واقعی که با جاروی ایستا پیدا شد: payFromInvoice پرداخت‌های قبلیِ همان فاکتور را می‌خواند تا ماندهٔ واقعی را حساب کند، ولی خطای آن خواندن را با catch خالی می‌بلعید و later صفر می‌مانْد. نتیجه: مبلغی **بیشتر از بدهیِ واقعی** آماده در کادر می‌نشست و با یک لمس ثبت می‌شد — ماندهٔ مشتری منفی می‌شد، یعنی پنل می‌گفت فروشنده به مشتری بدهکار است. دقیقاً وقتی پیش می‌آید که اینترنت کند است، که حالتِ عادیِ مالک است. اینجا فقط همان یک درخواست عمداً می‌افتد (نه کلِ شبکه) تا معلوم شود کادر عددِ غلط را نمی‌پذیرد.",
+      "name": "وقتی پرداخت‌های قبلیِ فاکتور خوانده نشد، کادر عددِ غلط پیشنهاد نمی‌دهد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;try{await openInvoiceById('i1');await w(700);window.fetch=function(u,o){if(String(u).indexOf('payments?select=amount')>=0)return Promise.reject(new Error('شبیه‌سازِ قطعی'));return f.apply(this,arguments)};await payFromInvoice();await w(1400);const el=document.getElementById('payAmount');if(!el)return 'کادرِ پرداخت نیامد';const v=parseNum(el.value||'');return 'کادر:'+(v>0?v:'خالی');}finally{window.fetch=f;try{closeCustomer();closeInvoice();}catch(_){}}}",
+      "expect": "کادر:خالی"
+    },
+    {
+      "_note": "با جاروی ایستا پیدا شد: خواندنِ سفارش‌های تازه‌ی تلگرام catch خالی داشت، پس با اینترنتِ کند بنر بی‌صدا غایب می‌شد. نبودنِ بنر برای مالک یعنی «سفارشِ تازه‌ای نیست» — و همان یعنی سفارشِ ازدست‌رفته. اینجا فقط همان یک درخواست عمداً می‌افتد، نه کلِ شبکه، تا معلوم شود بقیه‌ی داشبورد سالم می‌مانَد ولی همین یک تکه صادق است.",
+      "name": "اگر سفارش‌های تلگرام خوانده نشد، داشبورد سکوت نمی‌کند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;try{window.fetch=function(u,o){if(String(u).indexOf('telegram_orders?select=id')>=0)return Promise.reject(new Error('شبیه‌سازِ قطعی'));return f.apply(this,arguments)};await nav('dashboard');await w(1400);const t=String((document.getElementById('dashStats')||document.body).innerText||'');const said=/چک نشد/.test(t);const stats=/فروش این ماه/.test(t);return 'گفت:'+(said?'بله':'نه')+'|بقیه‌ی داشبورد:'+(stats?'سالم':'خراب');}finally{window.fetch=f;}}",
+      "expect": "گفت:بله|بقیه‌ی داشبورد:سالم"
+    },
+    {
+      "_note": "مهلتِ شبکه ۲۵ ثانیه است و عمداً بلند مانده — روی فیلترشکن درخواستِ سالم هم طول می‌کشد و کوتاه کردنش درخواستِ درست را به خطا تبدیل می‌کند. ولی ۲۵ ثانیه سکوت یعنی کاربر نمی‌داند برنامه کار می‌کند یا هنگ کرده، و در آن سکوت دکمه را دوباره می‌زند. سه چیز سنجیده می‌شود: روی خطِ کند خبر داده شود · چند درخواستِ همزمان فقط یک پیام بدهند نه هفت‌تا (صفحه‌ی بینش‌ها هفت‌تا می‌فرستد) · و روی خطِ سریع هیچ پیامی نیاید، یعنی تایمر بعد از تمام شدنِ درخواست پاک شود و پیامِ دیرهنگام ندهد.",
+      "name": "روی خطِ کند یک‌بار خبر می‌دهد، و روی خطِ سریع ساکت است",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;const T=[];const ot=window.toast;window.toast=function(m){T.push(String(m));return ot.apply(this,arguments)};window.fetch=function(u,o){if(String(u).indexOf('/rest/v1/')<0)return f.apply(this,arguments);const a=arguments,t=this;return new Promise(res=>setTimeout(()=>res(f.apply(t,a)),9000))};try{ const hit=()=>T.filter(x=>x.indexOf('اینترنت کنده')>=0).length; T.length=0; const many=Promise.all([sbGet('products?select=id'),sbGet('customers?select=id'),sbGet('invoices?select=id')]); await w(8000); const during=hit(); await many; await w(300); window.fetch=f; T.length=0; await sbGet('products?select=id'); await w(8500); const afterFast=hit(); return 'حینِ کندی:'+during+'|بعدِ سریع:'+afterFast;}finally{window.fetch=f;window.toast=ot;}}",
+      "expect": "حینِ کندی:1|بعدِ سریع:0"
+    },
+    {
+      "_note": "اندازه‌گیری شد: کاربر ۲ کالا را گروهی حذف می‌کند، DELETE موفق می‌شود و toastِ «۲ کالا حذف شد» می‌آید — ولی روی اینترنتِ ضعیف، تازه‌کردنِ لیست می‌افتد و catchِ خالی می‌بلعدش. نتیجه: همان دو کالا هنوز در لیست و در کشوی انتخابِ کالای فاکتور دیده می‌شوند. کاربر یا فکر می‌کند حذف نشده و دوباره می‌زند، یا کالای حذف‌شده را در فاکتور انتخاب می‌کند. چهار مسیرِ تک‌کالایی همین محافظ را داشتند و مسیرهای گروهی نداشتند. اینجا فقط خواندنِ کالاها می‌افتد، نه کلِ شبکه، تا معلوم شود خودِ حذف واقعاً موفق بوده. مهلتِ ۳۰۰۰ میلی‌ثانیه عمدی است: خودِ هشدار با تأخیرِ ۲۴۰۰ می‌آید تا پیامِ موفقیت آن را رونویسی نکند (بررسیِ بعدی).",
+      "name": "حذفِ گروهیِ کالا: اگر لیست تازه نشد، بی‌صدا نمی‌مانَد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch,oa=window.ask,ot=window.toast;const T=[];try{await nav('products');await w(700);const ids=PRODUCTS.slice(0,2).map(p=>p.id);if(ids.length<2)return 'کالای کافی نیست';window.ask=async()=>true;window.toast=function(m){T.push(String(m));return ot.apply(this,arguments)};window.fetch=function(u,o){var m=((o&&o.method)||'GET').toUpperCase();if(m==='GET'&&String(u).indexOf('/rest/v1/products')>=0)return Promise.reject(new TypeError('شبیه‌سازِ قطعی'));return f.apply(this,arguments)};SEL.ids=new Set(ids);await bulkProdDelete();await w(3000);const stale=PRODUCTS.filter(p=>ids.indexOf(p.id)>=0).length===ids.length;const done=T.some(x=>x.indexOf('حذف شد')>=0);const told=T.some(x=>x.indexOf('تازه نشد')>=0);return 'حذف گفت:'+(done?'بله':'نه')+'|لیست کهنه:'+(stale?'بله':'نه')+'|خبر داد:'+(told?'بله':'نه');}finally{window.fetch=f;window.ask=oa;window.toast=ot;try{endSel()}catch(_){}try{PRODUCTS=await sbGetAll('products?select=*&order=name.asc');renderProducts()}catch(_){}}}",
+      "expect": "حذف گفت:بله|لیست کهنه:بله|خبر داد:بله"
+    },
+    {
+      "_note": "این دام را موقعِ نوشتنِ همان اصلاح پیدا کردم و نزدیک بود بفرستمش: `toast` یک عنصرِ واحد است و `textContent` را رونویسی می‌کند. در `submitInvoice` و `convertTgOrder` درست بعد از تازه‌کردنِ کش یک پیامِ موفقیت می‌آید، پس هشدارِ «لیست تازه نشد» در همان میلی‌ثانیه پاک می‌شد و کاربر **هیچ‌وقت** نمی‌دیدش — یعنی محافظی که تست هم تأییدش می‌کرد ولی عملاً هیچ کاری نمی‌کرد. برای همین این بررسی به «toast صدا زده شد؟» بسنده نمی‌کند و متنی را می‌خوانَد که واقعاً روی صفحه مانده. اصلاحش: هشدار بعد از عمرِ toast (۲۳۰۰ms) می‌آید تا آخرین چیزی باشد که دیده می‌شود.",
+      "name": "هشدارِ «لیست تازه نشد» را پیامِ موفقیت نمی‌بلعد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const g=id=>document.getElementById(id);const f=window.fetch,ot=window.toast;const T=[];try{await nav('new');await w(700);window.toast=function(m){T.push(String(m));return ot.apply(this,arguments)};window.fetch=function(u,o){var m=((o&&o.method)||'GET').toUpperCase();if(m==='GET'&&String(u).indexOf('/rest/v1/products')>=0)return Promise.reject(new TypeError('شبیه‌سازِ قطعی'));return f.apply(this,arguments)};g('nName').value='خریدارِ آزمایشی';g('itemsWrap').innerHTML='';addItemRow();await w(250);const r=document.querySelector('.itemrow'),sel=r.querySelector('.ir-prod');sel.value='p1';onPickProduct(sel);r.querySelector('.ir-qty').value='2';recalc();await w(250);await submitInvoice();await w(3200);const ok=T.some(x=>x.indexOf('ثبت شد')>=0);const warned=T.some(x=>x.indexOf('تازه نشد')>=0);const tv=g('toast');const vis=!!(tv&&tv.classList.contains('show')&&String(tv.textContent||'').indexOf('تازه نشد')>=0);return 'فاکتور ثبت شد:'+(ok?'بله':'نه')+'|هشدار داد:'+(warned?'بله':'نه')+'|هشدار روی صفحه ماند:'+(vis?'بله':'نه');}finally{window.fetch=f;window.toast=ot;document.querySelectorAll('.overlay').forEach(o=>o.classList.add('hidden'));try{resetInvoiceForm()}catch(_){}try{PRODUCTS=await sbGetAll('products?select=*&order=name.asc')}catch(_){}}}",
+      "expect": "فاکتور ثبت شد:بله|هشدار داد:بله|هشدار روی صفحه ماند:بله"
+    },
+    {
+      "_note": "خواستِ صریحِ مالک (۱۴۰۵/۰۶/۰۱): هیچ فیلمی در خودِ پنل پخش نشود. دلیلش هم روشن بود — تلگرام نامتقارن است و فیلمِ بالای ۲۰ مبی‌بایت اصلاً دانلود نمی‌شود، پس بعضی کالاها پخش می‌شدند و بعضی نه، و همان ناهمسانی گیج‌کننده بود. آپلود و عوض‌کردن و پاک‌کردن سرِ جایشان می‌مانند؛ فقط پخش‌کننده می‌رود. ⚠️ این بررسی عمداً ژتونِ **موفق** را استاب می‌کند: شبیه‌ساز `?mediatoken=` را نمی‌شناسد و `[]` برمی‌گردانَد، پس بدونِ استاب مسیرِ خطا اجرا می‌شد و «پخش‌کننده:۰» را مفت می‌گرفتیم — یک سبزِ توخالی. با ژتونِ سالم، اگر کد هنوز جایی `<video>` بسازد همین‌جا دیده می‌شود. شمردنِ درخواستِ ژتون هم هست چون با رفتنِ پخش‌کننده آن رفت‌وبرگشت هم باید حذف شود — روی اینترنتِ ضعیف یک درخواستِ کمتر.",
+      "name": "هیچ فیلمی در پنل پخش نمی‌شود، ولی آپلود و حذفش می‌مانَد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;let tokReq=0;window.fetch=function(u,o){if(String(u).indexOf('mediatoken=')>=0){tokReq++;return Promise.resolve(new Response(JSON.stringify({tok:'TESTTOK'}),{status:200,headers:{'Content-Type':'application/json'}}))}return f.apply(this,arguments)};try{await nav('products');await w(600);openProductForm('p1');await w(1700);const vids=document.querySelectorAll('video').length;const jin=String((document.getElementById('medJin')||{}).innerText||'');const saved=/ذخیره شده|ثبت شده/.test(jin);const swap=!!document.querySelector('#medJin button[onclick*=\"medPick\"]');const del=!!document.querySelector('#medJin button[onclick*=\"medRemove\"]');return 'پخش‌کننده:'+vids+'|درخواستِ ژتون:'+tokReq+'|وضعیت گفت:'+(saved?'بله':'نه')+'|عوض کن:'+(swap?'بله':'نه')+'|پاک کن:'+(del?'بله':'نه');}finally{window.fetch=f;try{closeProductForm()}catch(_){}}}",
+      "expect": "پخش‌کننده:0|درخواستِ ژتون:0|وضعیت گفت:بله|عوض کن:بله|پاک کن:بله"
+    },
+    {
+      "_note": "مالک گزارش کرد: «نوشته‌های فاکتور و مشتری تو یه خط صافِ بالا به پایین نیستن». علتش این بود که `.list-item` هم `display:flex` دارد هم `justify-content:space-between`، و `div`ِ میانی در ۱۲ جا `flex:1` نداشت — پس عرضش به‌اندازه‌ی محتوایش می‌شد و بینِ دو سرِ ردیف شناور می‌مانْد. نتیجه: هر ردیف بسته به طولِ نامش از جای دیگری شروع می‌شد. ⚠️ فهرستِ کالاها این ایراد را **نداشت** چون `style=\"flex:1\"` داشت — باز هم همان الگوی «یک راه محافظ گرفته و خواهرهایش نه». بررسی لبه‌ی شروعِ هر ردیف را با `getBoundingClientRect` می‌خوانَد نه از روی متن؛ اگر همه‌ی ردیف‌ها هم‌تراز باشند تعدادِ لبه‌های متمایز باید دقیقاً ۱ باشد.",
+      "name": "ردیف‌های فاکتور و مشتری از یک لبه شروع می‌شوند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const [nm,scr,box] of [['فاکتور','invoices','invList'],['مشتری','customers','custList']]){await nav(scr);await w(1300);const el=[...document.querySelectorAll('#'+box+' .list-item .li-main')].slice(0,6);if(el.length<3){out.push(nm+':ردیفِ کم');continue;}const xs=el.map(e=>Math.round(e.getBoundingClientRect().right));out.push(nm+':'+new Set(xs).size);}return out.join('|');}",
+      "expect": "فاکتور:1|مشتری:1"
+    },
+    {
+      "_note": "خواستِ مالک: «تو بخش مشتری بشه اطلاعات مشتری رو ادیت کرد». فرمِ ویرایش از قبل کامل بود (`openCustomerForm(id)` و `saveCustomer(id)` با sbUpdate و کنترلِ شماره‌ی تکراری) ولی **هیچ‌جا با شناسه صدا زده نمی‌شد** — یعنی کدِ مرده. فقط دکمه‌اش کم بود. ⚠️ دامِ لایه‌بندی: `custFormWrap` داخلِ `#scr-customers` است و صفحه‌ی مشتری یک `.overlay` با z-index ۶۰. اگر دکمه فرم را باز کند بدونِ اینکه اول پنجره را ببندد، فرم **پشتِ پنجره** می‌مانَد و کاربر فکر می‌کند دکمه کار نمی‌کند — همان اتفاقی که یک بار برای `#invoiceView` افتاد. راهش بستنِ پنجره است نه بالا بردنِ z-index. بررسی با کلیکِ واقعی می‌زند (نه صدا زدنِ تابع)، بسته شدنِ پنجره و دیده شدنِ فرم را جدا می‌سنجد، و وارسی می‌کند هر سه فیلد با دادهٔ همان مشتری پر شده باشد — وگرنه دکمه ممکن است بی‌صدا فرمِ «مشتری جدید» را باز کند.",
+      "name": "از صفحه‌ی مشتری می‌شود اطلاعاتش را ویرایش کرد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));try{await nav('customers');await w(900);const c=CUSTOMERS.find(x=>x.id==='c1');if(!c)return 'مشتریِ آزمون نیست';await openCustomer('c1');await w(1500);const btn=document.querySelector('#custRender button[onclick*=\"openCustomerForm\"]');if(!btn)return 'دکمه:نه';btn.click();await w(800);const wr=document.getElementById('custFormWrap');const open=!!wr&&!wr.classList.contains('hidden');const ovShut=document.getElementById('custView').classList.contains('hidden');const kick=(document.querySelector('#custFormWrap .form-kick')||{}).textContent||'';const nm=(document.getElementById('cName')||{}).value||'';const ph=(document.getElementById('cPhone')||{}).value||'';const ct=(document.getElementById('cCity')||{}).value||'';const seen=open&&wr.getBoundingClientRect().height>50;return 'دکمه:بله|فرم باز:'+(open?'بله':'نه')+'|پنجره بسته:'+(ovShut?'بله':'نه')+'|دیده می‌شود:'+(seen?'بله':'نه')+'|حالت:'+(/ویرایش/.test(kick)?'ویرایش':'جدید')+'|نام:'+(nm===c.name?'پر':'خالی')+'|شهر:'+(ct===c.city?'پر':'خالی')+'|شماره:'+(ph.replace(/\\D/g,'')===c.phone?'پر':'خالی');}finally{try{closeCustomerForm();closeCustomer();}catch(_){}}}",
+      "expect": "دکمه:بله|فرم باز:بله|پنجره بسته:بله|دیده می‌شود:بله|حالت:ویرایش|نام:پر|شهر:پر|شماره:پر"
+    },
+    {
+      "_note": "خطرِ واقعیِ این قابلیت «ویرایش که بی‌صدا مشتریِ تکراری بسازد» است — آن‌وقت طلبِ همان آدم بینِ دو ردیف تکه می‌شود و هیچ خطایی هم نمی‌دهد. پس بررسی می‌شمارد که ذخیره‌ی ویرایش دقیقاً **یک PATCH** روی همان شناسه بفرستد و **هیچ POSTی** نه. شمردنِ درخواستِ واقعیِ شبکه است نه صدا زدنِ تابع، چون `saveCustomer` هر دو مسیر را دارد (`if(id) sbUpdate else sbInsert`) و یک اشتباهِ کوچک در پاس دادنِ شناسه، مسیرِ insert را روشن می‌کند بی‌آنکه چیزی در ظاهر عوض شود.",
+      "name": "ذخیره‌ی ویرایش، همان مشتری را به‌روز می‌کند نه یکی تازه",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;const seen=[];window.fetch=function(u,o){const m=((o&&o.method)||'GET').toUpperCase();if(String(u).indexOf('/rest/v1/customers')>=0&&m!=='GET')seen.push(m+' '+String(u).split('/rest/v1/')[1]);return f.apply(this,arguments)};try{await nav('customers');await w(900);await openCustomer('c1');await w(1500);const b=document.querySelector('#custRender button[onclick*=\"openCustomerForm\"]');if(!b)return 'دکمه نیست';b.click();await w(800);const ct=document.getElementById('cCity');if(!ct)return 'فرم باز نشد';ct.value='بندرعباس';seen.length=0;await saveCustomer('c1');await w(1000);const patch=seen.filter(x=>x.startsWith('PATCH'));const post=seen.filter(x=>x.startsWith('POST'));const right=patch.length===1&&patch[0].indexOf('id=eq.c1')>=0;return 'PATCH:'+patch.length+'|POST:'+post.length+'|شناسه درست:'+(right?'بله':'نه');}finally{window.fetch=f;try{closeCustomerForm();closeCustomer();CUSTOMERS=await sbGetAll('customers?select=*&order=name.asc');}catch(_){}}}",
+      "expect": "PATCH:1|POST:0|شناسه درست:بله"
+    },
+    {
+      "_note": "خواستِ مالک: «بشه وقتی روی مشتری میزنیم سابقه ارسال‌هایی که براش کردیم رو ببینیم». شبیه‌ساز عمداً سه ارسالی دارد: دو تا مالِ c1 و یکی وصل‌نشده با نامِ دیگر. ⚠️ بررسی فقط «بخش هست؟» را نمی‌پرسد — اگر فیلترِ customer_id درست اعمال نشود، ارسالیِ آدمِ دیگر در صفحه‌ی این مشتری می‌آید و آن بدتر از نبودنِ بخش است. پس «مالِ غیر:نیامد» جزوِ انتظار است.",
+      "name": "صفحه‌ی مشتری سابقه‌ی ارسال‌های خودش را نشان می‌دهد",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));try{await nav('customers');await w(900);await openCustomer('c1');await w(1600);const t=String((document.getElementById('custRender')||{}).innerText||'');const has=/ارسالی/.test(t);const dargahan=/درگهان/.test(t), bandar=/بندرعباس/.test(t);const ghayr=/ناشناس|شیراز/.test(t);return 'بخش:'+(has?'هست':'نه')+'|هر دو ارسالی:'+((dargahan&&bandar)?'بله':'نه')+'|مالِ غیر:'+(ghayr?'آمد':'نیامد');}finally{try{closeCustomer()}catch(_){}}}",
+      "expect": "بخش:هست|هر دو ارسالی:بله|مالِ غیر:نیامد"
+    },
+    {
+      "_note": "نصفِ خواسته «وصل شدن» است، و اگر بی‌صدا وصل نشود هیچ خطایی نمی‌بینی — فقط ماه‌ها بعد می‌فهمی سابقه‌ی نصفِ مشتری‌ها خالی است. پس بررسی **بدنه‌ی درخواستِ واقعی** را می‌خواند و می‌سنجد `customer_id` همان مشتری رفته باشد، نه اینکه فقط تابع صدا زده شده. راهنمای زیرِ کادر هم سنجیده می‌شود: کاربر باید همان لحظه ببیند به چه کسی وصل می‌شود، وگرنه «وصل نشدن» را تازه سرِ صفحه‌ی مشتری کشف می‌کند.",
+      "name": "ثبتِ ارسالی با نامِ مشتری، به خودش وصل می‌شود",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;let body=null;window.fetch=function(u,o){const m=((o&&o.method)||'GET').toUpperCase();if(String(u).indexOf('/rest/v1/shipments')>=0&&m==='POST'){try{body=JSON.parse(o.body)}catch(_){}}return f.apply(this,arguments)};try{await openShipments();await w(1500);const n=document.getElementById('shipName');if(!n)return 'فرم نیست';n.value='حاج رضا';n.dispatchEvent(new Event('input',{bubbles:true}));await w(300);const hint=String((document.getElementById('shipMatchHint')||{}).textContent||'');document.getElementById('shipQty').value='۶';document.getElementById('shipCity').value='درگهان';await addShipment();await w(1200);const linked=!!body&&body.customer_id==='c1';return 'فرستاد:'+(body?'بله':'نه')+'|وصل شد:'+(linked?'بله':'نه')+'|راهنما گفت:'+(/حاج رضا/.test(hint)?'بله':'نه');}finally{window.fetch=f;try{document.getElementById('shipView').classList.add('hidden')}catch(_){}}}",
+      "expect": "فرستاد:بله|وصل شد:بله|راهنما گفت:بله"
+    },
+    {
       "_why": "«چشمِ ناظر» از روزِ اول می‌نوشت و هیچ‌کس نمی‌خواند. عددِ دستی: چهار ردیف که سه‌تایشان یک پیامِ یکسان روی یک صفحه‌اند، پس ۲ مشکلِ متمایز و ۴ بار. گروه‌بندی مهم است — یک باگِ ده‌باری یک مشکل است نه ده تا.",
       "name": "خطاهای گوشی گروه می‌شوند، نه ردیف‌به‌ردیف",
       "before": "openInsights().then(()=>insErrors())",
@@ -735,5 +855,14 @@
     "before": "nav('dashboard')",
     "wait": 600,
     "settle": 450
+  },
+  "sw": {
+    "file": "sw.js",
+    "_note": "exclude یعنی «عمداً کش نمی‌شود». sw.js خودش کش نمی‌شود وگرنه به‌روزرسانی گیر می‌کند (مستند در README). icon-maskable فقط موقعِ نصبِ PWA لازم است و سیستم‌عامل خودش می‌گیردش، پس در کشِ آفلاین جایی ندارد.",
+    "exclude": [
+      "sw.js",
+      "icon-maskable.png"
+    ],
+    "budget_kb": 200
   }
 }

@@ -330,11 +330,6 @@ class Overlay(QWidget):
     def text(self) -> str:
         return self._text.toPlainText().strip()
 
-    def settled_text(self) -> str:
-        """What the box holds without the guess still being revised."""
-        full = self._text.toPlainText()
-        return (full[: len(full) - self._tail] if self._tail else full).strip()
-
     def clear(self) -> None:
         self._text.clear()
         self._typed_from = None
