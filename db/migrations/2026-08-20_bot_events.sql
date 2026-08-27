@@ -115,3 +115,23 @@ revoke all on public.bot_events_public from anon, public;
 revoke all on public.bot_carts_open  from anon, public;
 grant select on public.bot_events_public to authenticated;
 grant select on public.bot_carts_open  to authenticated;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- خطاهای گوشیِ مالک — «چشمِ ناظر» تا امروز کور بود.
+--
+-- پنل در `client_errors` می‌نوشت ولی **هیچ‌وقت نمی‌توانست بخواندش**: آن جدول
+-- عمداً فقط سیاستِ insert دارد. یعنی هر خرابیِ خاموشی روی گوشیِ مالک ثبت می‌شد و
+-- هیچ‌کس نمی‌دیدش — مگر اینکه کسی SQL Editorِ سوپابیس را باز کند، که در عمل
+-- یعنی هیچ‌وقت.
+--
+-- نما به‌جای سیاستِ SELECT، تا آن تصمیمِ اولیه نشکند: خودِ جدول بسته می‌مانَد و
+-- این فقط چیزی را می‌دهد که مالک می‌تواند رویش کاری بکند. `stack` و `ua`
+-- عمداً نیستند — بلندترین فیلدها و محتمل‌ترین جا برای چیزی که بهتر است به
+-- مرورگر نرود.
+create or replace view public.client_errors_recent as
+  select id, created_at, kind, screen, app_version, left(message, 300) as message
+  from public.client_errors
+  where created_at > now() - interval '30 days';
+
+revoke all on public.client_errors_recent from anon, public;
+grant select on public.client_errors_recent to authenticated;

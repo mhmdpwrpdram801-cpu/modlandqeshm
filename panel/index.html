@@ -2665,7 +2665,7 @@ async function openInsights(){
   /* رویدادهای ربات فقط ۹۰ روزِ اخیر — این جدول با هر کلیکِ مشتری رشد می‌کند و
      کشیدنِ کلش پایین، روی اینترنتِ کندِ گوشی، صفحه را می‌خواباند (DATA-08). */
   const bevSince=new Date(Date.now()-90*86400000).toISOString();
-  const [inv,items,prods,bals,custs,sals,rets,bev,carts]=await Promise.all([
+  const [inv,items,prods,bals,custs,sals,rets,bev,carts,cerr]=await Promise.all([
     P('inv',"invoices?select=id,status,created_at,total_amount,discount,customer_id,buyer_name"),
     P('items',"invoice_items?select=product_id,product_name,quantity,invoice_id,created_at"),
     P('prods',"products?select=id,name,price,created_at"),
@@ -2674,11 +2674,12 @@ async function openInsights(){
     P('sals',"salaries?select=amount,created_at"),
     P('rets',"returns?select=total_value,items,created_at,invoice_id,customer_id"),
     P('bev',"bot_events_public?select=chat_id,event,product_id,meta,created_at&created_at=gte."+bevSince),
-    P('carts',"bot_carts_open?select=chat_id,customer_name,customer_phone,customer_city,cart_items,cart_total,updated_at")
+    P('carts',"bot_carts_open?select=chat_id,customer_name,customer_phone,customer_city,cart_items,cart_total,updated_at"),
+    P('cerr',"client_errors_recent?select=id,created_at,kind,screen,app_version,message&order=created_at.desc")
   ]);
   const cancelled=new Set(inv.filter(x=>x.status==='cancelled').map(x=>x.id));
   window.FUN_MINE=false;   /* هر بار باز شدن، از حالتِ واقعی شروع کن */
-  window.INS={inv,items,prods,bals,custs,sals,rets,bev,carts,cancelled,now:Date.now(),failed};
+  window.INS={inv,items,prods,bals,custs,sals,rets,bev,carts,cerr,cancelled,now:Date.now(),failed};
   insMenu();
 }
 function insMenu(){
@@ -2691,7 +2692,8 @@ function insMenu(){
     <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insPL()">📊 گزارشِ فروش<div style="font-size:11.5px;color:var(--muted);font-weight:400">فروش منهای حقوق و مرجوعی</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">🌐 ربات</div>
     <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insFunnel()">📈 بازدید و نرخِ تبدیل<div style="font-size:11.5px;color:var(--muted);font-weight:400">چند نفر اومدن، چند نفر خریدن، کجا ول کردن</div></button>
-    <button class="dash-btn" style="width:100%;text-align:right" onclick="insCarts()">🛒 سبدهای رهاشده<div style="font-size:11.5px;color:var(--muted);font-weight:400">جنس گذاشتن تو سبد و نرفتن تا آخر</div></button>
+    <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insCarts()">🛒 سبدهای رهاشده<div style="font-size:11.5px;color:var(--muted);font-weight:400">جنس گذاشتن تو سبد و نرفتن تا آخر</div></button>
+    <button class="dash-btn" style="width:100%;text-align:right" onclick="insErrors()">🩺 خطاهای گوشی${_insErrBadge()}<div style="font-size:11.5px;color:var(--muted);font-weight:400">خرابی‌هایی که خودت ندیدی ولی ثبت شدن</div></button>
     <div style="font-size:12px;font-weight:800;color:var(--muted);margin:14px 2px 8px">👥 مشتری</div>
     <button class="dash-btn" style="width:100%;text-align:right;margin-bottom:9px" onclick="insChurn()">🚶 رادارِ ریزشِ مشتری<div style="font-size:11.5px;color:var(--muted);font-weight:400">کیا کم‌پیدا شدن و باید بکشونی‌شون</div></button>
     <button class="dash-btn" style="width:100%;text-align:right" onclick="insTop()">🏆 پرخریدترین مشتریا<div style="font-size:11.5px;color:var(--muted);font-weight:400">کی بیشتر ازت خرید کرده</div></button>
@@ -2702,7 +2704,51 @@ function insMenu(){
   </div>`;
 }
 function insBack(){ return `<button class="btn sm sec" style="margin-bottom:12px" onclick="insMenu()">‹ برگشت</button>`; }
-const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',sals:'حقوق',rets:'مرجوعی‌ها',bev:'رفتارِ مشتری در ربات',carts:'سبدهای باز'};
+
+/* ===== خطاهای گوشی (چشمِ ناظر) =====
+   `reportError` از روزِ اول خطاهای خاموشِ گوشیِ مالک را در `client_errors`
+   می‌نوشت — و **هیچ‌وقت هیچ‌کس نمی‌خواندشان**، چون آن جدول عمداً فقط سیاستِ
+   insert دارد. یعنی داده جمع می‌شد و کسی نمی‌دیدش؛ همان الگویی که سرِ قیف هم
+   پیش آمد. حالا از نمای `client_errors_recent` خوانده می‌شود که ستون‌های حساس
+   را نمی‌دهد و جدولِ خام همچنان بسته می‌مانَد.
+
+   یک‌جور گروه می‌شوند، نه ردیف‌به‌ردیف: یک باگ که ده بار تکرار شده یک مشکل است،
+   نه ده تا. */
+function _insErrGroups(){
+  const rows=(window.INS&&window.INS.cerr)||[]; const g={};
+  rows.forEach(r=>{
+    const key=(r.screen||'?')+'|'+(r.message||'');
+    if(!g[key])g[key]={screen:r.screen||'نامعلوم',msg:r.message||'(بدونِ پیام)',kind:r.kind||'',n:0,last:r.created_at,ver:r.app_version||''};
+    g[key].n++;
+    if(new Date(r.created_at)>new Date(g[key].last))g[key].last=r.created_at;
+  });
+  return Object.values(g).sort((a,b)=>b.n-a.n||new Date(b.last)-new Date(a.last));
+}
+function _insErrBadge(){
+  const n=((window.INS&&window.INS.cerr)||[]).length;
+  return n?` <span class="tag" style="background:var(--danger);color:#fff;font-size:11px;padding:1px 7px;border-radius:99px">${faNum(n)}</span>`:'';
+}
+function insErrors(){
+  if(insFailed(['cerr']).length){ insBlocked(['cerr'],'🩺 خطاهای گوشی'); return; }
+  const g=_insErrGroups();
+  let h=insBack()+`<div style="font-size:18px;font-weight:800;margin-bottom:2px">🩺 خطاهای گوشی</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">۳۰ روزِ اخیر. این‌ها خرابی‌هایی‌ان که برنامه خودش ثبت کرده — لازم نیست تو ببینی‌شون.</div>`;
+  if(!g.length){
+    h+=`<div class="card" style="padding:16px;text-align:center;color:var(--muted)">تو ۳۰ روزِ گذشته هیچ خطایی ثبت نشده 👌</div>`;
+  }else{
+    h+=`<div class="netrow net" style="margin-bottom:10px"><span>${faNum(g.length)} مشکلِ متمایز</span><b class="num" style="color:var(--danger)">${faNum(g.reduce((s,x)=>s+x.n,0))} بار</b></div>`;
+    h+=g.slice(0,40).map(e=>`<div class="card" style="padding:12px;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <b style="font-size:13.5px">${esc(e.screen)}</b>
+        <span style="white-space:nowrap"><span class="tag bad">${faNum(e.n)} بار</span></span>
+      </div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:5px;overflow-wrap:anywhere">${esc(e.msg)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">آخرین بار: ${esc(jDate(e.last))}${e.ver?' · نسخه '+esc(e.ver):''}${e.kind?' · '+esc(e.kind):''}</div>
+    </div>`).join('');
+  }
+  document.getElementById('insBody').innerHTML=`<div class="ov-sheet">${h}</div>`;
+}
+const INS_SRC_FA={inv:'فاکتورها',items:'اقلامِ فاکتور',prods:'کالاها',bals:'ماندهٔ مشتری‌ها',custs:'مشتری‌ها',sals:'حقوق',rets:'مرجوعی‌ها',bev:'رفتارِ مشتری در ربات',carts:'سبدهای باز',cerr:'خطاهای گوشی'};
 function insFailed(keys){ const f=(window.INS&&window.INS.failed)||[]; return keys?f.filter(k=>keys.indexOf(k)>=0):f; }
 function insFailBanner(keys){ const bad=insFailed(keys); if(!bad.length)return '';
   return `<div class="card" style="padding:12px;margin-bottom:12px;border-right:3px solid var(--danger);background:rgba(193,57,43,.06)"><b style="color:var(--danger)">⚠️ این‌ها بارگذاری نشدند:</b> ${bad.map(k=>esc(INS_SRC_FA[k]||k)).join('، ')}<div style="font-size:11.5px;color:var(--muted);margin-top:4px">پس عددهای این صفحه ناقص‌اند. اینترنت رو چک کن و از اول باز کن.</div></div>`; }

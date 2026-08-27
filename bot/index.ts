@@ -201,24 +201,58 @@ async function forwardQuestion(chatId: number, msg: any, text: string, photoId: 
   else await send(chatId, 'الان نتونستم پیامت رو برسونم 🙏 یه‌بارِ دیگه امتحان کن.');
 }
 
-const BACKUP_TABLES = ['settings','products','customers','invoices','invoice_items','payments','returns','expenses','salaries','employees','shipments','quotes','discount_codes','telegram_orders'];
-const BACKUP_FA: Record<string,string> = { products:'کالا', customers:'مشتری', invoices:'فاکتور', invoice_items:'قلمِ فاکتور', payments:'پرداخت', returns:'مرجوعی', expenses:'خرج', salaries:'حقوق', employees:'کارمند', shipments:'بار', quotes:'پیش‌فاکتور', discount_codes:'کدِ تخفیف', telegram_orders:'سفارشِ ربات' };
+/* جدول‌هایی که در پشتیبان می‌آیند.
+   `employees` از این فهرست **برداشته شد**: چنین جدولی در دیتابیس وجود ندارد و
+   سال‌ها بی‌صدا `[]` تولید می‌کرد — خودش شاهدِ این بود که کسی محتوای پشتیبان را
+   وارسی نکرده. `bot_admins` **اضافه شد**: اگر گم شود هیچ‌کس نمی‌تواند ربات را
+   اداره کند و `/claimadmin` هم عمداً حذف شده، پس تنها راهِ برگشتش دستِ کسی است
+   که به خودِ دیتابیس دسترسی دارد.
+   `app_config` عمداً **نیست**: کلیدِ cron در آن است و این فایل توی تلگرام
+   می‌رود (SEC-01). `bot_events`، `client_errors` و `telegram_sessions` هم نه —
+   آمار و تشخیص و حالتِ گذرا هستند، نه دادهٔ کسب‌وکار. */
+const BACKUP_TABLES = ['settings','products','customers','invoices','invoice_items','payments','returns','expenses','salaries','shipments','quotes','discount_codes','telegram_orders','bot_admins'];
+const BACKUP_FA: Record<string,string> = { products:'کالا', customers:'مشتری', invoices:'فاکتور', invoice_items:'قلمِ فاکتور', payments:'پرداخت', returns:'مرجوعی', expenses:'خرج', salaries:'حقوق', shipments:'بار', quotes:'پیش‌فاکتور', discount_codes:'کدِ تخفیف', telegram_orders:'سفارشِ ربات', bot_admins:'مدیرِ ربات' };
 
+/* **پشتیبانی که نصفه است نباید شبیهِ پشتیبانِ کامل باشد.**
+   نسخه‌ی قبلی روی هر خطا `break` می‌زد و `catch` هم خالی بود، پس جدولی که خوانده
+   نمی‌شد بی‌صدا `[]` می‌شد. و چون کپشن فقط جدول‌های ناخالی را می‌شمرد، پشتیبانی که
+   نصفِ مغازه را جا انداخته بود دقیقاً شبیهِ پشتیبانِ یک هفته‌ی خلوت به نظر می‌رسید.
+   این بدترین شکلِ خرابی است: چیزی که فقط روزِ فاجعه معلوم می‌شود (DATA-09).
+
+   حالا هر جدول یکی از این دو حالت را دارد و قاطی‌شان ممکن نیست:
+     · موفق  → `out[t]` آرایه است (شاید خالی) و در `_rows` شمرده می‌شود
+     · ناموفق → `out[t]` **null** است و نامش در `_failed` می‌آید
+   `_ok` هم صریح می‌گوید پشتیبان کامل است یا نه، تا اسکریپتِ بازگردانی مجبور
+   نباشد حدس بزند. */
 async function buildBackup() {
-  const out: any = { _saved_at: new Date().toISOString(), _shop: 'مدلند قشم' };
+  const out: any = {
+    _saved_at: new Date().toISOString(), _shop: 'مدلند قشم',
+    _format: 2, _tables: BACKUP_TABLES.slice(), _rows: {} as Record<string, number>,
+    _failed: [] as string[], _ok: true,
+  };
   for (const t of BACKUP_TABLES) {
     const rows: any[] = [];
+    let bad = '';
     try {
       let from = 0;
       while (true) {
         const { data, error } = await supabase.from(t).select('*').range(from, from + 999);
-        if (error || !data) break;
+        if (error) { bad = String(error.message || 'خطا').slice(0, 120); break; }
+        if (!data) { bad = 'پاسخِ خالی'; break; }
         rows.push(...data);
         if (data.length < 1000) break;
         from += 1000;
       }
-    } catch (_) {}
-    out[t] = rows;
+    } catch (e) { bad = (e instanceof Error ? e.message : String(e)).slice(0, 120); }
+    if (bad) {
+      out[t] = null;
+      out._failed.push(t);
+      out._ok = false;
+      log('backup', 'error', 'backup.table_failed', { table: t, msg: bad });
+    } else {
+      out[t] = rows;
+      out._rows[t] = rows.length;
+    }
   }
   return out;
 }
@@ -234,7 +268,10 @@ async function sendBackup(chatId: number) {
   }
   const kb = Math.max(1, Math.round(new TextEncoder().encode(json).length / 1024));
   const name = 'modland-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-  const cap = `💾 <b>پشتیبانِ کاملِ مدلند قشم</b>\n${parts.length ? parts.join(' · ') : 'فعلاً داده‌ای ثبت نشده'}\n\nاین فایل همه‌چیزه: کالاها، مشتریا، فاکتورا، پرداختا و تنظیمات (${fa(kb)} کیلوبایت).\n📌 یه جای امن نگهش دار.`;
+  const failed: string[] = Array.isArray(data._failed) ? data._failed : [];
+  const cap = failed.length
+    ? `⚠️ <b>پشتیبان ناقص گرفته شد — نگهش ندار</b>\n\nاین جدول‌ها خونده نشدن: <b>${failed.map((t: string) => escH(BACKUP_FA[t] || t)).join('، ')}</b>\n\n${parts.length ? parts.join(' · ') : 'هیچ جدولی خونده نشد'}\n\n<b>به این فایل تکیه نکن.</b> یه بارِ دیگه /پشتیبان بزن؛ اگه باز هم همین شد یعنی مشکل از دیتابیسه.`
+    : `💾 <b>پشتیبانِ کاملِ مدلند قشم</b>\n${parts.length ? parts.join(' · ') : 'فعلاً داده‌ای ثبت نشده'}\n\nاین فایل همه‌چیزه: کالاها، مشتریا، فاکتورا، پرداختا و تنظیمات (${fa(kb)} کیلوبایت).\n📌 یه جای امن نگهش دار.`;
   const fd = new FormData();
   fd.append('chat_id', String(chatId));
   fd.append('caption', cap);
@@ -507,6 +544,50 @@ async function buildWeeklyReport() {
   let t = `📊 <b>گزارشِ هفتگیِ مدلند قشم</b>\n🗓 ۷ روزِ اخیر\n\n🧾 فاکتورها: ${fa(valid.length)}\n💰 فروش: ${fa(rev)} ت\n✋ کل طلب از مشتریا: ${fa(debt)} ت\n`;
   if (top.length) { t += `\n🔥 <b>پرفروش‌ها:</b>\n`; top.forEach((e: any, i: number) => { t += `${fa(i + 1)}. ${escH(e[0])} — ${fa(e[1])} عدد\n`; }); }
   if (!valid.length) t += `\nاین هفته فاکتوری ثبت نشده.`;
+
+  /* قیفِ ربات — همان چیزی که صفحه‌ی «بازدید و نرخِ تبدیل» نشان می‌دهد، ولی
+     هفته‌ای یک بار خودش می‌آید. فروش تنها نصفِ ماجراست: «۳ فاکتور» بدونِ
+     «از ۴۰ نفر» معلوم نمی‌کند هفته‌ی خوبی بوده یا بد.
+
+     از **نما** خوانده می‌شود نه جدول، تا گشت‌وگذارِ خودِ مالک بازدیدکننده
+     شمرده نشود. `bot_carts_open` هم فقط سبدهای بازِ همین لحظه است، نه هفته —
+     و همین درست است، چون کاری که می‌شود کرد همین الان است.
+
+     اگر خواندن شکست بخورد **هیچ عددی نمی‌آید**، نه صفر: «۰ بازدیدکننده» یعنی
+     «هیچ‌کس نیامد» و آن ادعای غلطی است. */
+  try {
+    const { data: ev, error: evErr } = await supabase
+      .from('bot_events_public').select('chat_id,event').gte('created_at', since);
+    if (evErr) throw new Error(evErr.message);
+    const rows = ev || [];
+    if (rows.length) {
+      const seen = new Set<string>(), bought = new Set<string>(), carted = new Set<string>();
+      for (const r of rows) {
+        const c = String(r.chat_id);
+        seen.add(c);
+        if (r.event === 'order') bought.add(c);
+        if (r.event === 'cart_add') carted.add(c);
+      }
+      // `fa()` خودش گرد می‌کند، پس نرخِ اعشاری بی‌صدا بریده می‌شد. اینجا صریح
+      // گرد می‌شود تا کد همان چیزی را بگوید که نشان می‌دهد — در پیامِ تلگرام
+      // «۳۳٪» به‌اندازه‌ی کافی گویاست و رقمِ اعشار چیزی اضافه نمی‌کند.
+      const conv = seen.size ? Math.round(bought.size * 100 / seen.size) : 0;
+      t += `\n\n🌐 <b>ربات این هفته</b>\n👤 بازدیدکننده: ${fa(seen.size)}\n🛒 سبد پر کردن: ${fa(carted.size)}\n✅ سفارش دادن: ${fa(bought.size)}\n📈 نرخِ تبدیل: ${fa(conv)}٪`;
+    } else {
+      t += `\n\n🌐 <b>ربات این هفته</b>\nاین هفته کسی سراغِ ربات نیومد.`;
+    }
+    const { data: carts, error: cErr } = await supabase
+      .from('bot_carts_open').select('cart_total');
+    if (cErr) throw new Error(cErr.message);
+    const open = carts || [];
+    if (open.length) {
+      const sum = open.reduce((s: number, c: any) => s + Number(c.cart_total || 0), 0);
+      t += `\n\n🧺 <b>سبدِ رهاشده:</b> ${fa(open.length)} نفر — ${fa(sum)} ت روش مونده\nتو پنل می‌تونی براشون پیام بفرستی.`;
+    }
+  } catch (e) {
+    log('cron', 'warn', 'weekly.funnel_failed', errInfo(e));
+    t += `\n\n🌐 آمارِ ربات این هفته خونده نشد — تو پنل ببینش.`;
+  }
   return t;
 }
 
@@ -551,7 +632,7 @@ async function medCheck(pid: string, which: string, tok: string): Promise<boolea
 
 // نسخه‌ی این فایل. بازرسِ سرور آن را با عددی که در bot/README.md ثبت شده مقابله
 // می‌کند، پس دیگر نمی‌شود مستقر کرد و یادت برود مستند را جلو ببری.
-const BOT_VER = 41;
+const BOT_VER = 42;
 
 // ── لاگِ ساخت‌یافته (OPS-01، OPS-02) ────────────────────────────────────────
 // لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست: نمی‌شود پرسید «این درخواست چه بر

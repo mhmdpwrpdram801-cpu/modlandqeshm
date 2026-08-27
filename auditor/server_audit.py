@@ -223,12 +223,15 @@ def bot_checks(src, code):
     # نسخه‌ی داخلِ کد باید با چیزی که README ثبت کرده یکی باشد، وگرنه بعد از
     # استقرار مستند بی‌صدا عقب می‌مانَد (OPS-06).
     mver = re.search(r"const BOT_VER = (\d+)", code)
-    doc = re.search(r"نسخه‌ی مستقر: \*\*([۰-۹\d]+)\*\*", open(BOT_README, encoding="utf-8").read())
+    # الگو دنبالِ خودِ `BOT_VER` می‌گردد، نه عبارتِ «نسخه‌ی مستقر». آن عبارت
+    # گمراه‌کننده بود: سوپابیس شمارنده‌ی **جداگانه‌ی خودش** را دارد که با هر
+    # استقرار جلو می‌رود، و از ۱۴۰۵/۰۵/۳۰ از BOT_VER جدا افتاده (۴۵ در برابرِ ۴۲).
+    doc = re.search(r"`BOT_VER`[^\n]*?\*\*([۰-۹\d]+)\*\*", open(BOT_README, encoding="utf-8").read())
     fa = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
     if not mver:
         bad("BOT_VER در کد نیست")
     elif not doc:
-        bad("نسخه‌ی مستقر در bot/README.md ثبت نشده")
+        bad("BOT_VER در bot/README.md ثبت نشده")
     elif mver.group(1) != doc.group(1).translate(fa):
         bad(f"BOT_VER={mver.group(1)} ولی README می‌گوید {doc.group(1)} — یکی‌شان عقب مانده")
     else:
@@ -289,6 +292,56 @@ def bot_checks(src, code):
             f"فقط در استاب: {sorted(set(ev_stub) - set(ev_bot))} · "
             + (f"در EV_DEPTHِ پنل نیست (عمقِ صفر می‌گیرند و از قیف می‌افتند بیرون): {miss_panel}"
                if miss_panel else "پنل کامل است"))
+
+    head("۶.۷) پشتیبان (DATA-09)")
+    # سه چیز اینجا سنجیده می‌شود، و هر سه از ایرادِ واقعی درآمدند:
+    #
+    # ۱ **هر نامِ داخلِ BACKUP_TABLES باید جدولِ واقعی باشد.** `employees` سال‌ها
+    #   در این فهرست بود در حالی که چنین جدولی وجود ندارد — و چون خطا بی‌صدا
+    #   بلعیده می‌شد، هر پشتیبان یک `employees: []` می‌داد. خودِ همین شاهد بود
+    #   که هیچ‌کس محتوای پشتیبان را باز نکرده.
+    # ۲ **جدول‌های حیاتی نباید جا بمانند.** `bot_admins` جا مانده بود: با گم شدنش
+    #   هیچ‌کس نمی‌تواند ربات را اداره کند و `/claimadmin` هم عمداً حذف شده.
+    # ۳ **`app_config` نباید در پشتیبان باشد.** کلیدِ cron در آن است و این فایل
+    #   توی تلگرام می‌رود (SEC-01).
+    m = re.search(r"const BACKUP_TABLES = \[(.*?)\];", code, re.S)
+    bt = re.findall(r"'([a-z_]+)'", m.group(1)) if m else []
+    try:
+        real = {ln.split('|')[0] for ln in open(os.path.join(HERE, "schema.txt"), encoding="utf-8")
+                if ln.strip()}
+    except OSError:
+        real = set()
+    if not bt or not real:
+        bad(f"فهرستِ پشتیبان خوانده نشد — BACKUP_TABLES {len(bt)}، شِما {len(real)}")
+    else:
+        ghost = [t for t in bt if t not in real]
+        must = {"settings", "products", "customers", "invoices", "invoice_items",
+                "payments", "returns", "telegram_orders", "bot_admins"}
+        miss = sorted(must - set(bt))
+        secret = [t for t in bt if t == "app_config"]
+        if ghost:
+            bad("جدولِ خیالی در پشتیبان: " + "، ".join(ghost) + " — در دیتابیس نیست، پس همیشه خالی می‌آید")
+        elif miss:
+            bad("جدولِ حیاتی در پشتیبان نیست: " + "، ".join(miss))
+        elif secret:
+            bad("app_config در پشتیبان است — کلیدِ cron توی تلگرام می‌رود (SEC-01)")
+        else:
+            ok(f"هر {len(bt)} جدولِ پشتیبان واقعی است و هیچ جدولِ حیاتی جا نمانده")
+
+    # `db/restore.sql` باید همان فهرست را داشته باشد، وگرنه روزِ فاجعه معلوم
+    # می‌شود که اسکریپتِ بازگردانی یک جدول را نمی‌شناسد.
+    try:
+        rs = open(os.path.join(os.path.dirname(HERE), "db", "restore.sql"), encoding="utf-8").read()
+        rt = sorted(set(re.findall(r"'([a-z_]+)'", re.search(r"tabs text\[\] := array\[(.*?)\];", rs, re.S).group(1))))
+    except Exception:
+        rt = []
+    if not rt:
+        bad("db/restore.sql خوانده نشد یا فهرستِ جدول‌هایش پیدا نشد — بازگردانی آزموده نشده است (DATA-09)")
+    elif rt != sorted(set(bt)):
+        bad("فهرستِ جدول‌ها در restore.sql با ربات یکی نیست — "
+            f"فقط در ربات: {sorted(set(bt) - set(rt))} · فقط در restore.sql: {sorted(set(rt) - set(bt))}")
+    else:
+        ok(f"db/restore.sql همان {len(rt)} جدول را می‌شناسد و بازگردانی آزموده شده")
 
     head("۷) هم‌خوانیِ کپیِ مرجع (OPS-06)")
     # وقتی فایلِ دیگری سنجیده می‌شود (تستِ جهشی)، این بررسی بی‌معنی است: هر جهشی

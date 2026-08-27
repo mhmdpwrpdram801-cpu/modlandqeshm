@@ -240,6 +240,11 @@
    "auth": true
   },
   {
+   "v": "client_errors_recent",
+   "anon": false,
+   "auth": true
+  },
+  {
    "v": "customer_balances",
    "anon": true,
    "auth": true

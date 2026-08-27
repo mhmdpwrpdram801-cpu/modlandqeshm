@@ -68,6 +68,13 @@ const DATA={products:P,customers:C,invoices:INV,
    const e=(event,pid,mins)=>E.push({id:++n,chat_id:999,event,product_id:pid||null,meta:null,created_at:iso(now-mins*6e4)});
    e('start',null,300); e('browse',null,299); e('view','p1',298);
    return E; })(),
+ /* خطاهای گوشی: دو مشکلِ متمایز، یکی سه بار تکرار شده و یکی یک بار.
+    پس «۲ مشکلِ متمایز · ۴ بار» — عددِ دستی‌حساب‌شده. */
+ client_errors_recent:[
+   {id:1,created_at:iso(now-2*36e5),kind:'error',screen:'invoices',app_version:'mlq-70',message:"Cannot read properties of null (reading 'value')"},
+   {id:2,created_at:iso(now-3*36e5),kind:'error',screen:'invoices',app_version:'mlq-70',message:"Cannot read properties of null (reading 'value')"},
+   {id:3,created_at:iso(now-9*36e5),kind:'error',screen:'invoices',app_version:'mlq-70',message:"Cannot read properties of null (reading 'value')"},
+   {id:4,created_at:iso(now-30*36e5),kind:'unhandledrejection',screen:'products',app_version:'mlq-69',message:'<b>خطا</b> & شبکه قطع شد'}],
  /* دو سبدِ نیمه‌کاره — جمعِ دستی: ۱٬۷۰۰٬۰۰۰ + ۸۵۰٬۰۰۰ = ۲٬۵۵۰٬۰۰۰ */
  bot_carts_open:[
    {chat_id:5,customer_name:'زهرا',customer_phone:'09120001122',customer_city:'قشم',cart_items:2,cart_total:1700000,updated_at:iso(now-2*36e5)},

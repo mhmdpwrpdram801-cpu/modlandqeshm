@@ -170,6 +170,10 @@
     [
       "سبدهای رهاشده",
       "openInsights().then(()=>insCarts())"
+    ],
+    [
+      "خطاهای گوشی",
+      "openInsights().then(()=>insErrors())"
     ]
   ],
   "checks": [
@@ -699,6 +703,31 @@
       "wait": 1100,
       "js": "()=>[window.__WASON,window.FUN_MINE].join('→')",
       "expect": "true→false"
+    },
+    {
+      "_why": "«چشمِ ناظر» از روزِ اول می‌نوشت و هیچ‌کس نمی‌خواند. عددِ دستی: چهار ردیف که سه‌تایشان یک پیامِ یکسان روی یک صفحه‌اند، پس ۲ مشکلِ متمایز و ۴ بار. گروه‌بندی مهم است — یک باگِ ده‌باری یک مشکل است نه ده تا.",
+      "name": "خطاهای گوشی گروه می‌شوند، نه ردیف‌به‌ردیف",
+      "before": "openInsights().then(()=>insErrors())",
+      "wait": 700,
+      "js": "()=>{const t=document.getElementById('insBody').innerText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));const m=t.match(/(\\d+)\\s*مشکلِ متمایز/),n=t.match(/(\\d+)\\s*بار/);return [m?m[1]:'?',n?n[1]:'?'].join('/')}",
+      "expect": "2/4"
+    },
+    {
+      "_why": "پیامِ خطا از دیتابیس می‌آید و مستقیم داخلِ innerHTML می‌رود. یک پیامِ حاوی <b> باید متن بماند (SEC-04).",
+      "name": "پیامِ خطای بدقواره فرار داده می‌شود (SEC-04)",
+      "before": "openInsights().then(()=>insErrors())",
+      "wait": 700,
+      "js": "()=>{const b=document.getElementById('insBody');return [b.querySelector('.card b')!==null,b.innerText.includes('<b>خطا</b>')].join('/')}",
+      "expect": "true/true"
+    },
+    {
+      "_why": "اگر خواندنِ خطاها شکست بخورد، صفحه نباید «هیچ خطایی نیست 👌» بگوید — همان خبرِ خوشِ دروغ.",
+      "name": "خطای شبکه روی صفحه‌ی خطاها خبرِ خوشِ دروغ نمی‌دهد",
+      "before": "(()=>{window.INS.failed=['cerr'];insErrors();return 0})()",
+      "wait": 400,
+      "after": "(()=>{window.INS.failed=[];return 0})()",
+      "js": "()=>{const t=document.getElementById('insBody').innerText;return [t.includes('بارگذاری نشدند'),t.includes('هیچ خطایی ثبت نشده')].join('/')}",
+      "expect": "true/false"
     }
   ],
   "click_test": {
