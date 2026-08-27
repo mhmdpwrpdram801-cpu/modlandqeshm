@@ -40,7 +40,18 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   }
   const method = url.split("/").pop() || "?";
   let payload: Record<string, unknown> = {};
-  try { payload = init?.body ? JSON.parse(String(init.body)) : {}; } catch { /* بدنه‌ی غیرِ JSON */ }
+  // `sendDocument` و آپلودِ ویدیو با **FormData** می‌روند، نه JSON. استاب قبلاً
+  // فقط JSON را می‌خواند، پس `payload` برای آن مسیرها همیشه `{}` بود — یعنی
+  // هر بررسی‌ای که به کپشنشان نگاه می‌کرد **الکی سبز** می‌شد، چون رشته‌ی خالی
+  // هیچ الگویی را تطابق نمی‌دهد. (همین‌جا لو رفت: بررسیِ «کپشنِ پشتیبان هشدار
+  // ندارد» روی پشتیبانِ عمداً خراب هم سبز می‌ماند.)
+  if (init?.body instanceof FormData) {
+    for (const [k, v] of (init.body as FormData).entries()) {
+      payload[k] = typeof v === "string" ? v : `[blob ${(v as Blob).size}]`;
+    }
+  } else {
+    try { payload = init?.body ? JSON.parse(String(init.body)) : {}; } catch { /* بدنه‌ی غیرِ JSON */ }
+  }
   TG.push({ method, payload });
 
   // دانلودِ خودِ فایل (مسیرِ /file/bot…) — این همان چیزی است که پهنای باند می‌برد.
@@ -396,6 +407,83 @@ try {
   await createClient("x", "y").from("bot_events").insert({ chat_id: 1, event: "brwse" });
 } catch { stubCaught = true; }
 check("استاب رویدادِ ناشناخته را رد می‌کند", stubCaught, true);
+
+// ── ۱۰) پشتیبان — DATA-09
+// «پشتیبان تا وقتی بازگردانی‌اش را امتحان نکرده‌ای وجود ندارد.» بازگردانی روی
+// دیتابیسِ واقعی آزموده شد (db/restore.sql)؛ این‌جا چیزِ دیگری سنجیده می‌شود که
+// همان‌قدر مهم است: **پشتیبانِ ناقص نباید شبیهِ پشتیبانِ کامل باشد.**
+console.log("\n━━━ پشتیبان ━━━");
+const bkDoc = () => TG.find((t) => t.method === "sendDocument");
+const bkCap = () => String((bkDoc()?.payload as { caption?: string } | undefined)?.caption ?? "");
+
+// حالتِ سالم
+reset({ step: "idle", cart: [] });
+DB.bot_admins = [{ chat_id: CHAT }];
+DB.settings = [{ id: 1, shop_name: "مدلند" }];
+await send(msg("/پشتیبان"));
+check("پشتیبانِ سالم فرستاده می‌شود", !!bkDoc(), true);
+// **اول ثابت کن کپشن اصلاً وجود دارد.** بدونِ این، بررسیِ بعدی روی رشته‌ی خالی
+// هم سبز می‌شود — و دقیقاً همین شد: تا وقتی استاب FormData را نمی‌خواند، کپشن
+// همیشه '' بود و «هشدار ندارد» حتی روی پشتیبانِ عمداً خراب هم پاس می‌داد.
+check("کپشنِ پشتیبان واقعاً خوانده می‌شود", bkCap().includes("مدلند قشم"), true);
+check("کپشنِ سالم هشدار ندارد", /ناقص|تکیه نکن/.test(bkCap()), false);
+
+// حالتِ خراب: **یک** جدول نمی‌آید و بقیه می‌آیند — خطرناک‌ترین حالت، چون فایل
+// سالم به‌نظر می‌رسد. نسخه‌ی قبلی دقیقاً همین را بی‌صدا رد می‌کرد.
+reset({ step: "idle", cart: [] });
+DB.bot_admins = [{ chat_id: CHAT }];
+DB.products = [{ id: "p1", name: "شلوار", price: 100 }];
+FAULT.table = "invoices";
+await send(msg("/پشتیبان"));
+FAULT.table = undefined;
+check("جدولِ خراب کپشن را هشداردار می‌کند", /ناقص/.test(bkCap()), true);
+check("کپشن می‌گوید به فایل تکیه نکن", /تکیه نکن/.test(bkCap()), true);
+check("نامِ جدولِ خراب در کپشن می‌آید", /فاکتور/.test(bkCap()), true);
+
+// ── ۱۱) گزارشِ هفتگی — تکه‌ای که تا امروز هیچ‌جا اجرا نمی‌شد
+// مسیرِ cron فقط در تولید صدا زده می‌شد، پس اگر یک نامِ جدول در آن غلط بود،
+// جمعه شب بی‌صدا می‌افتاد و تا دوشنبه کسی نمی‌فهمید.
+console.log("\n━━━ گزارشِ هفتگی ━━━");
+const cronReq = () => handler!(new Request(
+  "https://x/functions/v1/telegram-bot?cron=weekly&k=test-cron", { method: "GET" }));
+const weekly = () => TG.filter((t) => t.method === "sendMessage")
+  .map((t) => String(t.payload.text)).join("\n");
+
+reset({ step: "idle", cart: [] });
+DB.bot_admins = [{ chat_id: CHAT }];
+DB.invoices = [{ id: "i1", total_amount: 500000, status: "paid", created_at: new Date().toISOString() }];
+DB.invoice_items = [{ invoice_id: "i1", product_name: "شلوار", quantity: 2, created_at: new Date().toISOString() }];
+DB.customer_balances = [{ balance: 250000 }];
+// سه نفر: یکی فقط دید، یکی سبد پر کرد، یکی خرید. پس تبدیل = ۱ از ۳ = ۳۳٫۳٪
+DB.bot_events_public = [
+  { chat_id: 11, event: "start", created_at: new Date().toISOString() },
+  { chat_id: 12, event: "start", created_at: new Date().toISOString() },
+  { chat_id: 12, event: "cart_add", created_at: new Date().toISOString() },
+  { chat_id: 13, event: "start", created_at: new Date().toISOString() },
+  { chat_id: 13, event: "order", created_at: new Date().toISOString() },
+];
+DB.bot_carts_open = [{ cart_total: 850000 }, { cart_total: 150000 }];
+await (await cronReq()).text();
+const wk = weekly();
+check("گزارشِ هفتگی فرستاده می‌شود", wk.includes("گزارشِ هفتگیِ مدلند قشم"), true);
+check("بخشِ ربات در گزارش هست", wk.includes("ربات این هفته"), true);
+check("بازدیدکننده‌ی یکتا درست شمرده می‌شود", /بازدیدکننده: ۳/.test(wk), true);
+// ۱ خریدار از ۳ بازدیدکننده = ۳۳٪ (گردشده — `fa()` عددِ صحیح می‌دهد)
+check("نرخِ تبدیل با حسابِ دستی می‌خواند", /نرخِ تبدیل: ۳۳٪/.test(wk), true);
+// ۸۵۰٬۰۰۰ + ۱۵۰٬۰۰۰ = ۱٬۰۰۰٬۰۰۰
+check("جمعِ سبدهای رهاشده درست است", /۱,۰۰۰,۰۰۰ ت روش مونده/.test(wk), true);
+
+// و اگر خواندنِ آمار بشکند، گزارش نباید صفرِ دروغ بدهد.
+reset({ step: "idle", cart: [] });
+DB.bot_admins = [{ chat_id: CHAT }];
+DB.invoices = [];
+FAULT.table = "bot_events_public";
+await (await cronReq()).text();
+FAULT.table = undefined;
+const wk2 = weekly();
+check("خرابیِ آمار گزارش را نمی‌خواباند", wk2.includes("گزارشِ هفتگیِ مدلند قشم"), true);
+check("خرابیِ آمار صفرِ دروغ نمی‌دهد", /بازدیدکننده: ۰/.test(wk2), false);
+check("خرابیِ آمار صریح گفته می‌شود", wk2.includes("خونده نشد"), true);
 
 console.log("\n" + "═".repeat(52));
 console.log(`  ${pass} بررسی پاس شد`);

@@ -2,6 +2,7 @@ bot_admins|chat_id,claimed_at
 bot_carts_open|cart_items,cart_total,chat_id,customer_city,customer_name,customer_phone,updated_at
 bot_events_public|chat_id,created_at,event,id,meta,product_id
 bot_events|chat_id,created_at,event,id,meta,product_id
+client_errors_recent|app_version,created_at,id,kind,message,screen
 customer_balances|balance,city,id,name,phone
 customers|address,city,created_at,id,name,notes,phone
 dev_tests|content,name,updated_at

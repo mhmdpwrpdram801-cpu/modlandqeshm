@@ -13,7 +13,11 @@ export type Row = Record<string, unknown>;
 export const DB: Record<string, Row[]> = {};
 // خرابیِ دیتابیس را می‌شود عمداً روشن کرد — بدونِ آن، مسیرِ سلامت فقط در حالتِ
 // خوب سنجیده می‌شود و «۵۰۳ می‌دهد یا نه» هیچ‌وقت معلوم نمی‌شود.
-export const FAULT = { on: false };
+/* `on` همه‌چیز را می‌خواباند؛ `table` فقط **یک** جدول را.
+   دومی برای آزمودنِ پشتیبان لازم شد: خرابیِ کلی را هر کدی می‌گیرد، ولی حالتِ
+   خطرناک آن است که **یک** جدول نیاید و بقیه بیایند — چون آن‌وقت فایل سالم
+   به‌نظر می‌رسد. */
+export const FAULT: { on: boolean; table?: string } = { on: false };
 export const CALLS: string[] = [];
 
 /* جدول‌های واقعیِ دیتابیس — `auditor/schema.txt` منبعش است.
@@ -27,8 +31,9 @@ export const TABLES = new Set([
   "bot_admins", "bot_events", "customer_balances", "customers", "dev_tests",
   "discount_codes", "expenses", "invoice_items", "invoices", "payments",
   "products", "quotes", "returns", "salaries", "settings", "shipments",
-  "telegram_orders", "telegram_sessions", "employees", "app_config",
-  "client_errors",
+  "telegram_orders", "telegram_sessions", "app_config", "client_errors",
+  // نماها هم نام دارند و ربات از آن‌ها می‌خواند (گزارشِ هفتگی).
+  "bot_events_public", "bot_carts_open", "customer_balances",
 ]);
 
 /* قیدهای CHECK که دیتابیسِ واقعی دارد و اینجا هم باید همان‌طور رد شوند.
@@ -94,6 +99,9 @@ class Query implements PromiseLike<{ data: unknown; error: unknown }> {
 
   private run() {
     if (FAULT.on) return { data: null, error: { message: 'شبیه‌ساز: خرابیِ عمدیِ دیتابیس' } };
+    if (FAULT.table && FAULT.table === this.table) {
+      return { data: null, error: { message: `شبیه‌ساز: خرابیِ عمدیِ جدولِ ${this.table}` } };
+    }
     if (!TABLES.has(this.table)) {
       throw new Error(`استابِ supabase: جدولِ ناشناخته «${this.table}» — یا در دیتابیس نیست، یا نامش را در stub_supabase.ts اضافه کن`);
     }
