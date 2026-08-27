@@ -42,7 +42,11 @@ const DATA={products:P,customers:C,invoices:INV,
                     {id:'c2',name:"مغازه‌ی 'گل'",phone:'09359998877',city:'قشم',balance:0}],
  expenses:[{id:'e1',note:'کرایه',amount:300000,date:'۱۴۰۵/۰۵/۰۱',category:'حمل',created_at:iso(now-864e5)}],
  salaries:[{id:'s1',employee_name:'علی',amount:5000000,date:'۱۴۰۵/۰۵/۰۱',month:'۱۴۰۵/۰۵',note:'',created_at:iso(now-864e5)}],
- shipments:[{id:'sh1',customer_name:'حاج رضا',city:'درگهان',qty:3,created_at:iso(now-864e5)}],
+ shipments:[{id:'sh1',customer_name:'حاج رضا',city:'درگهان',qty:3,customer_id:'c1',created_at:iso(now-864e5)},
+            {id:'sh2',customer_name:'حاج رضا',city:'بندرعباس',qty:12,customer_id:'c1',created_at:iso(now-3*864e5)},
+            /* عمداً وصل‌نشده: نامی که هیچ مشتری‌ای ندارد. صفحه‌ی مشتری نباید
+               این را به کسی نسبت بدهد و ارسالی‌ها هم نباید پنهانش کنند. */
+            {id:'sh3',customer_name:'یه نفرِ ناشناس',city:'شیراز',qty:6,customer_id:null,created_at:iso(now-5*864e5)}],
  // دو جورِ مرجوعی، دقیقاً مثلِ دیتابیسِ واقعی:
  // r1 مستقل است (create_return) — فاکتوری ندارد، پس باید از فروش کم شود.
  // r2 روی فاکتورِ i2 است (return_invoice_items) — آن تابع خودش جمعِ فاکتور و اقلامش را کم کرده،

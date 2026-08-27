@@ -1588,7 +1588,8 @@ async function renderShipments(){
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">📦 ارسالی‌ها</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">خودت دستی ثبت می‌کنی: چی برای کی به کدوم شهر فرستادی.</div>
     <div class="card" style="padding:14px;margin-bottom:16px">
-      <div class="ir-grid"><div class="f field" style="flex:1.4"><label>نام مشتری</label><input id="shipName" maxlength="60" class="inp" placeholder="مثلاً حاج قاسم"></div><div class="f field" style="flex:.8"><label>تعداد جنس</label><input id="shipQty" maxlength="6" class="inp" dir="ltr" inputmode="numeric" placeholder="۰"></div></div>
+      <div class="ir-grid"><div class="f field" style="flex:1.4"><label>نام مشتری</label><input id="shipName" maxlength="60" class="inp" list="custNames" oninput="checkShipMatch()" placeholder="مثلاً حاج قاسم"></div><div class="f field" style="flex:.8"><label>تعداد جنس</label><input id="shipQty" maxlength="6" class="inp" dir="ltr" inputmode="numeric" placeholder="۰"></div></div>
+      <div id="shipMatchHint" style="font-size:11.5px;margin:-6px 0 8px;min-height:15px"></div>
       <div class="field"><label>شهر مقصد</label><input id="shipCity" maxlength="40" class="inp" placeholder="مثلاً بندرعباس"></div>
       <button onclick="addShipment()" style="width:100%;background:var(--gold);color:#fff;border:0;border-radius:11px;padding:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">➕ ثبتِ ارسالی</button>
     </div>`;
@@ -1603,14 +1604,30 @@ async function renderShipments(){
   });
   html+='</div>'; body.innerHTML=html;
 }
+/* راهنمای زنده‌ی زیرِ کادرِ نام — آینه‌ی همان کاری که checkCustomerMatch برای فاکتور
+   می‌کند. نکته‌اش این است که «وصل نشد» را **همان لحظه** بگوید: اگر ساکت بماند،
+   مالک ماه‌ها بعد سرِ صفحه‌ی مشتری می‌فهمد سابقه‌اش خالی است و دیگر یادش نیست
+   کدام ارسالی مالِ که بوده. */
+function checkShipMatch(){
+  const el=document.getElementById('shipName'), hint=document.getElementById('shipMatchHint');
+  if(!el||!hint)return;
+  const raw=el.value, m=customerNameMatches(raw);
+  if(m.length===1){ hint.style.color='var(--paid)'; hint.textContent='✓ به سابقه‌ی «'+m[0].name+'» وصل می‌شود'; }
+  else if(m.length>1){ hint.style.color='var(--credit)'; hint.textContent='⚠️ چند مشتری با این نام داری — به هیچ‌کدام وصل نمی‌شود. نامِ متمایزتری بذار.'; }
+  else if(normalizeDigits(raw||'').trim()){ hint.style.color='var(--muted)'; hint.textContent='این نام در مشتری‌ها نیست — ثبت می‌شود ولی به سابقه‌ی کسی وصل نمی‌شود'; }
+  else hint.textContent='';
+}
 async function addShipment(){
   const name=document.getElementById('shipName').value.trim();
   const qty=parseNum(document.getElementById('shipQty').value);
   const city=document.getElementById('shipCity').value.trim();
   if(!name){ toast('نام مشتری را بنویس'); return; }
   if(!(qty>0)){ toast('تعداد جنس را درست بزن'); return; }
+  /* نامِ **یکتا** وصل می‌کند؛ چند هم‌نام یعنی نمی‌دانیم کدام، و حدس‌زدن یعنی
+     ارسالی به گردنِ آدمِ اشتباه. همان قاعده‌ی findCustomerByName. */
+  const cust=findCustomerByName(name);
   if(window.__busyShip)return; window.__busyShip=true;
-  try{ await sbInsert('shipments',{customer_name:name,qty:qty,city:city||null}); }
+  try{ await sbInsert('shipments',{customer_name:name,qty:qty,city:city||null,customer_id:cust?cust.id:null}); }
   catch(e){ window.__busyShip=false; toast('ثبت نشد: '+e.message); return; }
   window.__busyShip=false; toast('ارسالی ثبت شد ✅'); await renderShipments();
 }
@@ -2605,12 +2622,15 @@ async function openCustomer(id){
   try{
     // هر پنج‌تا مستقل‌ان — با هم می‌فرستیم، نه پشتِ سرِ هم (رو VPN پنج برابر فرق می‌کنه)
     const _eid=encodeURIComponent(id);
-    const [_c,_invs,_pays,_bal,_its]=await Promise.all([
+    const [_c,_invs,_pays,_bal,_its,_ships]=await Promise.all([
       sbGet("customers?select=*&id=eq."+_eid),
       sbGetAll("invoices?select=*&customer_id=eq."+_eid+"&order=invoice_number.desc"),
       sbGetAll("payments?select=*&customer_id=eq."+_eid+"&order=created_at.desc"),
       sbGet("customer_balances?select=balance&id=eq."+_eid).then(r=>({ok:true,v:Number((r[0]||{}).balance||0)})).catch(()=>({ok:false,v:0})),
-      sbGetAll("invoice_items?select=product_name,quantity,line_total,invoices!inner(customer_id,status)&invoices.customer_id=eq."+_eid+"&invoices.status=neq.cancelled&order=created_at.asc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]}))
+      sbGetAll("invoice_items?select=product_name,quantity,line_total,invoices!inner(customer_id,status)&invoices.customer_id=eq."+_eid+"&invoices.status=neq.cancelled&order=created_at.asc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]})),
+      /* فقط ارسالی‌هایی که به **همین** مشتری وصل‌اند. با نام فیلتر نمی‌کنیم:
+         هم‌نام‌ها ارسالیِ یکی را به دیگری نسبت می‌دادند. */
+      sbGetAll("shipments?select=id,qty,city,created_at&customer_id=eq."+_eid+"&order=created_at.desc").then(v=>({ok:true,v})).catch(()=>({ok:false,v:[]}))
     ]);
     if(seqStale('custRender',_q))return;   /* در این فاصله مشتریِ دیگری باز شده */
     const c=_c[0]||{}; const invs=_invs; const pays=_pays;
@@ -2643,6 +2663,14 @@ async function openCustomer(id){
     html+= invs.length===0?'<div class="empty" style="padding:14px">فاکتوری ندارد</div>': invs.map(v=>`<div class="list-item" onclick="document.getElementById('custView').classList.add('hidden');openInvoiceById('${v.id}')" style="${v.status==='cancelled'?'opacity:.55':''}"><div><div class="li-main">#${faNum(v.invoice_number)}</div><div class="li-sub">${esc(v.date||'')}</div></div><div class="li-end"><div class="num" style="font-weight:700">${faNum(v.total_amount)}</div><div class="pill ${safeStatus(v.status)}" style="margin-top:4px">${STATUS_FA[safeStatus(v.status)]}</div></div></div>`).join('');
     html+=`<div class="block-title" style="margin-top:16px">پرداخت‌ها (${faNum(pays.length)})</div>`;
     html+= pays.length===0?'<div class="empty" style="padding:14px">پرداختی ثبت نشده</div>': pays.map(p=>`<div class="mini"><span>${esc(p.date||'')} ${p.method?'· '+esc(p.method):''}</span><b class="num" style="color:var(--paid)">${faNum(p.amount)} تومان</b></div>`).join('');
+    /* ⚠️ اگر این خواندن افتاد، «ارسالی‌ای ثبت نشده» دروغ است — همان «خبرِ خوشِ
+       دروغ» که این مخزن جای دیگر هم گرفتارش شده. سه حالتِ جدا: خطا، خالی، پر. */
+    const _shv=_ships.v||[]; const _shq=_shv.reduce((s,x)=>s+Number(x.qty||0),0);
+    html+=`<div class="block-title" style="margin-top:16px">📦 ارسالی‌ها${_ships.ok?' ('+faNum(_shv.length)+(_shv.length?' · '+faNum(_shq)+' عدد':'')+')':''}</div>`;
+    html+= !_ships.ok
+      ? '<div class="empty" style="padding:14px;color:var(--danger)">سابقه‌ی ارسال خوانده نشد — اینترنت رو چک کن و دوباره باز کن</div>'
+      : (_shv.length===0?'<div class="empty" style="padding:14px">ارسالی‌ای برایش ثبت نشده</div>'
+         : _shv.map(s=>`<div class="mini"><span>${esc(jDate(s.created_at))}${s.city?' · '+esc(s.city):''}</span><b class="num">${faNum(s.qty)} عدد</b></div>`).join(''));
     html+=`<button onclick="deleteCustomer('${id}')" style="width:100%;margin-top:22px;background:none;border:1px solid rgba(193,57,43,.4);border-radius:12px;padding:12px;font-family:inherit;font-size:13px;font-weight:700;color:#c0392b;cursor:pointer">🗑 حذفِ این مشتری</button>`;
     html+=`</div>`;
     box.innerHTML=html;
