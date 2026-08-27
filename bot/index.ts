@@ -174,12 +174,106 @@ function agoFa(iso: string) {
   return fa(Math.floor(d / 30)) + ' ماه پیش';
 }
 
+/* ── پرداختِ تکه‌تکه (نسخه‌ی ۴۶) ─────────────────────────────────────────────
+   مالک گفت بعضی مشتری‌ها نمی‌توانند کلِ پول را یک‌جا بزنند، پس یک سفارش می‌تواند
+   چند کارت داشته باشد. `telegram_orders.cards` آرایه است، به ترتیبِ فرستادن:
+     [{fid, amount, at}, …]
+   «مانده» هیچ‌جا ذخیره نمی‌شود و همیشه از همین آرایه حساب می‌شود (ARCH-04) —
+   عددِ پولی که دو جا نگه داشته شود بالاخره یک روز دو مقدارِ متفاوت می‌شود. */
+function cardsOf(o: any): any[] {
+  const cs = o && o.cards;
+  return Array.isArray(cs) ? cs : [];
+}
+
+/* مجموعِ آنچه تا حالا به کارت‌ها تخصیص داده‌ایم — و **`null` اگر خوانده نشود.**
+   وسوسه‌ی `|| 0` را نخور: صفر اینجا یک ادعاست و ادعای غلط. مانده را بزرگ‌تر از
+   واقعیت نشان می‌دهد، یعنی ربات از مشتری **بیشتر از بدهی‌اش** پول می‌خواهد.
+   همان درسی که در پنل از `payFromInvoice` گرفتیم: شکستِ خواندنِ عددِ پول باید
+   یک حالتِ سوم بسازد — «نمی‌دانم» — نه اینکه به صفر تا بخورد. */
+function assignedOf(o: any): number | null {
+  const cs = o && o.cards;
+  if (cs == null) return 0;
+  if (!Array.isArray(cs)) return null;
+  let s = 0;
+  for (const c of cs) {
+    const a = Number(c && c.amount);
+    if (!Number.isFinite(a) || a <= 0) return null;
+    s += Math.round(a);
+  }
+  return s;
+}
+function remainOf(o: any): number | null {
+  const a = assignedOf(o);
+  if (a === null) return null;
+  return Math.max(0, Math.round(Number(o && o.total) || 0) - a);
+}
+
+/* مبلغی که مدیر در کپشنِ عکسِ کارت می‌نویسد.
+   رقمِ فارسی و عربی و جداکننده‌ی هزار را می‌فهمد، ولی **حدس نمی‌زند**: هر چیزِ
+   دیگری `null` می‌شود تا خودِ مدیر درستش کند (API-07 — در مرز رد کن، ترمیم نکن).
+   نقطه عمداً جداکننده حساب نمی‌شود: «۱۲.۵» هم می‌تواند دوازده‌ونیم باشد هم
+   دوازده‌هزاروپانصد، و حدس زدنش مبلغِ غلط روی کارتِ مشتری می‌گذارد. */
+function parseToman(t: string): number | null {
+  const s = String(t ?? '')
+    .replace(/[۰-۹]/g, (d: string) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d: string) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[,٬،_\s]/g, '')
+    .trim();
+  // واحدِ نوشته‌شده حذف می‌شود، **جز ریال**: «۵۰۰۰۰۰۰ ریال» را اگر تومان حساب
+  // کنیم ده برابر اشتباه می‌شود، پس اصلاً قبولش نمی‌کنیم و مدیر خودش تصحیح کند.
+  const m = /^(\d{1,12})(?:تومان|تومن|ت)?$/.exec(s);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+const AMOUNT_HINT = 'مبلغ رو با رقم و به <b>تومان</b> بنویس — مثلاً <code>5000000</code> یا <code>۵,۰۰۰,۰۰۰ تومان</code>.';
+
+/* چیزی که مدیر قبل از فرستادنِ عکسِ کارت می‌بیند. سه عدد را با هم می‌گوید —
+   جمع، تخصیص‌داده‌شده، مانده — چون خواستِ مالک دقیقاً همین بود: «ربات حساب کنه
+   چقد گفتیم واریز کنه و چقد مونده». */
+function cardPrompt(ord: any, rem: number) {
+  const tot = Math.round(Number(ord.total) || 0);
+  const done = tot - rem;
+  let t = '📸 <b>عکسِ کارت رو بفرست.</b>\n\n';
+  t += `🧾 جمعِ سفارش: <b>${fa(tot)} تومان</b>\n`;
+  if (done > 0) t += `✅ تا حالا روی کارت‌ها: ${fa(done)} تومان\n`;
+  t += `⏳ مونده: <b>${fa(rem)} تومان</b>\n\n`;
+  t += `اگه همه‌ی این ${fa(rem)} تومان به همین کارت می‌ره، فقط عکس رو بفرست.\n`;
+  t += `اگه فقط بخشیش به این کارته، <b>مبلغ رو تو کپشنِ همون عکس بنویس</b>. ${AMOUNT_HINT}`;
+  return t;
+}
+
+/* کارت‌های ثبت‌شده را دوباره برای مشتری می‌فرستد، هرکدام با مبلغِ خودش.
+   تکه‌تکه بودن باید روی **هر** عکس نوشته باشد نه فقط در یک پیامِ خلاصه —
+   مشتری بعداً که اسکرول می‌کند، همان عکس را می‌بیند نه خلاصه را. */
+async function resendCards(chatId: number, ord: any) {
+  const list = cardsOf(ord);
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    const amt = Number(c && c.amount);
+    // مبلغِ ناخوانا نباید «۰ تومان» چاپ شود — `fa()` هر چیزِ نامعتبر را صفر
+    // می‌کند و صفر اینجا یعنی «چیزی به این کارت نزن»، که ادعای غلطی است.
+    const money = Number.isFinite(amt) && amt > 0
+      ? `<b>${fa(amt)} تومان</b>` : '<b>(مبلغش خونده نشد — بهمون بگو)</b>';
+    const cap = list.length === 1
+      ? `💳 مبلغِ ${money} رو به این کارت واریز کن.`
+      : `💳 <b>کارتِ ${fa(i + 1)} از ${fa(list.length)}</b> — مبلغِ ${money} به این کارت.`;
+    await sendPhoto(chatId, String(c && c.fid), cap);
+  }
+}
+
 function orderStatusFa(o: any) {
   if (o.status === 'cancelled') return '❌ لغو شده';
   if (o.invoice_id) return '📦 فاکتورش صادر شد';
   if (o.paid_confirmed_at) return '✅ پرداخت تأیید شد';
   if (o.receipt_sent_at) return '🧾 فیشت رسید — در حالِ بررسی';
-  if (o.card_sent_at) return '💳 کارت فرستاده شد — منتظرِ فیش';
+  if (o.card_sent_at) {
+    // کارتِ نصفه با کارتِ کامل یک شکل نباشد، وگرنه مشتری فکر می‌کند تمام شده.
+    const r = remainOf(o);
+    if (r !== null && r > 0) return `💳 کارت رفت — هنوز ${fa(r)} تومانش کارت نخورده`;
+    return '💳 کارت فرستاده شد — منتظرِ فیش';
+  }
   return '⏳ ثبت شد — در حالِ هماهنگی';
 }
 
@@ -198,15 +292,34 @@ function cleanPhotos(v: any) {
   return Array.isArray(v) ? v.filter((x: any) => x && (x.url || x.fid)) : [];
 }
 
-async function forwardQuestion(chatId: number, msg: any, text: string, photoId: string | null) {
+/* `payOrderId` وقتی پر است که مشتری دکمه‌ی «دربارهٔ واریز حرف بزنم» را زده باشد.
+   آن‌وقت پیام برای مدیر **سه عدد** را هم با خودش می‌آورد و یک دکمه‌ی «فرستادنِ
+   کارت» — وگرنه مدیر باید برود سفارش را پیدا کند و تا آن موقع مشتری رفته. */
+async function forwardQuestion(chatId: number, msg: any, text: string, photoId: string | null, payOrderId?: string | null) {
   const s = await getSession(chatId);
   const from = msg && msg.from ? msg.from : {};
   const who = (s && s.customer_name) || from.first_name || from.username || 'مشتری';
   const uname = from.username ? ' (@' + from.username + ')' : '';
   const phone = (s && s.customer_phone) ? '\n📞 ' + escH(s.customer_phone) : '';
   const body = String(text || '').trim();
-  const cap = `💬 <b>سؤال از مشتری</b>\n👤 ${escH(who)}${escH(uname)}${phone}\n\n${escH(body || '(بدونِ متن)')}`;
-  const kb = { inline_keyboard: [[{ text: '✍️ جواب بده', callback_data: 'rp_' + chatId }]] };
+  let head = '💬 <b>سؤال از مشتری</b>';
+  let money = '';
+  let payBack: string | null = null;
+  const rows: any[] = [[{ text: '✍️ جواب بده', callback_data: 'rp_' + chatId }]];
+  if (payOrderId) {
+    const { data: po } = await supabase.from('telegram_orders').select('id,total,cards').eq('id', payOrderId).maybeSingle();
+    if (po) {
+      const rem = remainOf(po);
+      head = '💳 <b>مشتری دربارهٔ واریز حرف داره</b>';
+      money = `\n🧾 جمعِ سفارش: <b>${fa(po.total)} تومان</b>`
+        + (rem === null ? '\n⚠️ مانده خونده نشد' : `\n⏳ مونده: <b>${fa(rem)} تومان</b>`);
+      if (rem === null || rem > 0) rows.unshift([{ text: '💳 فرستادنِ کارت به مشتری', callback_data: `sendcard_${po.id}` }]);
+      // اگر کارتی رفته، مشتری هنوز وسطِ مسیرِ فیش است.
+      if (cardsOf(po).length) payBack = String(po.id);
+    }
+  }
+  const cap = `${head}\n👤 ${escH(who)}${escH(uname)}${phone}${money}\n\n${escH(body || '(بدونِ متن)')}`;
+  const kb = { inline_keyboard: rows };
   const { data: admins } = await supabase.from('bot_admins').select('chat_id');
   let sent = 0;
   for (const a of (admins || [])) {
@@ -215,8 +328,12 @@ async function forwardQuestion(chatId: number, msg: any, text: string, photoId: 
       if (r && r.ok) sent++;
     } catch (_) {}
   }
-  await setSession(chatId, { step: 'idle' });
-  if (sent) await send(chatId, '✅ سؤالت رسید دستِ فروشگاه — به‌زودی همین‌جا جوابت رو می‌دیم 🌹');
+  await setSession(chatId, payBack
+    ? { step: 'awaiting_receipt', temp_order_id: payBack }
+    : { step: 'idle' });
+  if (sent) await send(chatId, payOrderId
+    ? '✅ پیامت دربارهٔ واریز رسید دستِ فروشگاه — به‌زودی همین‌جا جوابت رو می‌دیم 🌹'
+    : '✅ سؤالت رسید دستِ فروشگاه — به‌زودی همین‌جا جوابت رو می‌دیم 🌹');
   else await send(chatId, 'الان نتونستم پیامت رو برسونم 🙏 یه‌بارِ دیگه امتحان کن.');
 }
 
@@ -386,7 +503,7 @@ async function sendProductPhotos(chatId: number, pid: string) {
 
 async function showMyOrders(chatId: number) {
   const { data: rows } = await supabase.from('telegram_orders')
-    .select('id,total,items,created_at,status,invoice_id,paid_confirmed_at,receipt_sent_at,card_sent_at')
+    .select('id,total,items,created_at,status,invoice_id,paid_confirmed_at,receipt_sent_at,card_sent_at,cards')
     .eq('tg_user_id', chatId).order('created_at', { ascending: false }).limit(5);
   const list = rows || [];
   if (!list.length) { await send(chatId, 'هنوز سفارشی ثبت نکردی 🙂'); await showMain(chatId); return; }
@@ -651,7 +768,7 @@ async function medCheck(pid: string, which: string, tok: string): Promise<boolea
 
 // نسخه‌ی این فایل. بازرسِ سرور آن را با عددی که در bot/README.md ثبت شده مقابله
 // می‌کند، پس دیگر نمی‌شود مستقر کرد و یادت برود مستند را جلو ببری.
-const BOT_VER = 45;
+const BOT_VER = 46;
 
 // ── لاگِ ساخت‌یافته (OPS-01، OPS-02) ────────────────────────────────────────
 // لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست: نمی‌شود پرسید «این درخواست چه بر
@@ -906,18 +1023,28 @@ Deno.serve(async (req) => {
       } else if (data.startsWith('paynow_')) {
         await logEvent(chatId, 'pay_click');
         const oid = data.slice(7);
-        const { data: ord } = await supabase.from('telegram_orders').select('id,total,card_file_id,paid_confirmed_at,customer_name,customer_phone').eq('id', oid).maybeSingle();
+        const { data: ord } = await supabase.from('telegram_orders').select('id,total,cards,card_file_id,paid_confirmed_at,customer_name,customer_phone').eq('id', oid).maybeSingle();
+        const talkKb = ord ? { inline_keyboard: [[{ text: '💬 دربارهٔ واریز حرف بزنم', callback_data: `paytalk_${ord.id}` }]] } : undefined;
         if (!ord) {
           await send(chatId, 'این سفارش پیدا نشد 🙏');
         } else if (ord.paid_confirmed_at) {
           await send(chatId, '✅ پرداختِ این سفارش قبلاً تأیید شده 🌹');
-        } else if (ord.card_file_id) {
-          await sendPhoto(chatId, ord.card_file_id, `💳 مبلغِ <b>${fa(ord.total)} تومان</b> رو به این کارت واریز کن.\n\nبعدِ واریز، <b>عکسِ فیش</b> رو همین‌جا بفرست 🙏`);
+        } else if (cardsOf(ord).length) {
+          await resendCards(chatId, ord);
+          const rem = remainOf(ord);
+          let t2 = `🧾 جمعِ سفارشت: <b>${fa(ord.total)} تومان</b>\n`;
+          // سه حالتِ جدا. «مونده صفر است» و «مونده را نتوانستم بخوانم» نباید یک
+          // شکل داشته باشند — دومی یعنی عدد نداریم، نه اینکه چیزی نمانده.
+          if (rem === null) t2 += '⚠️ مبلغِ کارت‌ها خونده نشد — لطفاً همین‌جا بهمون بگو.';
+          else if (rem > 0) t2 += `⏳ <b>${fa(rem)} تومان</b> از مبلغ هنوز کارتش برات نرفته — همین‌جا برات می‌فرستیم.`;
+          else t2 += '✅ کارتِ همه‌ی مبلغ برات رفته.';
+          t2 += '\n\nبعدِ هر واریز، <b>عکسِ فیش</b> رو همین‌جا بفرست 🙏';
+          await send(chatId, t2, talkKb);
           await setSession(chatId, { step: 'awaiting_receipt', temp_order_id: ord.id });
         } else {
-          await send(chatId, '💳 چند لحظه صبر کن — الان شماره‌کارت رو برات می‌فرستیم 🌹');
+          await send(chatId, '💳 چند لحظه صبر کن — الان شماره‌کارت رو برات می‌فرستیم 🌹', talkKb);
           const { data: admins } = await supabase.from('bot_admins').select('chat_id');
-          const req2 = `🔔 <b>مشتری می‌خواد پرداخت کنه</b>\n👤 ${escH(ord.customer_name || '')}\n📞 ${escH(ord.customer_phone || '')}\n💰 مبلغ: <b>${fa(ord.total)} تومان</b>\n\n📸 <b>عکسِ کارتی که می‌خوای بهش واریز کنه رو بفرست.</b>`;
+          const req2 = `🔔 <b>مشتری می‌خواد پرداخت کنه</b>\n👤 ${escH(ord.customer_name || '')}\n📞 ${escH(ord.customer_phone || '')}\n\n` + cardPrompt(ord, Math.round(Number(ord.total) || 0));
           for (const a of (admins || [])) {
             try {
               await getSession(Number(a.chat_id));
@@ -926,15 +1053,40 @@ Deno.serve(async (req) => {
             } catch (_) {}
           }
         }
+      } else if (data.startsWith('paytalk_')) {
+        const oid = data.slice(8);
+        const { data: ord } = await supabase.from('telegram_orders').select('id,tg_user_id,total,cards,paid_confirmed_at').eq('id', oid).maybeSingle();
+        if (!ord || Number(ord.tg_user_id) !== Number(chatId)) {
+          await send(chatId, 'این سفارش پیدا نشد 🙏');
+        } else if (ord.paid_confirmed_at) {
+          await send(chatId, '✅ پرداختِ این سفارش تأیید شده — اگه بازم سؤالی داری /سوال رو بزن 🌹');
+        } else {
+          await logEvent(chatId, 'ask');
+          await setSession(chatId, { step: 'pay_ask', temp_order_id: ord.id });
+          const rem = remainOf(ord);
+          let t2 = '💬 بنویس چطور می‌خوای واریز کنی — مثلاً «الان نصفش رو می‌زنم، بقیه رو فردا» یا «کارتِ دوم بفرست».\n\n';
+          t2 += `🧾 جمعِ سفارشت: <b>${fa(ord.total)} تومان</b>`;
+          if (rem !== null && rem > 0 && rem !== Math.round(Number(ord.total) || 0)) t2 += `\n⏳ مونده: <b>${fa(rem)} تومان</b>`;
+          t2 += '\n\n(می‌تونی عکس هم بفرستی.)';
+          await send(chatId, t2);
+        }
       } else if (data.startsWith('sendcard_')) {
         if (await isAdmin(chatId)) {
           const oid = data.slice(9);
-          const { data: ord } = await supabase.from('telegram_orders').select('id,total').eq('id', oid).maybeSingle();
+          const { data: ord } = await supabase.from('telegram_orders').select('id,total,cards').eq('id', oid).maybeSingle();
           if (!ord) {
             await send(chatId, 'این سفارش پیدا نشد 🙏');
           } else {
-            await setSession(chatId, { step: 'awaiting_card', temp_order_id: ord.id });
-            await send(chatId, `📸 عکسِ کارتی که می‌خوای مشتری مبلغِ <b>${fa(ord.total)} تومان</b> رو بهش واریز کنه بفرست.`);
+            const rem = remainOf(ord);
+            if (rem === null) {
+              await send(chatId, '⚠️ مبلغِ کارت‌های قبلیِ این سفارش خونده نشد — تا درست نشده کارتِ تازه نفرست، وگرنه ممکنه از مشتری بیشتر از بدهیش پول بخوای.');
+            } else if (rem <= 0) {
+              await send(chatId, `✅ کلِ <b>${fa(ord.total)} تومان</b> این سفارش قبلاً روی کارت‌ها تقسیم شده — چیزی نمونده.`,
+                { inline_keyboard: [[{ text: '✅ پرداخت شد (تأیید به مشتری)', callback_data: `paid_${ord.id}` }]] });
+            } else {
+              await setSession(chatId, { step: 'awaiting_card', temp_order_id: ord.id });
+              await send(chatId, cardPrompt(ord, rem));
+            }
           }
         }
       } else if (data.startsWith('paid_')) {
@@ -1050,12 +1202,62 @@ Deno.serve(async (req) => {
       if (pic) {
         const ps = await getSession(chatId);
         if (ps.step === 'awaiting_card' && ps.temp_order_id && (await isAdmin(chatId))) {
-          const { data: ord } = await supabase.from('telegram_orders').select('id,tg_user_id,total').eq('id', ps.temp_order_id).maybeSingle();
+          const { data: ord } = await supabase.from('telegram_orders').select('id,tg_user_id,total,cards,card_sent_at').eq('id', ps.temp_order_id).maybeSingle();
+          if (!ord) { await setSession(chatId, { step: 'idle', temp_order_id: null }); await send(chatId, 'سفارش پیدا نشد 🙏'); return new Response('ok'); }
+          if (!ord.tg_user_id) { await setSession(chatId, { step: 'idle', temp_order_id: null }); await send(chatId, 'چتِ مشتریِ این سفارش ثبت نشده 🙏'); return new Response('ok'); }
+          const rem0 = remainOf(ord);
+          if (rem0 === null) {
+            await setSession(chatId, { step: 'idle', temp_order_id: null });
+            await send(chatId, '⚠️ مبلغِ کارت‌های قبلیِ این سفارش خونده نشد — کارت فرستاده نشد.');
+            return new Response('ok');
+          }
+          if (rem0 <= 0) {
+            await setSession(chatId, { step: 'idle', temp_order_id: null });
+            await send(chatId, `✅ کلِ <b>${fa(ord.total)} تومان</b> قبلاً روی کارت‌ها تقسیم شده — این کارت فرستاده نشد.`);
+            return new Response('ok');
+          }
+          /* مبلغ از کپشنِ همان عکس خوانده می‌شود؛ نبودنِ کپشن یعنی «همه‌ی مانده».
+             ⚠️ روی ورودیِ نامعتبر **نشست بسته نمی‌شود** — مدیر باید بتواند همان
+             عکس را با کپشنِ درست دوباره بفرستد، نه اینکه از اولِ مسیر شروع کند.
+             و مبلغ حدس زده نمی‌شود (API-07): «۵ میلیون» به ۵ تومان تبدیل نمی‌شود. */
+          let amount = rem0;
+          const capIn = String(msg.caption || '').trim();
+          if (capIn) {
+            const want = parseToman(capIn);
+            if (want === null) {
+              await send(chatId, `مبلغِ کپشن رو نفهمیدم 🙏 ${AMOUNT_HINT}\n\n⏳ مونده: <b>${fa(rem0)} تومان</b>\nعکس رو با کپشنِ درست دوباره بفرست، یا بدونِ کپشن بفرست تا همه‌ی مونده روش بره.`);
+              return new Response('ok');
+            }
+            if (want > rem0) {
+              await send(chatId, `این مبلغ از مونده بیشتره 🙏\n⏳ مونده: <b>${fa(rem0)} تومان</b>\nعکس رو با مبلغِ درست دوباره بفرست.`);
+              return new Response('ok');
+            }
+            amount = want;
+          }
+          const at = new Date().toISOString();
+          const list = cardsOf(ord).concat([{ fid: pic.file_id, amount, at }]);
+          const upd: any = { cards: list };
+          if (!ord.card_sent_at) { upd.card_file_id = pic.file_id; upd.card_sent_at = at; }
+          /* **اول ثبت، بعد پیام به مشتری.** اگر نوشتن نشود و ما مبلغ را گفته
+             باشیم، دفعه‌ی بعد مانده همان مبلغ را دوباره می‌خواهد — یعنی از مشتری
+             دوبار پول خواسته‌ایم و هیچ خطایی هم دیده نمی‌شود. */
+          const { error: cardErr } = await supabase.from('telegram_orders').update(upd).eq('id', ord.id);
+          if (cardErr) {
+            await send(chatId, '⚠️ کارت ثبت نشد و برای مشتری هم نرفت — یه بارِ دیگه بفرستش 🙏');
+            return new Response('ok');
+          }
           await setSession(chatId, { step: 'idle', temp_order_id: null });
-          if (!ord) { await send(chatId, 'سفارش پیدا نشد 🙏'); return new Response('ok'); }
-          if (!ord.tg_user_id) { await send(chatId, 'چتِ مشتریِ این سفارش ثبت نشده 🙏'); return new Response('ok'); }
-          await sendPhoto(Number(ord.tg_user_id), pic.file_id, `💳 مبلغِ <b>${fa(ord.total)} تومان</b> رو به این کارت واریز کن.\n\nبعدِ واریز، <b>عکسِ فیش</b> رو همین‌جا بفرست 🙏`);
-          await supabase.from('telegram_orders').update({ card_file_id: pic.file_id, card_sent_at: new Date().toISOString() }).eq('id', ord.id);
+          const after = Math.max(0, rem0 - amount);
+          const custCap = (list.length === 1 && after === 0)
+            ? `💳 مبلغِ <b>${fa(amount)} تومان</b> رو به این کارت واریز کن.\n\nبعدِ واریز، <b>عکسِ فیش</b> رو همین‌جا بفرست 🙏`
+            : `💳 <b>کارتِ ${fa(list.length)}</b> — مبلغِ <b>${fa(amount)} تومان</b> رو به این کارت واریز کن.\n\n`
+              + `🧾 جمعِ سفارش: ${fa(ord.total)} تومان\n`
+              + (after > 0
+                  ? `⏳ بعدش <b>${fa(after)} تومان</b> می‌مونه که کارتش رو جدا برات می‌فرستیم.`
+                  : `✅ با این کارت، کلِ مبلغِ سفارشت کامل می‌شه.`)
+              + `\n\nبعدِ هر واریز، <b>عکسِ فیش</b> رو همین‌جا بفرست 🙏`;
+          await sendPhoto(Number(ord.tg_user_id), pic.file_id, custCap,
+            { inline_keyboard: [[{ text: '💬 دربارهٔ واریز حرف بزنم', callback_data: `paytalk_${ord.id}` }]] });
           try { await getSession(Number(ord.tg_user_id)); await setSession(Number(ord.tg_user_id), { step: 'awaiting_receipt', temp_order_id: ord.id }); } catch (_) {}
           try {
             const { data: admins } = await supabase.from('bot_admins').select('chat_id');
@@ -1068,11 +1270,17 @@ Deno.serve(async (req) => {
               }
             }
           } catch (_) {}
-          await send(chatId, '✅ کارت برای مشتری رفت.', { inline_keyboard: [[{ text: '✅ پرداخت شد (تأیید به مشتری)', callback_data: `paid_${ord.id}` }]] });
+          const admRows: any[] = [];
+          if (after > 0) admRows.push([{ text: `💳 فرستادنِ کارتِ بعدی (${fa(after)} ت)`, callback_data: `sendcard_${ord.id}` }]);
+          admRows.push([{ text: '✅ پرداخت شد (تأیید به مشتری)', callback_data: `paid_${ord.id}` }]);
+          await send(chatId, `✅ کارت برای مشتری رفت — <b>${fa(amount)} تومان</b> روش نوشته شد.\n`
+            + (after > 0
+                ? `⏳ مونده: <b>${fa(after)} تومان</b> از ${fa(ord.total)} تومان.`
+                : `✅ کلِ ${fa(ord.total)} تومان تقسیم شد.`), { inline_keyboard: admRows });
           return new Response('ok');
         }
         if (ps.step === 'awaiting_receipt' && ps.temp_order_id) {
-          const { data: ord } = await supabase.from('telegram_orders').select('id,total,customer_name,customer_phone,customer_city').eq('id', ps.temp_order_id).maybeSingle();
+          const { data: ord } = await supabase.from('telegram_orders').select('id,total,cards,customer_name,customer_phone,customer_city').eq('id', ps.temp_order_id).maybeSingle();
           await setSession(chatId, { step: 'idle', temp_order_id: null });
           if (!ord) { await send(chatId, 'سفارشت پیدا نشد 🙏'); return new Response('ok'); }
           await supabase.from('telegram_orders').update({ receipt_file_id: pic.file_id, receipt_sent_at: new Date().toISOString() }).eq('id', ord.id);
@@ -1080,13 +1288,25 @@ Deno.serve(async (req) => {
           await send(chatId, '🧾 فیشت رسید، ممنون! بررسیش می‌کنیم 🌹');
           try {
             const { data: admins } = await supabase.from('bot_admins').select('chat_id');
-            const cap = `🧾 <b>فیشِ واریزی رسید</b>\n👤 ${escH(ord.customer_name || '')}\n📞 ${escH(ord.customer_phone || '')}\n🏙 ${escH(ord.customer_city || '')}\n💰 مبلغِ سفارش: <b>${fa(ord.total)} تومان</b>`;
+            /* با پرداختِ تکه‌تکه، «فیش رسید» به‌تنهایی کافی نیست: مدیر باید بداند
+               این فیش مالِ کدام تکه است و چقدر مانده. بدونِ این، فیشِ نصفه شبیهِ
+               فیشِ کامل است و «پرداخت شد» زودتر از موقع زده می‌شود. */
+            const rcCards = cardsOf(ord);
+            const rcRem = remainOf(ord);
+            let split = '';
+            if (rcCards.length > 1) {
+              split = `\n💳 کارت‌ها: ${rcCards.map((c: any) => fa(Number(c && c.amount))).join(' + ')}`;
+            }
+            if (rcRem === null) split += '\n⚠️ مانده خونده نشد';
+            else if (rcRem > 0) split += `\n⏳ هنوز <b>${fa(rcRem)} تومان</b> کارتش نرفته`;
+            const cap = `🧾 <b>فیشِ واریزی رسید</b>\n👤 ${escH(ord.customer_name || '')}\n📞 ${escH(ord.customer_phone || '')}\n🏙 ${escH(ord.customer_city || '')}\n💰 مبلغِ سفارش: <b>${fa(ord.total)} تومان</b>${split}`;
             for (const a of (admins || [])) {
               try { await sendPhoto(Number(a.chat_id), pic.file_id, cap, { inline_keyboard: [[{ text: '✅ پرداخت شد (تأیید به مشتری)', callback_data: `paid_${ord.id}` }]] }); } catch (_) {}
             }
           } catch (_) {}
           return new Response('ok');
         }
+        if (ps.step === 'pay_ask') { await forwardQuestion(chatId, msg, msg.caption || '', pic.file_id, ps.temp_order_id); return new Response('ok'); }
         if (ps.step === 'asking') { await forwardQuestion(chatId, msg, msg.caption || '', pic.file_id); return new Response('ok'); }
         if (await isAdmin(chatId)) {
           await send(chatId, 'عکسِ کالاها رو از خودِ پنل اضافه کن 🙏');
@@ -1097,6 +1317,7 @@ Deno.serve(async (req) => {
       const vid = msg.video || (msg.document && /video/.test(msg.document.mime_type || '') ? msg.document : null);
       if (vid) {
         const vs = await getSession(chatId);
+        if (vs.step === 'pay_ask') { await forwardQuestion(chatId, msg, msg.caption || '(ویدیو فرستاد)', null, vs.temp_order_id); return new Response('ok'); }
         if (vs.step === 'asking') { await forwardQuestion(chatId, msg, msg.caption || '(ویدیو فرستاد)', null); return new Response('ok'); }
         if (await isAdmin(chatId)) {
           await send(chatId, 'فیلمِ جین و کارتن رو از خودِ پنل بذار 🙏');
@@ -1130,6 +1351,7 @@ Deno.serve(async (req) => {
         }
         if (cmdF === '/پخش' || cmdA === '/broadcast') { if (await isAdmin(chatId)) { await setSession(chatId, { step: 'broadcasting' }); await send(chatId, '📢 متنِ پیام رو بفرست.'); } return new Response('ok'); }
 
+        if (s.step === 'pay_ask') { await forwardQuestion(chatId, msg, text, null, s.temp_order_id); return new Response('ok'); }
         if (s.step === 'asking') { await forwardQuestion(chatId, msg, text, null); return new Response('ok'); }
         if (s.step === 'replying') {
           if (!(await isAdmin(chatId))) { await setSession(chatId, { step: 'idle', reply_to: null }); }

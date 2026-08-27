@@ -485,6 +485,231 @@ check("خرابیِ آمار گزارش را نمی‌خواباند", wk2.inclu
 check("خرابیِ آمار صفرِ دروغ نمی‌دهد", /بازدیدکننده: ۰/.test(wk2), false);
 check("خرابیِ آمار صریح گفته می‌شود", wk2.includes("خونده نشد"), true);
 
+// ── ۱۱) پرداختِ تکه‌تکه (نسخه‌ی ۴۶) ─────────────────────────────────────────
+// خواستِ مالک: «بگیم چقدرش رو به این حساب بزنه و بقیش رو به یه حساب دیگه، و
+// ربات حساب کنه چقد گفتیم واریز کنه و چقد مونده».
+//
+// همه‌ی عددهای اینجا **دستی حساب شده‌اند** (TEST-06):
+//   جمعِ سفارش      ۱۰٬۱۴۰٬۰۰۰
+//   کارتِ اول        ۶٬۰۰۰٬۰۰۰  →  مانده  ۴٬۱۴۰٬۰۰۰
+//   کارتِ دوم        ۴٬۱۴۰٬۰۰۰  →  مانده          ۰
+// و عمداً طوری انتخاب شدند که رشته‌ی «۴,۱۴۰,۰۰۰» جای دیگری از پیام پیدا نشود
+// (در «۱۰,۱۴۰,۰۰۰» نیست) — همان دامی که یک بار در بررسیِ بسته‌بندی افتادیم.
+console.log("\n━━━ پرداختِ تکه‌تکه ━━━");
+const ADMIN = 999;
+const TOTAL = 10140000;
+
+function payReset(cards: unknown[] = [], total = TOTAL) {
+  reset({ step: "idle", cart: [] });
+  DB.telegram_orders = [{
+    id: "o1", tg_user_id: CHAT, total, items: [], cards, status: "new",
+    customer_name: "حاج رضا", customer_phone: "0912",
+    card_file_id: cards.length ? "card1" : null,
+    card_sent_at: cards.length ? "2026-08-27T00:00:00Z" : null,
+  }];
+  DB.telegram_sessions = [
+    { chat_id: CHAT, step: "idle", cart: [] },
+    { chat_id: ADMIN, step: "idle", cart: [] },
+  ];
+}
+const photo = (chat: number, fid: string, caption?: string) => ({
+  message: {
+    chat: { id: chat }, from: { id: chat, username: "u" },
+    photo: [{ file_id: fid }], ...(caption === undefined ? {} : { caption }),
+  },
+});
+const cbq = (chat: number, data: string) =>
+  ({ callback_query: { id: "c", data, from: { id: chat }, message: { chat: { id: chat } } } });
+const toChat = (id: number, method: string) =>
+  TG.filter((t) => t.method === method && Number(t.payload.chat_id) === id);
+const textsTo = (id: number) => toChat(id, "sendMessage").map((t) => String(t.payload.text)).join("\n");
+const capsTo = (id: number) => toChat(id, "sendPhoto").map((t) => String(t.payload.caption || "")).join("\n");
+const kbTo = (id: number) => JSON.stringify(toChat(id, "sendMessage").map((t) => t.payload.reply_markup))
+  + JSON.stringify(toChat(id, "sendPhoto").map((t) => t.payload.reply_markup));
+const cards1 = () => (DB.telegram_orders[0]?.cards as { amount: number; fid: string }[]) || [];
+const sess = (id: number) => DB.telegram_sessions.find((s) => Number(s.chat_id) === id);
+
+// ۱) کپشن ندارد ⇒ همه‌ی مانده روی همین کارت. رفتارِ قدیمی نباید عوض شده باشد.
+payReset();
+await send(cbq(ADMIN, "sendcard_o1"));
+check("مدیر تا کارت نفرستاده، مونده = کلِ مبلغ", /مونده:.*۱۰,۱۴۰,۰۰۰/.test(textsTo(ADMIN)), true);
+TG.length = 0;
+await send(photo(ADMIN, "cardA"));
+check("بدونِ کپشن، کلِ مبلغ روی یک کارت می‌نشیند", cards1().map((c) => c.amount), [TOTAL]);
+check("مشتری همان مبلغ را می‌بیند", /۱۰,۱۴۰,۰۰۰/.test(capsTo(CHAT)), true);
+check("تک‌کارتی حرفی از «مونده» نمی‌زند", /مونده|می‌مونه/.test(capsTo(CHAT)), false);
+
+// ۲) کپشنِ ۶٬۰۰۰٬۰۰۰ ⇒ مانده باید دقیقاً ۴٬۱۴۰٬۰۰۰ شود.
+payReset();
+await send(cbq(ADMIN, "sendcard_o1"));
+TG.length = 0;
+await send(photo(ADMIN, "cardA", "6000000"));
+check("مبلغِ کپشن روی کارت می‌نشیند", cards1().map((c) => c.amount), [6000000]);
+check("مانده با حسابِ دستی می‌خواند (به مشتری)", /۴,۱۴۰,۰۰۰/.test(capsTo(CHAT)), true);
+check("مانده به مدیر هم گفته می‌شود", /۴,۱۴۰,۰۰۰/.test(textsTo(ADMIN)), true);
+check("دکمه‌ی کارتِ بعدی به مدیر داده می‌شود", kbTo(ADMIN).includes("sendcard_o1"), true);
+
+// ۳) کارتِ دوم مانده را صفر می‌کند و دیگر «کارتِ بعدی» پیشنهاد نمی‌شود.
+await send(cbq(ADMIN, "sendcard_o1"));
+TG.length = 0;
+await send(photo(ADMIN, "cardB"));
+check("کارتِ دوم بقیه‌ی مبلغ را می‌گیرد", cards1().map((c) => c.amount), [6000000, 4140000]);
+check("مجموعِ کارت‌ها دقیقاً جمعِ سفارش است",
+  cards1().reduce((s, c) => s + c.amount, 0), TOTAL);
+check("با صفر شدنِ مانده، «کارتِ بعدی» پیشنهاد نمی‌شود", kbTo(ADMIN).includes("sendcard_o1"), false);
+check("مشتری می‌فهمد با این کارت کامل می‌شود", /کامل می‌شه/.test(capsTo(CHAT)), true);
+
+// ۴) وقتی چیزی نمانده، کارتِ سومی ثبت نمی‌شود.
+TG.length = 0;
+await send(cbq(ADMIN, "sendcard_o1"));
+check("با مانده‌ی صفر، مدیر به حالتِ کارت نمی‌رود", sess(ADMIN)?.step, "idle");
+check("و صریح گفته می‌شود چیزی نمونده", /چیزی نمونده/.test(textsTo(ADMIN)), true);
+
+// و همان محافظ **یک لایه پایین‌تر** هم لازم است، چون `sendcard_` تنها راهِ
+// رسیدن به حالتِ awaiting_card نیست: دو مدیر می‌توانند هم‌زمان در همان حالت
+// باشند و اولی که کارت را کامل می‌کند، پاک‌کردنِ نشستِ دیگری «بهترین تلاش» است
+// (`catch(_){}`). این جهش اول از زیرِ دروازه در رفت چون فقط لایه‌ی بالایی
+// سنجیده می‌شد — بررسیِ زیر همان را می‌بندد.
+payReset([
+  { fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" },
+  { fid: "card2", amount: 4140000, at: "2026-08-27T00:10:00Z" },
+]);
+DB.telegram_sessions = [
+  { chat_id: CHAT, step: "idle", cart: [] },
+  { chat_id: ADMIN, step: "awaiting_card", temp_order_id: "o1", cart: [] },
+];
+TG.length = 0;
+await send(photo(ADMIN, "cardC"));
+check("با مانده‌ی صفر، عکسِ کارت هم ثبت نمی‌شود", cards1().length, 2);
+check("و برای مشتری هم نمی‌رود", toChat(CHAT, "sendPhoto").length, 0);
+/* ⚠️ دو بررسیِ بالا **به‌تنهایی کافی نبودند** و این را جهشِ عمدی نشان داد:
+   با برداشتنِ محافظ، مبلغ صفر می‌شود و همان‌جا خودِ استاب خطا می‌دهد (قیدِ
+   «amount باید مثبت باشد»). یعنی نه کارتی اضافه می‌شد نه عکسی می‌رفت، و هر دو
+   بررسی سبز می‌ماندند — داشتند **استاب** را می‌سنجیدند نه ربات را.
+   چیزی که واقعاً فرق می‌کند، جوابی است که مدیر می‌گیرد. */
+check("و مدیر می‌فهمد چرا فرستاده نشد", /این کارت فرستاده نشد/.test(textsTo(ADMIN)), true);
+check("و نشستِ مدیر بسته می‌شود", sess(ADMIN)?.step, "idle");
+
+// ۵) مبلغِ بیشتر از مانده **رد** می‌شود — این محافظِ اصلیِ پول است.
+payReset([{ fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" }]);
+await send(cbq(ADMIN, "sendcard_o1"));
+TG.length = 0;
+await send(photo(ADMIN, "cardB", "5000000"));
+check("مبلغِ بیشتر از مانده ثبت نمی‌شود", cards1().length, 1);
+check("و برای مشتری هم چیزی نمی‌رود", toChat(CHAT, "sendPhoto").length, 0);
+check("مدیر همان‌جا مونده را می‌بیند", /۴,۱۴۰,۰۰۰/.test(textsTo(ADMIN)), true);
+check("نشستِ مدیر باز می‌مانَد تا دوباره بفرستد", sess(ADMIN)?.step, "awaiting_card");
+
+// ۶) کپشنی که عدد نیست ترمیم نمی‌شود، رد می‌شود (API-07).
+TG.length = 0;
+await send(photo(ADMIN, "cardB", "نصفش"));
+check("کپشنِ غیرعددی ثبت نمی‌شود", cards1().length, 1);
+TG.length = 0;
+await send(photo(ADMIN, "cardB", "۵ میلیون"));
+check("«۵ میلیون» رد می‌شود نه اینکه ۵ بشود", cards1().length, 1);
+
+// ۷) رقمِ فارسی + جداکننده + واحد باید کار کند — مالک همین‌طور می‌نویسد.
+TG.length = 0;
+await send(photo(ADMIN, "cardB", "۴,۰۰۰,۰۰۰ تومان"));
+check("«۴,۰۰۰,۰۰۰ تومان» فهمیده می‌شود", cards1().map((c) => c.amount), [6000000, 4000000]);
+
+// ۸) «ریال» عمداً قبول نمی‌شود — ده برابر اشتباه می‌شد.
+payReset([{ fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" }]);
+await send(cbq(ADMIN, "sendcard_o1"));
+TG.length = 0;
+await send(photo(ADMIN, "cardB", "4000000 ریال"));
+check("مبلغِ ریالی رد می‌شود", cards1().length, 1);
+
+// ۹) اگر ثبت در دیتابیس نشود، کارت **نباید** برای مشتری برود.
+payReset();
+await send(cbq(ADMIN, "sendcard_o1"));
+TG.length = 0;
+FAULT.writeTable = "telegram_orders";
+await send(photo(ADMIN, "cardA", "6000000"));
+FAULT.writeTable = undefined;
+check("نوشتنِ ناموفق ⇒ کارت برای مشتری نمی‌رود", toChat(CHAT, "sendPhoto").length, 0);
+check("و مدیر خبردار می‌شود", /ثبت نشد/.test(textsTo(ADMIN)), true);
+
+// ۱۰) مشتری که دوباره «پرداخت» را می‌زند، هر کارت را با مبلغِ خودش می‌بیند.
+payReset([
+  { fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" },
+  { fid: "card2", amount: 3000000, at: "2026-08-27T00:10:00Z" },
+]);
+TG.length = 0;
+await send(cbq(CHAT, "paynow_o1"));
+check("هر دو کارت دوباره فرستاده می‌شوند", toChat(CHAT, "sendPhoto").length, 2);
+check("مبلغِ هر کارت روی خودش نوشته است",
+  /۶,۰۰۰,۰۰۰/.test(capsTo(CHAT)) && /۳,۰۰۰,۰۰۰/.test(capsTo(CHAT)), true);
+// ۱۰٬۱۴۰٬۰۰۰ − ۶٬۰۰۰٬۰۰۰ − ۳٬۰۰۰٬۰۰۰ = ۱٬۱۴۰٬۰۰۰
+check("مانده‌ی درست به مشتری گفته می‌شود", /۱,۱۴۰,۰۰۰/.test(textsTo(CHAT)), true);
+check("دکمه‌ی «دربارهٔ واریز حرف بزنم» هست", kbTo(CHAT).includes("paytalk_o1"), true);
+
+// ۱۱) 🔴 مبلغی که خوانده نشود باید «نمی‌دانم» بسازد، نه صفر.
+//     `Number("۵۰۰")` در جاواسکریپت NaN است. با `|| 0` مانده کلِ مبلغ می‌شد و
+//     ربات دوباره تمامِ پول را از مشتری می‌خواست — همان درسِ payFromInvoice.
+payReset([{ fid: "card1", amount: "۵۰۰", at: "2026-08-27T00:00:00Z" }]);
+TG.length = 0;
+await send(cbq(CHAT, "paynow_o1"));
+check("مبلغِ ناخوانا ⇒ مانده صفر فرض نمی‌شود", /خونده نشد/.test(textsTo(CHAT)), true);
+check("و مبلغِ کلِ سفارش به‌عنوان مانده گفته نمی‌شود",
+  /مونده/.test(textsTo(CHAT)), false);
+TG.length = 0;
+await send(cbq(ADMIN, "sendcard_o1"));
+check("مدیر هم با مبلغِ ناخوانا کارتِ تازه نمی‌فرستد", sess(ADMIN)?.step, "idle");
+
+// ۱۲) گفت‌وگو دربارهٔ واریز: پیام با سه عدد می‌رسد دستِ مدیر.
+payReset([{ fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" }]);
+await send(cbq(CHAT, "paytalk_o1"));
+check("مشتری می‌رود به حالتِ حرف زدن دربارهٔ واریز", sess(CHAT)?.step, "pay_ask");
+TG.length = 0;
+await send({ message: { chat: { id: CHAT }, from: { id: CHAT, username: "u" }, text: "نصفش رو فردا می‌زنم" } });
+check("پیام دستِ مدیر می‌رسد", /دربارهٔ واریز/.test(textsTo(ADMIN)), true);
+check("مانده در همان پیام هست", /۴,۱۴۰,۰۰۰/.test(textsTo(ADMIN)), true);
+check("و دکمه‌ی فرستادنِ کارت کنارش هست", kbTo(ADMIN).includes("sendcard_o1"), true);
+// بعدِ حرف زدن، مشتری نباید از ریلِ فیش خارج شود، وگرنه عکسِ فیشش ثبت نمی‌شود.
+check("مشتری برمی‌گردد سرِ «منتظرِ فیش»", sess(CHAT)?.step, "awaiting_receipt");
+
+// ۱۲.۵) فیشِ نصفه نباید شبیهِ فیشِ کامل باشد — وگرنه مدیر «پرداخت شد» را
+// زودتر از موقع می‌زند و بقیه‌ی پول هیچ‌وقت خواسته نمی‌شود.
+payReset([{ fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" }]);
+DB.telegram_sessions = [
+  { chat_id: CHAT, step: "awaiting_receipt", temp_order_id: "o1", cart: [] },
+  { chat_id: ADMIN, step: "idle", cart: [] },
+];
+TG.length = 0;
+await send(photo(CHAT, "receipt1"));
+check("فیش به مدیر می‌رسد", /فیشِ واریزی رسید/.test(capsTo(ADMIN)), true);
+check("و مدیر می‌بیند هنوز چقدر مونده", /۴,۱۴۰,۰۰۰/.test(capsTo(ADMIN)), true);
+
+// و وقتی همه‌ی مبلغ کارت خورده، دیگر «مونده»ای گفته نمی‌شود.
+payReset([
+  { fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" },
+  { fid: "card2", amount: 4140000, at: "2026-08-27T00:10:00Z" },
+]);
+DB.telegram_sessions = [
+  { chat_id: CHAT, step: "awaiting_receipt", temp_order_id: "o1", cart: [] },
+  { chat_id: ADMIN, step: "idle", cart: [] },
+];
+TG.length = 0;
+await send(photo(CHAT, "receipt2"));
+check("تقسیمِ کارت‌ها روی فیش نوشته می‌شود", /۶,۰۰۰,۰۰۰ \+ ۴,۱۴۰,۰۰۰/.test(capsTo(ADMIN)), true);
+check("با مانده‌ی صفر حرفی از مونده نیست", /کارتش نرفته/.test(capsTo(ADMIN)), false);
+
+// ۱۳) SEC-03: سفارشِ یکی دستِ دیگری نمی‌افتد.
+payReset([{ fid: "card1", amount: 6000000, at: "2026-08-27T00:00:00Z" }]);
+DB.telegram_sessions.push({ chat_id: 777, step: "idle", cart: [] });
+TG.length = 0;
+await send(cbq(777, "paytalk_o1"));
+check("غریبه نمی‌تواند دربارهٔ سفارشِ دیگری حرف بزند", sess(777)?.step, "idle");
+check("و چیزی از سفارش لو نمی‌رود", /۱۰,۱۴۰,۰۰۰|۴,۱۴۰,۰۰۰/.test(textsTo(777)), false);
+
+// ۱۴) غریبه‌ای که حالتش دستکاری شده هم کارت ثبت نمی‌کند (isAdmin).
+payReset();
+DB.telegram_sessions = [{ chat_id: CHAT, step: "awaiting_card", temp_order_id: "o1", cart: [] }];
+TG.length = 0;
+await send(photo(CHAT, "cardX", "6000000"));
+check("غیرِ‌مدیر کارت ثبت نمی‌کند", cards1().length, 0);
+
 console.log("\n" + "═".repeat(52));
 console.log(`  ${pass} بررسی پاس شد`);
 if (fails.length) {

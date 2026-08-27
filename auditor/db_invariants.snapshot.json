@@ -232,6 +232,10 @@
   {
    "t": "payments",
    "trg": "trg_payments_sync_invoice_status"
+  },
+  {
+   "t": "telegram_orders",
+   "trg": "trg_tg_order_cards_valid"
   }
  ],
  "view_grants": [

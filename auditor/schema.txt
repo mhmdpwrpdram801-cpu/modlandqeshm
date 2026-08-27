@@ -17,5 +17,5 @@ returns|buyer_name,created_at,created_by,customer_id,date,id,invoice_id,items,no
 salaries|amount,created_at,created_by,date,employee_name,id,month,note
 settings|address,id,instagram,phone,phone2,return_policy,shop_name,subtitle,telegram,updated_at
 shipments|city,created_at,customer_id,customer_name,id,qty
-telegram_orders|card_file_id,card_sent_at,created_at,customer_address,customer_city,customer_name,customer_phone,id,invoice_id,items,note,paid_confirmed_at,pay_link,pay_link_sent_at,receipt_file_id,receipt_sent_at,status,tg_user_id,tg_username,total
+telegram_orders|card_file_id,card_sent_at,cards,created_at,customer_address,customer_city,customer_name,customer_phone,id,invoice_id,items,note,paid_confirmed_at,pay_link,pay_link_sent_at,receipt_file_id,receipt_sent_at,status,tg_user_id,tg_username,total
 telegram_sessions|cart,chat_id,customer_address,customer_city,customer_name,customer_phone,discount_code,discount_pct,editing_order_id,reply_to,step,temp_order_id,temp_product_id,updated_at
