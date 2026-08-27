@@ -1637,6 +1637,41 @@ async function deleteShipment(id){
   catch(e){ toast('حذف نشد: '+e.message); return; }
   toast('حذف شد'); await renderShipments();
 }
+/* ── پرداختِ تکه‌تکه‌ی ربات (نسخه‌ی ۴۶ ربات) ────────────────────────────────
+   یک سفارش می‌تواند چند کارت داشته باشد؛ `telegram_orders.cards` آرایه است:
+   `[{fid,amount,at}, …]`. مانده هیچ‌جا ذخیره نشده و همیشه حساب می‌شود (ARCH-04).
+   پنل اینجا فقط **می‌خواند** — تقسیم را خودِ ربات می‌سازد و تریگرِ دیتابیس
+   نگهش می‌دارد. */
+function tgAssigned(o){
+  const cs=o&&o.cards;
+  if(cs==null)return 0;
+  if(!Array.isArray(cs))return null;
+  let s=0;
+  for(const c of cs){ const a=Number(c&&c.amount); if(!Number.isFinite(a)||a<=0)return null; s+=Math.round(a); }
+  return s;
+}
+/* 🔴 مبلغی که خوانده نشود **null** است، نه صفر — همان قاعده‌ی `payFromInvoice`.
+   با صفر، مانده بزرگ‌تر از واقعیت درمی‌آید و پنل می‌گوید مشتری هنوز کلِ پول را
+   بدهکار است، در حالی که نصفش را کارت کرده‌ایم. */
+function tgRemain(o){ const a=tgAssigned(o); return a===null?null:Math.max(0,Math.round(Number(o&&o.total)||0)-a); }
+function tgCardsLine(o){
+  const cs=Array.isArray(o&&o.cards)?o.cards:[];
+  if(!cs.length)return '';                       // کارتی نرفته ⇒ خطی هم نباشد
+  const rem=tgRemain(o);
+  /* ⚠️ ترتیبِ کارت‌ها معنی دارد (کارتِ اول، کارتِ دوم) و بدونِ ایزوله **وارونه
+     دیده می‌شود** — با عکسِ خودِ بازرس پیدا شد، نه با متن: رشته درست بود ولی
+     هر عدد در بندِ راست‌به‌چپ یک اجرای جدا می‌شود و ترتیبِ دیداری‌شان برعکس.
+     همان باگی که یک بار سرِ شماره‌ی تلفن به دستِ مالک رسید (`phoneTag`).
+     `<bdi dir="ltr">` کلِ دنباله را یک واحدِ چپ‌به‌راست می‌کند. */
+  const parts=cs.map(c=>{ const a=Number(c&&c.amount); return '<span class="tgc">'+((Number.isFinite(a)&&a>0)?faNum(a):'؟')+'</span>'; }).join(' + ');
+  const tail = rem===null
+    ? '<b style="color:var(--credit)">مبلغِ کارت‌ها خونده نشد</b>'
+    : (rem>0 ? '<b class="num" style="color:var(--credit)">⏳ '+faNum(rem)+' ت مونده</b>'
+             : '<b style="color:var(--paid)">✅ کلِ مبلغ تقسیم شده</b>');
+  return '<div class="mini" style="flex-wrap:wrap;gap:6px;font-size:12px;margin-bottom:9px">'
+       + '<span style="color:var(--muted)">💳 '+faNum(cs.length)+' کارت: <bdi dir="ltr" class="num">'+parts+'</bdi> ت</span>'
+       + tail + '</div>';
+}
 async function openTgOrders(){ document.getElementById('tgOrdersView').classList.remove('hidden'); document.getElementById('tgBody').innerHTML=skelList(3); await renderTgOrders(); }
 async function renderTgOrders(){
   const body=document.getElementById('tgBody');
@@ -1652,7 +1687,10 @@ async function renderTgOrders(){
   if(orders.length===0){ html+='<div class="empty" style="padding:18px">سفارشِ جدیدی نیست ✅</div>'+recentHtml+'</div>'; body.innerHTML=html; return; }
   html+=orders.map(o=>{
     const its=asArray(o.items).map(it=>`<div class="mini"><span>${esc(it.name||'کالا')} × ${faNum(it.quantity)}</span><b class="num">${faNum((it.quantity||0)*(it.unit_price||0))} ت</b></div>`).join('');
-    const pay=o.paid_confirmed_at?'<span class="pill paid">✅ پرداخت تأیید شده</span>':(o.receipt_sent_at?'<span class="pill partial">🧾 فیش فرستاد — تو ربات تأییدش کن</span>':(o.card_sent_at?'<span class="pill partial">💳 کارت رفت — منتظرِ واریز</span>':(o.pay_link_sent_at?'<span class="pill partial">💳 لینکِ بلو فرستاده شده (قدیمی)</span>':'<span class="pill cancelled">⏳ هنوز پرداخت نکرده</span>')));
+    // نشانِ سفارشِ نصفه با سفارشِ کامل یکی نباشد: «فیش فرستاد» روی سفارشی که
+    // هنوز نصفش کارت نخورده، مالک را می‌بَرد سراغِ «پرداخت شد» زودتر از موقع.
+    const rem=tgRemain(o), half=(rem!==null&&rem>0&&(o.card_sent_at||o.receipt_sent_at));
+    const pay=o.paid_confirmed_at?'<span class="pill paid">✅ پرداخت تأیید شده</span>':(o.receipt_sent_at?('<span class="pill partial">🧾 فیش'+(half?'ِ بخشی':'')+' فرستاد — تو ربات تأییدش کن</span>'):(o.card_sent_at?('<span class="pill partial">💳 کارت'+(half?'ِ بخشی':'')+' رفت — منتظرِ واریز</span>'):(o.pay_link_sent_at?'<span class="pill partial">💳 لینکِ بلو فرستاده شده (قدیمی)</span>':'<span class="pill cancelled">⏳ هنوز پرداخت نکرده</span>')));
     return `<div class="card" style="padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
         <div><b style="font-size:15px">${esc(o.customer_name||'مشتری')}</b><div style="font-size:12px;color:var(--muted)" dir="ltr">${esc(o.customer_phone||'')}</div></div>
@@ -1661,6 +1699,7 @@ async function renderTgOrders(){
       ${o.customer_address?`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">📍 ${esc(o.customer_address)}</div>`:''}
       <div style="border-top:1px solid var(--line);padding-top:8px;margin-bottom:8px">${its}</div>
       <div style="margin-bottom:9px">${pay}</div>
+      ${tgCardsLine(o)}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><span style="font-weight:700">جمعِ کل</span><div style="text-align:left"><b class="num" style="color:var(--gold)">${faNum(o.total)} تومان</b></div></div>
       <div style="display:flex;gap:8px">
         <button onclick="convertTgOrder('${o.id}')" style="flex:1;background:var(--gold);color:#fff;border:0;border-radius:11px;padding:11px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✅ تبدیل به فاکتور</button>
