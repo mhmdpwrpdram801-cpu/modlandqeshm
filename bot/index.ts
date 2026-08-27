@@ -152,6 +152,14 @@ function fa(n: number) {
     .replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 }
 
+/* نامِ کالا ممکن است لاتین داشته باشد («دورس تو کرک P&C FLORIDA»). در بندِ
+   راست‌به‌چپ، آن تکه‌ی لاتین با عددِ کنارش یک اجرای LTR مشترک می‌سازد و قیمت را از
+   تهِ خط می‌کشد کنارِ نام — یعنی مشتری قیمت را جای اشتباه می‌بیند. با مختصات
+   اندازه‌گیری شد (نه با متن، چون خودِ رشته درست است):
+     بدونِ ایزوله → فارسی ← قیمت ← انگلیسی
+     با ایزوله   → فارسی ← انگلیسی ← قیمت
+   FSI…PDI نام را یک واحدِ بسته می‌کند و جهتش را از خودش می‌گیرد. */
+const bidi = (v: unknown) => '\u2068' + String(v ?? '') + '\u2069';
 function escH(s: any) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -399,7 +407,7 @@ async function showCategory(chatId: number, idx: number, page: number) {
   if (page > pages - 1) page = pages - 1;
   const slice = list.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
   const btns: any = [];
-  for (const p of slice) btns.push([{ text: `${isNew ? '🆕 ' : ''}${p.name} — ${fa(p.price)} ت`, callback_data: `p_${p.id}` }]);
+  for (const p of slice) btns.push([{ text: `${isNew ? '🆕 ' : ''}${bidi(p.name)} — ${fa(p.price)} ت`, callback_data: `p_${p.id}` }]);
   if (pages > 1) {
     const nav: any = [];
     if (page > 0) nav.push({ text: '‹ قبلی', callback_data: `pg_${idx}_${page - 1}` });
@@ -464,7 +472,7 @@ async function showEditCart(chatId: number, extra?: string) {
   const cart = (s && s.cart) || [];
   let tot = 0; for (const it of cart) tot += Number(it.quantity || 0) * Number(it.unit_price || 0);
   const kb: any = [];
-  cart.forEach((it: any, i: number) => kb.push([{ text: `❌ ${it.name} × ${fa(it.quantity)} — ${fa(it.quantity * it.unit_price)} ت`, callback_data: `edel_${i}` }]));
+  cart.forEach((it: any, i: number) => kb.push([{ text: `❌ ${bidi(it.name)} × ${fa(it.quantity)} — ${fa(it.quantity * it.unit_price)} ت`, callback_data: `edel_${i}` }]));
   kb.push([{ text: '➕ افزودنِ جنس', callback_data: 'edadd' }]);
   if (cart.length) kb.push([{ text: '✅ ثبتِ تغییرات', callback_data: 'edok' }]);
   kb.push([{ text: '↩️ بی‌خیالِ ویرایش', callback_data: 'edcancel' }]);
@@ -485,7 +493,7 @@ async function finalizeOrder(chatId: number, s: any, addressText: string, tgUser
   if (insErr || !newOrder) { await setSession(chatId, { step: 'address' }); await send(chatId, 'ثبتِ سفارش خطا خورد 🙏 لطفاً آدرست رو یه بارِ دیگه بفرست.'); return; }
   await logEvent(chatId, 'order', null, { total, items: cart.length });
   let summary = '✅ سفارشت ثبت شد! ممنون 🌹\n\n<b>خلاصه‌ی سفارش:</b>\n';
-  for (const it of cart) summary += `• ${escH(it.name)} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
+  for (const it of cart) summary += `• ${bidi(escH(it.name))} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
   if (dpct > 0) summary += `\nتخفیف با کدِ ${escH(s.discount_code)}: ${fa(dpct)}٪ (از ${fa(raw)})`;
   summary += `\n<b>جمعِ کل: ${fa(total)} تومان</b>\n\nهر وقت خواستی پرداخت کنی دکمه‌ی زیر رو بزن 👇`;
   await setSession(chatId, { step: 'idle', cart: [] });
@@ -494,7 +502,7 @@ async function finalizeOrder(chatId: number, s: any, addressText: string, tgUser
     const { data: admins } = await supabase.from('bot_admins').select('chat_id');
     if (admins && admins.length) {
       let am = `🔔 <b>سفارشِ جدید از ربات</b>\n👤 ${escH(s.customer_name)}\n📞 ${escH(s.customer_phone)}\n🏙 ${escH(s.customer_city)}\n📍 ${escH(addressText)}\n\n`;
-      for (const it of cart) am += `• ${escH(it.name)} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
+      for (const it of cart) am += `• ${bidi(escH(it.name))} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
       if (dpct > 0) am += `\nتخفیف: کدِ ${escH(s.discount_code)} ${fa(dpct)}٪ (از ${fa(raw)})`;
       am += `\n<b>جمعِ کل: ${fa(total)} تومان</b>`;
       for (const a of admins) await send(Number(a.chat_id), am, { inline_keyboard: [[{ text: '💳 فرستادنِ کارت به مشتری', callback_data: `sendcard_${newOrder.id}` }]] });
@@ -562,7 +570,7 @@ async function medCheck(pid: string, which: string, tok: string): Promise<boolea
 
 // نسخه‌ی این فایل. بازرسِ سرور آن را با عددی که در bot/README.md ثبت شده مقابله
 // می‌کند، پس دیگر نمی‌شود مستقر کرد و یادت برود مستند را جلو ببری.
-const BOT_VER = 43;
+const BOT_VER = 44;
 
 // ── لاگِ ساخت‌یافته (OPS-01، OPS-02) ────────────────────────────────────────
 // لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست: نمی‌شود پرسید «این درخواست چه بر
@@ -786,7 +794,7 @@ Deno.serve(async (req) => {
         if (!cart.length) { await send(chatId, 'متأسفانه جنسای سفارشِ قبلیت دیگه تو لیست نیست 🙏'); await showProducts(chatId); return new Response('ok'); }
         await setSession(chatId, { cart, customer_name: last.customer_name, customer_phone: last.customer_phone, customer_city: last.customer_city, customer_address: last.customer_address, discount_pct: 0, discount_code: null, step: 'confirm_repeat' });
         let sm = '🔁 <b>سفارشِ قبلیت:</b>\n'; let tot = 0;
-        for (const it of cart) { tot += it.quantity * it.unit_price; sm += `• ${escH(it.name)} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`; }
+        for (const it of cart) { tot += it.quantity * it.unit_price; sm += `• ${bidi(escH(it.name))} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`; }
         sm += `\n<b>جمع: ${fa(tot)} تومان</b>\n📍 ${escH(last.customer_address || '')}`;
         if (dropped.length) sm += `\n\n⚠️ این‌ها دیگه تو لیست نبود و حذف شد: ${dropped.map(escH).join('، ')}`;
         await send(chatId, sm, { inline_keyboard: [[{ text: '✅ ثبت با همین مشخصات', callback_data: 'repeat_go' }], [{ text: '✏️ تغییر آدرس', callback_data: 'repeat_editaddr' }], [{ text: '🛒 از اول', callback_data: 'new_order' }]] });
@@ -906,14 +914,14 @@ Deno.serve(async (req) => {
               await supabase.from('telegram_orders').update({ items: cart, total, note: null }).eq('id', ord.id);
               await setSession(chatId, { step: 'idle', editing_order_id: null, cart: [] });
               let sm = '✅ سفارشت ویرایش شد!\n\n<b>سفارشِ جدید:</b>\n';
-              for (const it of cart) sm += `• ${escH(it.name)} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
+              for (const it of cart) sm += `• ${bidi(escH(it.name))} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
               sm += `<b>جمعِ کل: ${fa(total)} تومان</b>`;
               if (ord.note) sm += '\n\n(کدِ تخفیفِ قبلی برداشته شد)';
               await send(chatId, sm, { inline_keyboard: [[{ text: '💳 می‌خوام پرداخت کنم', callback_data: `paynow_${ord.id}` }], [{ text: '✏️ ویرایشِ دوباره', callback_data: `edit_${ord.id}` }]] });
               try {
                 const { data: admins } = await supabase.from('bot_admins').select('chat_id');
                 let am = `🔄 <b>مشتری سفارشش رو ویرایش کرد</b>\n👤 ${escH(s.customer_name || '')}\n📞 ${escH(s.customer_phone || '')}\n\n`;
-                for (const it of cart) am += `• ${escH(it.name)} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
+                for (const it of cart) am += `• ${bidi(escH(it.name))} × ${fa(it.quantity)} = ${fa(it.quantity * it.unit_price)} ت\n`;
                 am += `<b>جمعِ جدید: ${fa(total)} تومان</b>`;
                 for (const a of (admins || [])) { try { await send(Number(a.chat_id), am, { inline_keyboard: [[{ text: '💳 فرستادنِ کارت به مشتری', callback_data: `sendcard_${ord.id}` }]] }); } catch (_) {} }
               } catch (_) {}
@@ -1088,11 +1096,11 @@ Deno.serve(async (req) => {
           await logEvent(chatId, 'cart_add', prod.id, { qty, unit_price: Number(prod.price) });
           if (s.editing_order_id) {
             await setSession(chatId, { cart, temp_product_id: null, step: 'edit_cart' });
-            await send(chatId, `«${escH(prod.name)}» × ${fa(qty)} اضافه شد ✅`);
+            await send(chatId, `«${bidi(escH(prod.name))}» × ${fa(qty)} اضافه شد ✅`);
             await showEditCart(chatId);
           } else {
             await setSession(chatId, { cart, temp_product_id: null });
-            await send(chatId, `«${escH(prod.name)}» × ${fa(qty)} اضافه شد ✅`);
+            await send(chatId, `«${bidi(escH(prod.name))}» × ${fa(qty)} اضافه شد ✅`);
             await showProducts(chatId);
           }
         } else if (s.step === 'name') {
@@ -1126,7 +1134,7 @@ Deno.serve(async (req) => {
           if (term.length < 2) { await send(chatId, 'یه اسمِ کامل‌تر بزن 🙂'); return new Response('ok'); }
           const { data: found } = await supabase.from('products').select('id,name,price').ilike('name', `%${term}%`).limit(15);
           if (!found || !found.length) { await send(chatId, `چیزی با «${escH(text.trim())}» پیدا نشد.`, { inline_keyboard: [[{ text: '💬 از فروشگاه بپرس', callback_data: 'ask' }], [{ text: '📋 همه‌ی کالاها', callback_data: 'catall' }]] }); return new Response('ok'); }
-          const fb: any = found.map((p: any) => [{ text: `${p.name} — ${fa(p.price)} ت`, callback_data: `p_${p.id}` }]);
+          const fb: any = found.map((p: any) => [{ text: `${bidi(p.name)} — ${fa(p.price)} ت`, callback_data: `p_${p.id}` }]);
           fb.push([{ text: '✅ تمومِ خرید و ادامه', callback_data: 'done_items' }]);
           await send(chatId, `نتایجِ «${escH(text.trim())}»:`, { inline_keyboard: fb });
         } else {
