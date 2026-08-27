@@ -17,7 +17,11 @@ export const DB: Record<string, Row[]> = {};
    دومی برای آزمودنِ پشتیبان لازم شد: خرابیِ کلی را هر کدی می‌گیرد، ولی حالتِ
    خطرناک آن است که **یک** جدول نیاید و بقیه بیایند — چون آن‌وقت فایل سالم
    به‌نظر می‌رسد. */
-export const FAULT: { on: boolean; table?: string } = { on: false };
+/* `writeTable` فقط **نوشتن** روی یک جدول را می‌خواباند و خواندن را سالم
+   می‌گذارد. بدونِ آن نمی‌شد مسیرِ «سلکت گرفتم، بعد آپدیت نشد» را سنجید — و
+   دقیقاً همان مسیر است که اگر ربات ترتیبش را جابه‌جا کند، مبلغی به مشتری گفته
+   می‌شود که هیچ‌جا ثبت نشده. */
+export const FAULT: { on: boolean; table?: string; writeTable?: string } = { on: false };
 export const CALLS: string[] = [];
 
 /* جدول‌های واقعیِ دیتابیس — `auditor/schema.txt` منبعش است.
@@ -47,6 +51,29 @@ export const BOT_EVENTS = [
 ];
 
 function checkConstraints(table: string, row: Row) {
+  /* آینه‌ی `trg_tg_order_cards_valid` در دیتابیسِ واقعی
+     (`db/migrations/2026-08-27_telegram_order_split_cards.sql`).
+     بدونِ این، شبیه‌ساز حالتی می‌سازد که در دیتابیس ممکن نیست — مثلاً مجموعِ
+     کارت‌ها بیشتر از جمعِ سفارش — و بعد رفتارِ رباتی را «سالم» اعلام می‌کند که
+     روی تولید با خطا می‌خوابد (TEST-05). */
+  if (table === "telegram_orders" && row.cards !== undefined) {
+    const cs = row.cards;
+    if (cs !== null && !Array.isArray(cs)) {
+      throw new Error("استابِ supabase: telegram_orders.cards باید آرایه باشد");
+    }
+    let s = 0;
+    for (const c of (cs as Row[] | null) ?? []) {
+      if (!c || typeof c !== "object") throw new Error("استابِ supabase: هر عضوِ cards باید شیء باشد");
+      if (!c.fid) throw new Error("استابِ supabase: کارتِ بدونِ fid ثبت نمی‌شود");
+      if (typeof c.amount !== "number") throw new Error("استابِ supabase: amountِ کارت باید عدد باشد");
+      if (c.amount <= 0) throw new Error("استابِ supabase: amountِ کارت باید مثبت باشد");
+      s += c.amount;
+    }
+    const tot = Number(row.total ?? 0);
+    if (s > tot) {
+      throw new Error(`استابِ supabase: مجموعِ کارت‌ها (${s}) از جمعِ سفارش (${tot}) بیشتر است`);
+    }
+  }
   if (table === "bot_events") {
     if (!BOT_EVENTS.includes(String(row.event))) {
       throw new Error(`استابِ supabase: قیدِ bot_events_event_known — رویدادِ ناشناخته «${row.event}»`);
@@ -105,6 +132,9 @@ class Query implements PromiseLike<{ data: unknown; error: unknown }> {
     if (!TABLES.has(this.table)) {
       throw new Error(`استابِ supabase: جدولِ ناشناخته «${this.table}» — یا در دیتابیس نیست، یا نامش را در stub_supabase.ts اضافه کن`);
     }
+    if (FAULT.writeTable && FAULT.writeTable === this.table && this._mode !== "select") {
+      return { data: null, error: { message: `شبیه‌ساز: نوشتنِ عمداً خراب روی ${this.table}` } };
+    }
     const rows = DB[this.table] ??= [];
     if (this._mode === "insert") {
       const add = Array.isArray(this._payload) ? this._payload : [this._payload!];
@@ -115,7 +145,12 @@ class Query implements PromiseLike<{ data: unknown; error: unknown }> {
     }
     let out = rows.filter((r) => match(r, this.filters));
     if (this._mode === "update") {
-      out.forEach((r) => Object.assign(r, this._payload));
+      // قیدها روی **ردیفِ ادغام‌شده** سنجیده می‌شوند، نه فقط روی payload —
+      // تریگرِ واقعی هم `BEFORE INSERT OR UPDATE` است و NEW کاملِ ردیف است.
+      out.forEach((r) => {
+        checkConstraints(this.table, { ...r, ...(this._payload as Row) });
+        Object.assign(r, this._payload);
+      });
       return { data: out, error: null };
     }
     if (this._order) {
