@@ -789,6 +789,12 @@
       "name": "هیچ فیلمی در پنل پخش نمی‌شود، ولی آپلود و حذفش می‌مانَد",
       "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const f=window.fetch;let tokReq=0;window.fetch=function(u,o){if(String(u).indexOf('mediatoken=')>=0){tokReq++;return Promise.resolve(new Response(JSON.stringify({tok:'TESTTOK'}),{status:200,headers:{'Content-Type':'application/json'}}))}return f.apply(this,arguments)};try{await nav('products');await w(600);openProductForm('p1');await w(1700);const vids=document.querySelectorAll('video').length;const jin=String((document.getElementById('medJin')||{}).innerText||'');const saved=/ذخیره شده|ثبت شده/.test(jin);const swap=!!document.querySelector('#medJin button[onclick*=\"medPick\"]');const del=!!document.querySelector('#medJin button[onclick*=\"medRemove\"]');return 'پخش‌کننده:'+vids+'|درخواستِ ژتون:'+tokReq+'|وضعیت گفت:'+(saved?'بله':'نه')+'|عوض کن:'+(swap?'بله':'نه')+'|پاک کن:'+(del?'بله':'نه');}finally{window.fetch=f;try{closeProductForm()}catch(_){}}}",
       "expect": "پخش‌کننده:0|درخواستِ ژتون:0|وضعیت گفت:بله|عوض کن:بله|پاک کن:بله"
+    },
+    {
+      "_note": "مالک گزارش کرد: «نوشته‌های فاکتور و مشتری تو یه خط صافِ بالا به پایین نیستن». علتش این بود که `.list-item` هم `display:flex` دارد هم `justify-content:space-between`، و `div`ِ میانی در ۱۲ جا `flex:1` نداشت — پس عرضش به‌اندازه‌ی محتوایش می‌شد و بینِ دو سرِ ردیف شناور می‌مانْد. نتیجه: هر ردیف بسته به طولِ نامش از جای دیگری شروع می‌شد. ⚠️ فهرستِ کالاها این ایراد را **نداشت** چون `style=\"flex:1\"` داشت — باز هم همان الگوی «یک راه محافظ گرفته و خواهرهایش نه». بررسی لبه‌ی شروعِ هر ردیف را با `getBoundingClientRect` می‌خوانَد نه از روی متن؛ اگر همه‌ی ردیف‌ها هم‌تراز باشند تعدادِ لبه‌های متمایز باید دقیقاً ۱ باشد.",
+      "name": "ردیف‌های فاکتور و مشتری از یک لبه شروع می‌شوند",
+      "js": "async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const out=[];for(const [nm,scr,box] of [['فاکتور','invoices','invList'],['مشتری','customers','custList']]){await nav(scr);await w(1300);const el=[...document.querySelectorAll('#'+box+' .list-item .li-main')].slice(0,6);if(el.length<3){out.push(nm+':ردیفِ کم');continue;}const xs=el.map(e=>Math.round(e.getBoundingClientRect().right));out.push(nm+':'+new Set(xs).size);}return out.join('|');}",
+      "expect": "فاکتور:1|مشتری:1"
     }
   ],
   "click_test": {

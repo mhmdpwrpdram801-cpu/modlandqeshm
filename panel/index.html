@@ -179,6 +179,13 @@ input,select,textarea{font-size:16px}
   /* ردیفِ بیرون از دید رسم نمی‌شود. contain-intrinsic-size لازم است وگرنه نوارِ اسکرول می‌پرد. */
   content-visibility:auto;contain-intrinsic-size:auto 64px}
 .list-item:active{background:var(--panel)}
+/* بدونِ این، `justify-content:space-between` بلوکِ متن را به‌اندازه‌ی محتوایش
+   می‌کند و بینِ دو سرِ ردیف شناور می‌گذارد — یعنی هر ردیف بسته به طولِ نامش از
+   جای دیگری شروع می‌شود و ستون از بالا به پایین صاف درنمی‌آید. مالک همین را
+   دید. ۱۲ ردیف از ۱۴ ردیفِ پنل این ایراد را داشتند و فقط فهرستِ کالاها
+   `style="flex:1"` داشت، برای همین آن یکی سالم بود.
+   `min-width:0` لازم است وگرنه نامِ بلند به‌جای کوتاه شدن ردیف را پهن می‌کند. */
+.list-item > div:not(.selbox):not(.li-end){flex:1;min-width:0}
 .li-main{font-weight:700;font-size:14.5px}
 .li-sub{font-size:12px;color:var(--muted);margin-top:3px}
 .li-end{text-align:left;flex-shrink:0}
