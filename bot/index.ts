@@ -1295,7 +1295,11 @@ Deno.serve(async (req) => {
             const rcRem = remainOf(ord);
             let split = '';
             if (rcCards.length > 1) {
-              split = `\n💳 کارت‌ها: ${rcCards.map((c: any) => fa(Number(c && c.amount))).join(' + ')}`;
+              /* ⚠️ دنباله‌ی «A + B» بدونِ ایزوله در بندِ راست‌به‌چپ **وارونه** دیده
+                 می‌شود — هر عدد یک اجرای جدا می‌شود و ترتیبِ دیداری‌شان برعکس. با
+                 همان عکسِ بازرس در پنل پیدا شد و اینجا هم صادق است. ترتیب معنی
+                 دارد: کارتِ اول، کارتِ دوم. */
+              split = `\n💳 کارت‌ها: ${bidi(rcCards.map((c: any) => fa(Number(c && c.amount))).join(' + '))}`;
             }
             if (rcRem === null) split += '\n⚠️ مانده خونده نشد';
             else if (rcRem > 0) split += `\n⏳ هنوز <b>${fa(rcRem)} تومان</b> کارتش نرفته`;

@@ -58,7 +58,16 @@ const DATA={products:P,customers:C,invoices:INV,
  quotes:[{id:'q1',buyer_name:'حاج رضا',customer_id:'c1',items:[{product_id:'p1',quantity:1,unit_price:850000}],items_total:850000,discount:0,note:'',created_at:iso(now-864e5)}],
  telegram_orders:[{id:'t1',status:'new',customer_name:'زهرا',customer_phone:'09120001122',customer_city:'قشم',customer_address:'خیابان',
    items:[{product_id:'p1',name:"شلوار جین آبی «جنسِ ویژه» <b>۲۰۲۶</b> & کد A-100",quantity:2,unit_price:850000}],total:1700000,note:null,created_at:iso(now-36e5),
-   tg_user_id:5,tg_username:'z',paid_confirmed_at:null,card_sent_at:null,receipt_sent_at:null,invoice_id:null}],
+   tg_user_id:5,tg_username:'z',paid_confirmed_at:null,card_sent_at:null,receipt_sent_at:null,invoice_id:null,cards:[]},
+  /* سفارشِ **نصفه‌کارت‌خورده** — از نسخه‌ی ۴۶ ربات ممکن شد.
+     عمداً دستی حساب شده: ۱٬۵۰۰٬۰۰۰ + ۴۰۰٬۰۰۰ = ۱٬۹۰۰٬۰۰۰ رفته روی کارت، پس از
+     ۲٬۱۳۰٬۰۰۰ دقیقاً **۲۳۰٬۰۰۰** مانده. سه عدد طوری انتخاب شدند که هیچ‌کدام
+     زیررشته‌ی دیگری نباشد، وگرنه بررسیِ متنی الکی سبز می‌مانَد (همان دامی که
+     یک بار در بررسیِ بسته‌بندیِ ربات افتادیم). */
+  {id:'t2',status:'new',customer_name:'اکبر',customer_phone:'09120003344',customer_city:'بندرعباس',customer_address:'خیابانِ دوم',
+   items:[{product_id:'p1',name:'شلوار جین آبی',quantity:2,unit_price:850000},{product_id:'p3',name:'شومیز',quantity:1,unit_price:430000}],total:2130000,note:null,created_at:iso(now-18e5),
+   tg_user_id:6,tg_username:'a',paid_confirmed_at:null,card_file_id:'cardA',card_sent_at:iso(now-9e5),receipt_sent_at:null,invoice_id:null,
+   cards:[{fid:'cardA',amount:1500000,at:iso(now-9e5)},{fid:'cardB',amount:400000,at:iso(now-6e5)}]}],
  /* ── رفتارِ مشتری در ربات: ده نفر با عمقِ **دستی‌حساب‌شده** ────────────────
      v1 فقط اومد · v2 لیست دید · v3,v4 کالا باز کردن · v5 سبد پر کرد
      v6 رفت سرِ تسویه · v7 سفارش داد · v8 فیش فرستاد · v9 پرداختش تأیید شد

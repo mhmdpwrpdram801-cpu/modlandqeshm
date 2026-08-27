@@ -849,6 +849,30 @@
       "after": "(()=>{window.INS.failed=[];return 0})()",
       "js": "()=>{const t=document.getElementById('insBody').innerText;return [t.includes('بارگذاری نشدند'),t.includes('هیچ خطایی ثبت نشده')].join('/')}",
       "expect": "true/false"
+    },
+    {
+      "_why": "خواستِ مالک بعد از پرداختِ تکه‌تکه‌ی ربات: «برای پنل هم اوکیش کن». سفارشی که نصفش کارت خورده نباید در پنل شبیهِ سفارشِ کامل باشد — نشانش مالک را می‌بَرد سراغِ «پرداخت شد» زودتر از موقع و بقیه‌ی پول هیچ‌وقت خواسته نمی‌شود. عددها دستی‌اند: ۱٬۵۰۰٬۰۰۰ + ۴۰۰٬۰۰۰ از ۲٬۱۳۰٬۰۰۰ ⇒ مانده ۲۳۰٬۰۰۰ (TEST-06)، و هیچ‌کدام زیررشته‌ی دیگری نیست. سفارشِ بی‌کارت هم عمداً سنجیده می‌شود: باید **هیچ** خطی نداشته باشد، نه «۰ مونده» — صفر آنجا یعنی «تسویه شده» و ادعای غلطی است.",
+      "name": "سفارشِ نصفه‌کارت‌خورده‌ی ربات مانده‌اش را در پنل نشان می‌دهد",
+      "before": "openTgOrders()",
+      "wait": 900,
+      "js": "()=>{const b=document.getElementById('tgBody');const cs=[...b.querySelectorAll('.card')];const f=cs.find(x=>x.innerText.includes('اکبر'))||{innerText:''};const g=cs.find(x=>x.innerText.includes('زهرا'))||{innerText:''};const t=f.innerText,u=g.innerText;return [/۲۳۰٬۰۰۰ ت مونده/.test(t),/۱٬۵۰۰٬۰۰۰ \\+ ۴۰۰٬۰۰۰/.test(t),/بخشی/.test(t),/مونده|کارت:/.test(u)].join('/')}",
+      "expect": "true/true/true/false",
+      "after": "(()=>{const v=document.getElementById('tgOrdersView');if(v)v.classList.add('hidden');return 0})()"
+    },
+    {
+      "_why": "🔴 با **عکسِ خودِ بازرس** پیدا شد، نه با متن: «۱٬۵۰۰٬۰۰۰ + ۴۰۰٬۰۰۰» روی صفحه وارونه دیده می‌شد. رشته درست بود، چیدمانِ دیداری غلط — چون هر عدد در بندِ راست‌به‌چپ یک اجرای جدا می‌شود. همان باگی که سرِ شماره‌ی تلفن به دستِ مالک رسید. ترتیبِ کارت‌ها معنی دارد (کارتِ اول، کارتِ دوم) و مالک آن را با عکس‌هایی که در ربات فرستاده مقابله می‌کند. **پس ترتیب از `getBoundingClientRect` خوانده می‌شود نه از `innerText`** — بررسیِ متنی این را هرگز نمی‌گرفت.",
+      "name": "ترتیبِ مبلغِ کارت‌ها در راست‌به‌چپ وارونه نمی‌شود",
+      "before": "openTgOrders()",
+      "wait": 900,
+      "js": "()=>{const b=document.getElementById('tgBody');const cs=[...b.querySelectorAll('.card')];const f=cs.find(x=>x.innerText.includes('اکبر'));if(!f)return 'کارتِ اکبر نیست';const g=[...f.querySelectorAll('.tgc')];if(g.length!==2)return 'تکه‌ها:'+g.length;const L=g.map(e=>e.getBoundingClientRect().left);return [g[0].innerText.trim(),L[0]<L[1]].join('/')}",
+      "expect": "۱٬۵۰۰٬۰۰۰/true",
+      "after": "(()=>{const v=document.getElementById('tgOrdersView');if(v)v.classList.add('hidden');return 0})()"
+    },
+    {
+      "_why": "سه حالتِ `tgCardsLine` که نباید به هم تبدیل شوند. خطرناک‌ترینش وسطی است: مبلغی که خوانده نشود اگر صفر فرض شود، مانده **بزرگ‌تر از واقعیت** درمی‌آید و پنل می‌گوید مشتری هنوز کلِ پول را بدهکار است — همان درسِ payFromInvoice. پس «نمی‌دانم» باید حالتِ سومِ خودش باشد و هیچ عددی کنارش نیاید.",
+      "name": "مبلغِ ناخوانای کارت در پنل صفر فرض نمی‌شود",
+      "js": "()=>{const d=document.createElement('div');const T=h=>{d.innerHTML=h;return d.innerText};const bad=T(tgCardsLine({total:2130000,cards:[{fid:'a',amount:'۵۰۰'}]}));const full=T(tgCardsLine({total:1900000,cards:[{fid:'a',amount:1500000},{fid:'b',amount:400000}]}));const part=T(tgCardsLine({total:2130000,cards:[{fid:'a',amount:1500000},{fid:'b',amount:400000}]}));return [/خونده نشد/.test(bad),/مونده|تقسیم شده/.test(bad),/تقسیم شده/.test(full),/مونده/.test(full),/۲۳۰٬۰۰۰ ت مونده/.test(part)].join('/')}",
+      "expect": "true/false/true/false/true"
     }
   ],
   "click_test": {
