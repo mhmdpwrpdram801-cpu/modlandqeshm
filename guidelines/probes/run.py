@@ -21,8 +21,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROBES = os.path.join(os.path.dirname(HERE), "rule-probes.py")
@@ -34,6 +36,7 @@ EXPECT = {
     "lockfile":  "STACK-04",
     "gitignore": "GIT-06",
     "verify":    "DOD-02",
+    "branch":    "GIT-01",
 }
 
 
@@ -45,8 +48,43 @@ EXPECT = {
 # که چیزی که کامیت نشده، هیچ‌وقت به رمزِ واقعی تبدیل نمی‌شود.
 GENERATED = {("secret", "bad"): "app.js"}
 
+# نمونه‌ی `branch` **مخزنِ گیتِ واقعی** لازم دارد و مخزنِ تودرتو کامیت نمی‌شود.
+# پس در پوشه‌ی موقت ساخته می‌شود — همان‌جا هم بهتر است، چون وضعیتِ گیت را
+# خودش می‌سازد و به وضعیتِ جامانده تکیه نمی‌کند (`TEST-03`).
+GIT_CASES = {"branch"}
+
+
+def _git(d: str, *args: str) -> None:
+    subprocess.run(["git", "-C", d, *args], capture_output=True, text=True, check=False)
+
+
+def make_git_repo(kind: str) -> str:
+    """مخزنی که روی شاخه‌ی اصلی (bad) یا روی شاخه‌ی جدا (good) تغییرِ کامیت‌نشده دارد."""
+    d = tempfile.mkdtemp(prefix=f"probe-branch-{kind}-")
+    _git(d, "init", "-q", "-b", "main")
+    _git(d, "config", "user.email", "t@t")
+    _git(d, "config", "user.name", "t")
+    open(os.path.join(d, "a.txt"), "w").write("one\n")
+    _git(d, "add", "-A")
+    _git(d, "commit", "-qm", "init")
+    if kind == "good":
+        _git(d, "checkout", "-q", "-b", "feature/x")
+    # در هر دو حالت تغییرِ کامیت‌نشده هست؛ تنها فرق **نامِ شاخه** است. بدونِ
+    # این تقارن، نمونه‌ی good ممکن بود فقط به‌خاطرِ تمیز بودن ساکت بماند و
+    # هیچ چیزی درباره‌ی خودِ قاعده ثابت نکند (`TEST-12`).
+    open(os.path.join(d, "a.txt"), "w").write("two\n")
+    return d
+
 
 def run(case: str, kind: str) -> tuple[int, str]:
+    if case in GIT_CASES:
+        d = make_git_repo(kind)
+        try:
+            r = subprocess.run([sys.executable, PROBES, d], capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
     d = os.path.join(FIX, case, kind)
     made = None
     fname = GENERATED.get((case, kind))

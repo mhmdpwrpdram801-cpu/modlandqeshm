@@ -54,6 +54,68 @@ python3 guidelines/self-check.py && <دروازه‌ی وارسیِ پروژه>
 
 <!-- ورودیِ تازه بالای همین خط اضافه شود -->
 
+## 2026.08.11 → 2026.08.12 (جنسِ قاعده‌ها، و بسته‌ای که کامل نبود)
+
+**سطح:** اجباری
+**قاعده‌ها:** `SELF-06` (و اجرای عملیِ `SELF-05`)
+**علت:** `coverage.json` فایلِ تازه‌ای است که `self-check.py` لازمش دارد؛ بدونش
+دروازه‌ی هر کپی قرمز می‌شود. ضمناً بسته‌ی خودِ منبع ناقص بود و فایل‌های تازه به
+هیچ کپی‌ای نمی‌رسیدند.
+
+### چه کسانی درگیرند
+
+**همه‌ی کپی‌ها.** `self-check.py` از این نسخه به بعد `coverage.json` را می‌خواهد
+و نبودنش را — درست طبقِ `CORE-12` — قرمز حساب می‌کند نه «رد شد».
+
+```bash
+test -f guidelines/coverage.json || echo "درگیر: coverage.json نیست"
+```
+
+و برای `SELF-05` (فقط مخزنِ **منبع**؛ کپی‌ها این را ندارند):
+
+```bash
+python3 - <<'EOF'
+import json, subprocess
+src = json.load(open('guidelines/source.json', encoding='utf-8'))
+known = {f['path'] for f in src['files']} | set(src['never_touch']) \
+      | {e['path'] for e in src.get('exclude', [])}
+tracked = subprocess.run(['git','ls-files','guidelines'],
+                         capture_output=True, text=True).stdout.split()
+out = [p for p in tracked if p not in known]
+print("جامانده:", out or "هیچ")
+EOF
+```
+
+### چطور مهاجرت کن
+
+۱. `coverage.json` را از منبع بگیر: `python3 guidelines/gl-update.py --apply`.
+   (فایلِ تازه است، پس محافظِ «محلی عوض شده» سرِ راهش نیست.)
+۲. `self-check.py` را هم بگیر — بررسی‌های تازه در آن‌اند:
+   `python3 guidelines/gl-update.py --apply --with-tools`.
+   **این کدِ اجرایی است؛ قبل از گرفتن دیفش را بخوان** (`SELF-05`, `policy.tool`).
+۳. اگر قاعده‌ی محلی‌ای به دستورالعملت اضافه کرده‌ای، جنسش را هم در
+   `coverage.json` اعلام کن، وگرنه دروازه «بی‌دسته» می‌دهد.
+۴. **فقط در مخزنِ منبع:** هر فایلی که فرمانِ بالا «جامانده» خواند، در
+   `source.json` یا به `files` اضافه کن یا با دلیل به `exclude`.
+
+### چطور وارسی کن
+
+```bash
+python3 guidelines/self-check.py      # باید عددِ پوشش را هم چاپ کند
+python3 guidelines/update-test.py     # اگر gl-update.py را گرفته‌ای
+```
+
+قبل از مهاجرت: `❌ guidelines/coverage.json خوانده شد`. بعدش سبز، به‌علاوه‌ی خطِ
+`جنسِ قاعده‌ها: … سنجیدنی با ماشین · … قضاوتِ آدم`.
+
+### خطر و راهِ برگشت
+
+`coverage.json` فقط داده است و رفتارِ هیچ کدی را عوض نمی‌کند؛ بدترین حالتش این
+است که دسته‌بندیِ یک قاعده را اشتباه بنویسی — که با ویرایشِ همان فایل درست
+می‌شود. `self-check.py`ِ تازه چند بررسی اضافه می‌کند و می‌تواند ایرادی را نشان
+بدهد که قبلاً دیده نمی‌شد؛ آن قرمزی **خبر است، نه رگرسیون**. برگشتِ هر دو با
+`git revert`.
+
 ## 2026.08.10 → 2026.08.11 (استقرارِ کور و ادعای منفی)
 
 **سطح:** اجباری
