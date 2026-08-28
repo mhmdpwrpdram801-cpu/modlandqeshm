@@ -82,7 +82,9 @@ async function tgUploadFromUrl(method: string, field: string, fileUrl: string, f
       method: 'POST',
       headers: { 'Content-Type': 'multipart/form-data; boundary=' + boundary },
       body: stream,
-      // @ts-ignore
+      // @ts-expect-error — duplex در تایپِ RequestInitِ Deno نیست، ولی برای
+      // بدنه‌ی جریانی لازم است. سرکوبِ کور نه: اگر روزی به تایپ‌ها اضافه شود،
+      // expect-error خودش خطا می‌دهد و خبردار می‌شویم (STACK-05).
       duplex: 'half',
     });
     return await r.json();
@@ -768,7 +770,7 @@ async function medCheck(pid: string, which: string, tok: string): Promise<boolea
 
 // نسخه‌ی این فایل. بازرسِ سرور آن را با عددی که در bot/README.md ثبت شده مقابله
 // می‌کند، پس دیگر نمی‌شود مستقر کرد و یادت برود مستند را جلو ببری.
-const BOT_VER = 46;
+const BOT_VER = 47;
 
 // ── لاگِ ساخت‌یافته (OPS-01، OPS-02) ────────────────────────────────────────
 // لاگِ متنیِ آزاد در سوپابیس قابلِ جست‌وجو نیست: نمی‌شود پرسید «این درخواست چه بر
