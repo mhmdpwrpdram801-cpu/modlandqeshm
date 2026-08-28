@@ -36,6 +36,25 @@
 
 به همین دلیل `DATA-03` (پول عددِ صحیح) هم نیست: بدونِ فهمِ تایپ نمی‌شود گفت یک
 `float` پول است یا وزن.
+
+**دو موردِ دیگر که سنجیده شدند و رد شدند (۱۴۰۵/۰۶/۰۶).** این‌ها را می‌نویسم تا
+شش ماهِ دیگر کسی دوباره همین راه را نرود:
+
+  · **`STACK-05` — منعِ `any`.** روی همین مخزن شمرده شد: **۵۱ مورد**، تقریباً
+    همه در `bot/index.ts` که یک تابعِ لبه‌ی Deno بدونِ `tsconfig` است و
+    `payload: any` برای APIی تلگرام واقعاً معقول است. کاوشگری که ۵۱ تا را قرمز
+    کند همان روز خاموش می‌شود. اگر روزی لازم شد، شکلِ درستش **سقفِ نزولی** است
+    (مثلِ شمارنده‌ی `catch`ِ خالی در `server_audit.py`) نه صفرِ مطلق — و سقف
+    حالتِ **پروژه** است، پس جایش `lock.json` است نه این فایلِ عمومی.
+    ⚠️ نیمه‌ی دیگرِ همین قاعده (`@ts-ignore` ممنوع، `@ts-expect-error` مجاز)
+    سیگنالِ تمیزی دارد — **دقیقاً ۱ مورد** در کلِ مخزن. اضافه نشد چون آن یک
+    مورد در `bot/index.ts` است و اصلاحش استقرارِ دوباره‌ی ربات را لازم دارد؛
+    تصمیمش با مالک است، نه چیزی که بی‌صدا در یک PRِ دستورالعمل قاطی شود.
+
+  · **`DATA-08` — خواندنِ بی‌سقف.** شمرده شد: **۴۵** فراخوانیِ `.select(` در
+    برابرِ **۱۰** مورد `limit`/`range`. ولی اکثریتِ آن ۴۵ تا تک‌ردیفی‌اند
+    (`.eq('id', …).single()`) و اصلاً سقف نمی‌خواهند. جدا کردنشان فهمِ پرس‌وجو
+    لازم دارد نه regex، و بدونِ آن کاوشگر ~۳۵ هشدارِ نادرست می‌دهد.
 """
 
 from __future__ import annotations
@@ -211,11 +230,53 @@ def probe_verify(root: str) -> None:
         ok("DOD-02", f"دروازه‌ی وارسی {len(verify)} فرمان دارد و همه‌شان وجود دارند")
 
 
+# ───────────────────────────── GIT-01: روی شاخه‌ی اصلی مستقیم کار نکن
+MAIN_BRANCHES = {"main", "master", "trunk", "develop"}
+
+
+def _git(root: str, *args: str) -> str | None:
+    import subprocess
+    try:
+        r = subprocess.run(["git", "-C", root, *args],
+                           capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def probe_branch(root: str) -> None:
+    branch = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
+    if branch is None:
+        skip("GIT-01", "مخزنِ گیت نیست — شاخه‌ای در کار نیست")
+        return
+    # CI روی کامیتِ ادغام چک‌اوتِ detached می‌کند و اسمِ شاخه «HEAD» می‌شود.
+    # آنجا این قاعده اصلاً موضوعیت ندارد؛ قرمز دادنش یعنی هر PR قرمز است.
+    if branch == "HEAD":
+        skip("GIT-01", "چک‌اوتِ detached (احتمالاً CI) — شاخه‌ی کاری معنی ندارد")
+        return
+    if branch not in MAIN_BRANCHES:
+        ok("GIT-01", f"کار روی شاخه‌ی جدا انجام می‌شود ({branch})")
+        return
+    # روی شاخه‌ی اصلی **نشستن** تخلف نیست؛ **کار کردن** رویش هست. معیارِ
+    # «کار» تغییرِ کامیت‌نشده است — نه اینکه کسی صرفاً main را چک‌اوت کرده.
+    # بدونِ این تفکیک، هر کلونِ تازه‌ای همان اول قرمز می‌شد (CORE-04).
+    dirty = _git(root, "status", "--porcelain")
+    if dirty is None:
+        bad("GIT-01", "وضعیتِ گیت خوانده نشد — این بررسی اجرا نشد، پس پاس هم نشده (CORE-12)")
+    elif dirty:
+        n = len(dirty.splitlines())
+        bad("GIT-01", f"روی «{branch}» {n} تغییرِ کامیت‌نشده هست — "
+                      "شاخه‌ی جدا بساز، وگرنه برگشت و بازبینی هر دو سخت می‌شوند")
+    else:
+        ok("GIT-01", f"روی «{branch}» هستی ولی چیزی تغییر نکرده")
+
+
 PROBES = [
     ("SEC-01",   "رمز در مخزن نباشد"),
     ("STACK-04", "lockfile کنارِ فایلِ وابستگی باشد"),
     ("GIT-06",   ".env در gitignore باشد"),
     ("DOD-02",   "دروازه‌ی وارسیِ پروژه واقعی باشد"),
+    ("GIT-01",   "روی شاخه‌ی اصلی مستقیم کار نشود"),
 ]
 
 
@@ -247,6 +308,7 @@ def main() -> int:
     probe_lockfile(root)
     probe_gitignore(root)
     probe_verify(root)
+    probe_branch(root)
 
     print("\n" + "═" * 58)
     print(f"  {len(PASSES)} پاس · {len(SKIPS)} رد · {len(FAILS)} نقض")

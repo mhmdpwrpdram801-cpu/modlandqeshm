@@ -30,6 +30,10 @@
       "kind": "doc"
     },
     {
+      "path": "guidelines/coverage.json",
+      "kind": "doc"
+    },
+    {
       "path": "guidelines/templates/guideline-upstream.yml",
       "kind": "doc"
     },
@@ -88,6 +92,70 @@
     {
       "path": "guidelines/templates/deploy-verify.yml",
       "kind": "doc"
+    },
+    {
+      "path": "guidelines/rule-probes.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/probes/run.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/probes/fixtures/gitignore/bad/.env",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/gitignore/bad/.gitignore",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/gitignore/good/.env",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/gitignore/good/.gitignore",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/lockfile/bad/package.json",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/lockfile/good/package.json",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/lockfile/good/package-lock.json",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/secret/bad/README.md",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/secret/good/app.js",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/verify/bad/guidelines/lock.json",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/verify/good/guidelines/lock.json",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/verify/good/guidelines/self-check.py",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/update-test.py",
+      "kind": "tool"
+    },
+    {
+      "path": "guidelines/probes/fixtures/branch/README.md",
+      "kind": "doc"
     }
   ],
   "never_touch": [
@@ -99,6 +167,13 @@
   "policy": {
     "doc": "خودکار به‌روز می‌شود — متن و داده است، اجرا نمی‌شود",
     "tool": "کدِ اجرایی است؛ فقط با --with-tools یا از راهِ PR که آدم می‌بیندش",
-    "never_touch": "وضعیتِ خودِ پروژه است — مُهر، منبع، تنظیماتِ محلی و CLAUDE.mdِ خودِ پروژه. هیچ‌وقت از منبع نمی‌آید."
-  }
+    "never_touch": "وضعیتِ خودِ پروژه است — مُهر، منبع، تنظیماتِ محلی و CLAUDE.mdِ خودِ پروژه. هیچ‌وقت از منبع نمی‌آید.",
+    "exclude": "عمداً توزیع نمی‌شود. هر فایلی که در guidelines/ ردیابی می‌شود باید یا در files باشد، یا در never_touch، یا اینجا با دلیل — تا «از قلم افتاد» و «عمدی بود» یک شکل نداشته باشند (CORE-12)."
+  },
+  "exclude": [
+    {
+      "path": "guidelines/.upstream-cache.json",
+      "why": "کشِ محلیِ هوکِ شروعِ نشست. حالتِ همین ماشین است، نه محتوای بسته؛ در .gitignore هم هست."
+    }
+  ]
 }

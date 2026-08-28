@@ -19,6 +19,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +31,7 @@ LOCK = os.path.join(HERE, "lock.json")
 CHANGELOG = os.path.join(HERE, "CHANGELOG.md")
 MIGRATIONS = os.path.join(HERE, "MIGRATIONS.md")
 SOURCE = os.path.join(HERE, "source.json")
+COVERAGE = os.path.join(HERE, "coverage.json")
 
 PREFIXES = ("ACT", "PREC", "CORE", "DOD", "STACK", "ARCH", "DATA", "API", "SEC",
             "UI", "TEST", "OPS", "GIT", "SELF", "MIG")
@@ -45,7 +47,7 @@ FA_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
 # نمی‌بیند — اگر بررسی‌ای بی‌صدا اجرا نشود، هم صورت و هم مخرج کم می‌شوند و
 # «۳۱/۳۱ پاس شد» همان‌قدر سبز به نظر می‌رسد. پس کف پین می‌شود: کمتر از این یعنی
 # چیزی رد شده. عدد فقط اجازه دارد **بالا** برود.
-MIN_CHECKS = 32
+MIN_CHECKS = 34
 
 results: list[tuple[bool, str, str]] = []
 
@@ -358,6 +360,80 @@ def main() -> int:
         check(not overlap, "هیچ فایلی هم‌زمان در بسته و در never_touch نیست",
               " · ".join(sorted(overlap)))
 
+        # ── جهتِ برعکس: چیزی در guidelines/ جا نمانده باشد؟ (SELF-05) ──────
+        #
+        # بررسیِ بالا می‌پرسد «هر چیزی که در فهرست است وجود دارد؟». سؤالِ
+        # گم‌شده برعکسش بود و هیچ‌جا پرسیده نمی‌شد: «هر چیزی که وجود دارد در
+        # فهرست است؟» — و همان بی‌صدا شکست. `rule-probes.py` و کلِ `probes/`
+        # ساخته شدند، دروازه سبز ماند، ولی به هیچ کپی‌ای نمی‌رسیدند: فایلی که
+        # در `files` نباشد اصلاً توزیع نمی‌شود و کسی خبردار نمی‌شود.
+        #
+        # منبعِ حقیقت **گیت** است نه دیسک: `.upstream-cache.json` روی دیسک هست
+        # ولی gitignore شده، و اگر دیسک را می‌خواندیم همان اول یک هشدارِ
+        # نادرست می‌داد (CORE-04).
+        if is_origin:
+            try:
+                tracked = subprocess.run(
+                    ["git", "ls-files", "guidelines"], cwd=ROOT,
+                    capture_output=True, text=True, timeout=20)
+                names = tracked.stdout.split() if tracked.returncode == 0 else None
+            except (OSError, subprocess.SubprocessError):
+                names = None
+            if not names:
+                # CORE-12: نتوانستن ≠ پاس شدن.
+                check(False, "فهرستِ فایل‌های guidelines/ از گیت خوانده شد",
+                      "`git ls-files` جواب نداد — این بررسی اجرا نشد، پس پاس هم نشده")
+            else:
+                known = bundled | set(src.get("never_touch", [])) \
+                    | {e["path"] for e in src.get("exclude", [])}
+                orphan = sorted(p for p in names if p not in known)
+                check(not orphan,
+                      f"هر {len(names)} فایلِ guidelines/ یا در بسته است یا صریح استثنا شده (SELF-05)",
+                      "در source.json نیامده — به کپی‌ها نمی‌رسد: " + " · ".join(orphan))
+        else:
+            check(True, "کاملی بودنِ بسته — فقط در مخزنِ منبع سنجیده می‌شود")
+
+        ex_missing = [e["path"] for e in src.get("exclude", [])
+                      if not e.get("why", "").strip()]
+        check(not ex_missing, "هر استثنای بسته دلیلِ نوشته‌شده دارد",
+              "بی‌دلیل: " + " · ".join(ex_missing))
+
+    # ── جنسِ هر قاعده اعلام شده؟ ─────────────────────────────────────────
+    #
+    # عددِ خام دروغ می‌گوید: شمردیم و ۵۵ قاعده در هیچ کدِ دروازه‌ای نامشان
+    # نبود، ولی بخشِ بزرگش (`ACT-*`، قضاوت‌ها) اصلاً سنجیدنی نیست. تا وقتی
+    # «هنوز نساخته‌ایم» و «هیچ‌وقت نمی‌شود» یک شکل داشته باشند، شکافِ واقعی
+    # دیده نمی‌شود. این بررسی نمی‌گذارد قاعده‌ی تازه بی‌اعلامِ جنس اضافه شود.
+    cov = read_json(COVERAGE) if os.path.isfile(COVERAGE) else None
+    if not cov:
+        check(False, "guidelines/coverage.json خوانده شد",
+              "نیست یا خراب است — دسته‌بندیِ قاعده‌ها سنجیده نشد (CORE-12)")
+    else:
+        human = list(cov.get("آدم", []))
+        machine = list(cov.get("ماشین", []))
+        listed = human + machine
+        dupes = sorted({r for r in listed if listed.count(r) > 1})
+        check(not dupes, "هیچ قاعده‌ای دو بار دسته‌بندی نشده", " · ".join(dupes))
+
+        unclassified = sorted(set(all_ids) - set(listed))
+        check(not unclassified,
+              f"هر {len(all_ids)} قاعده جنسش اعلام شده (ماشین/آدم)",
+              "بی‌دسته — در coverage.json اضافه‌شان کن: " + " · ".join(unclassified))
+
+        ghost = sorted(set(listed) - set(all_ids))
+        check(not ghost,
+              "هیچ شناسه‌ی مرده‌ای در coverage.json نمانده",
+              "این‌ها دیگر قاعده نیستند: " + " · ".join(ghost))
+
+        # یادداشت‌ها فقط برای قاعده‌های واقعی باشند، وگرنه بی‌صدا کهنه می‌شوند.
+        stale = sorted(set(cov.get("یادداشت‌ها", {})) - set(all_ids))
+        check(not stale, "یادداشت‌های coverage.json به قاعده‌های موجود اشاره می‌کنند",
+              " · ".join(stale))
+
+        globals()["_COVERAGE_LINE"] = (
+            f"جنسِ قاعده‌ها: {len(machine)} سنجیدنی با ماشین · "
+            f"{len(human)} قضاوتِ آدم (از {len(all_ids)})")
+
         # پیش‌فرض «auto» است: تشخیص از روی remoteهای گیت، بدونِ هیچ تنظیمِ دستی.
         # true/false فقط درِ فرارِ حالت‌های عجیب است.
         check(src.get("is_origin") == "auto" or isinstance(src.get("is_origin"), bool),
@@ -392,6 +468,9 @@ def report(verbose: bool) -> None:
         if verbose or not ok:
             mark = "✅" if ok else "❌"
             print(f"{mark} {name}" + (f"\n     {detail}" if detail and not ok else ""))
+    line = globals().get("_COVERAGE_LINE")
+    if line:
+        print(f"\n{line}")
     print(f"\n{len(results) - len(failed)}/{len(results)} بررسی پاس شد.")
     if failed:
         print("دستورالعمل با خودش نمی‌خواند — قبل از تحویل درستش کن.")
