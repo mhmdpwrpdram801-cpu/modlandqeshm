@@ -156,6 +156,14 @@
     {
       "path": "guidelines/probes/fixtures/branch/README.md",
       "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/tssuppress/bad/a.ts",
+      "kind": "doc"
+    },
+    {
+      "path": "guidelines/probes/fixtures/tssuppress/good/a.ts",
+      "kind": "doc"
     }
   ],
   "never_touch": [

@@ -37,6 +37,7 @@ EXPECT = {
     "gitignore": "GIT-06",
     "verify":    "DOD-02",
     "branch":    "GIT-01",
+    "tssuppress": "STACK-05",
 }
 
 
